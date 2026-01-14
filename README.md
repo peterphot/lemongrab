@@ -172,7 +172,7 @@ files in .claude/agents/ and the docs folder structure as specified.
 
 **What Claude will do:**
 1. Read the AGENTIC-WORKFLOW.md file
-2. Create `.claude/agents/` with all 6 agent definition files
+2. Create `.claude/agents/` with all 7 agent definition files
 3. Create `docs/requirements/`, `docs/plans/`, and `docs/decisions/` folders
 4. Confirm everything is set up
 
@@ -180,7 +180,7 @@ files in .claude/agents/ and the docs folder structure as specified.
 ```bash
 ls .claude/agents/
 # Should show: clarifier.md, documenter.md, implementer.md,
-#              planner.md, simplifier.md, test-writer.md
+#              orchestrator.md, planner.md, simplifier.md, test-writer.md
 
 ls docs/
 # Should show: decisions/, plans/, requirements/
@@ -207,6 +207,7 @@ your-project/
 │   └── templates/                # Spec-kit templates
 ├── .claude/
 │   └── agents/
+│       ├── orchestrator.md       # Runs full workflow (recommended)
 │       ├── clarifier.md          # Requirements gathering
 │       ├── planner.md            # Technical design
 │       ├── test-writer.md        # Write failing tests
@@ -229,68 +230,100 @@ Here's how features get built with Lemongrab:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                         YOUR FEATURE REQUEST                         │
+│  YOU: "Use the orchestrator agent to implement <feature>"           │
 └─────────────────────────────────────────────────────────────────────┘
                                    │
                                    ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│  1. CLARIFIER                                                        │
-│     "What exactly do you need?"                                      │
-│     → Asks questions, documents requirements                         │
-│     → Output: docs/requirements/<feature>.md                         │
-└─────────────────────────────────────────────────────────────────────┘
-                                   │
-                                   ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│  2. PLANNER                                                          │
-│     "How should we build this?"                                      │
-│     → Creates architecture, breaks into tasks                        │
-│     → Output: docs/plans/<feature>.md                                │
-└─────────────────────────────────────────────────────────────────────┘
-                                   │
-                                   ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│  3-5. FOR EACH TASK (repeat until done)                              │
-│                                                                      │
-│     ┌─────────────────┐                                              │
-│     │  TEST WRITER    │  Write tests for this task                   │
-│     │  (RED phase)    │  → Tests should FAIL (that's correct!)       │
-│     └────────┬────────┘                                              │
+│  ORCHESTRATOR (runs automatically, interrupts only when needed)     │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  ┌───────────────────────────────────────────────────────────────┐  │
+│  │  1. CLARIFIER                                                 │  │
+│  │     "What exactly do you need?"                               │  │
+│  │     → Asks YOU questions ←── You answer                       │  │
+│  │     → Output: docs/requirements/<feature>.md                  │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+│                                   │                                 │
+│                                   ▼                                 │
+│  ┌───────────────────────────────────────────────────────────────┐  │
+│  │  2. PLANNER                                                   │  │
+│  │     "How should we build this?"                               │  │
+│  │     → Asks YOU tech decisions ←── You answer                  │  │
+│  │     → Output: docs/plans/<feature>.md                         │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+│                                   │                                 │
+│                                   ▼                                 │
+│  ┌───────────────────────────────────────────────────────────────┐  │
+│  │  3-5. FOR EACH TASK (automatic, no input needed)              │  │
+│  │                                                               │  │
+│  │     ┌─────────────────┐                                       │  │
+│  │     │  TEST WRITER    │  Write tests for this task            │  │
+│  │     │  (RED phase)    │  → Tests FAIL (correct!)              │  │
+│  │     └────────┬────────┘                                       │  │
+│  │              │                                                │  │
+│  │              ▼                                                │  │
+│  │     ┌─────────────────┐                                       │  │
+│  │     │  IMPLEMENTER    │  Write minimal code to pass tests     │  │
+│  │     │  (GREEN phase)  │  → Tests PASS                         │  │
+│  │     └────────┬────────┘                                       │  │
 │              │                                                       │
-│              ▼                                                       │
-│     ┌─────────────────┐                                              │
-│     │  IMPLEMENTER    │  Write minimal code to pass tests            │
-│     │  (GREEN phase)  │  → Tests should now PASS                     │
-│     └────────┬────────┘                                              │
-│              │                                                       │
-│              ▼                                                       │
-│     ┌─────────────────┐                                              │
-│     │  SIMPLIFIER     │  Clean up without breaking tests             │
-│     │  (REFACTOR)     │  → Tests must stay GREEN                     │
-│     └─────────────────┘                                              │
-└─────────────────────────────────────────────────────────────────────┘
-                                   │
-                                   ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│  6. DOCUMENTER                                                       │
-│     "Why did we build it this way?"                                  │
-│     → Adds comments, creates decision log                            │
-│     → Output: docs/decisions/<feature>.md                            │
+│  │              ▼                                                │  │
+│  │     ┌─────────────────┐                                       │  │
+│  │     │  SIMPLIFIER     │  Clean up without breaking tests      │  │
+│  │     │  (REFACTOR)     │  → Tests stay GREEN                   │  │
+│  │     └─────────────────┘                                       │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+│                                   │                                 │
+│                                   ▼                                 │
+│  ┌───────────────────────────────────────────────────────────────┐  │
+│  │  6. DOCUMENTER                                                │  │
+│  │     "Why did we build it this way?"                           │  │
+│  │     → Adds comments, creates decision log                     │  │
+│  │     → Output: docs/decisions/<feature>.md                     │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+│                                   │                                 │
+│                                   ▼                                 │
+│                         ✓ DONE! Summary provided                    │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-### Why This Order Matters
+### Why This Works
 
-1. **Clarifier first** - You can't build the right thing if you don't know what "right" means
-2. **Planner second** - Design before you code prevents rewrites
-3. **Tests before code** - Tests define what "done" looks like
-4. **Minimal implementation** - Less code = fewer bugs
-5. **Simplify after it works** - Don't optimize prematurely
-6. **Document at the end** - You now know what you actually built
+- **You only answer questions twice** - during clarification and planning
+- **Everything else is automatic** - test/implement/simplify cycles run without interruption
+- **You stay in control** - orchestrator stops if something goes wrong
+- **Full TDD discipline** - tests always come before implementation
 
 ---
 
 ## Meet the Agents
+
+### Orchestrator (Recommended Entry Point)
+
+**When to use:** Every time you want to implement a feature
+
+**What it does:** Runs the entire TDD workflow automatically, only interrupting you when decisions are needed.
+
+**How to use:**
+```
+Use the orchestrator agent to implement <your feature>
+```
+
+**What happens:**
+1. Clarifier asks you requirements questions → you answer
+2. Planner asks you technical decisions → you answer
+3. Test/implement/simplify cycles run automatically
+4. Documenter runs automatically
+5. You get a completion summary
+
+**When it interrupts you:**
+- Requirements questions (clarifier)
+- Technical decisions (planner)
+- If tests fail repeatedly
+- If something is ambiguous
+
+---
 
 ### Constitution (One-Time Setup via Spec-Kit)
 
@@ -428,77 +461,73 @@ Use the documenter agent to document <feature>
 
 ## Step-by-Step: Your First Feature
 
-Let's walk through building a feature called "User Authentication" using the full workflow.
+Let's walk through building a feature called "User Authentication".
 
-### 1. Clarify Requirements
+### Using the Orchestrator (Recommended)
 
 **You say:**
+```
+Use the orchestrator agent to implement user authentication
+```
+
+**What happens next:**
+
+1. **Clarifier asks you questions:**
+   - Should users log in with email, username, or both?
+   - Do you need password reset functionality?
+   - Should sessions expire? After how long?
+   - What happens when login fails 3 times?
+
+2. **Planner asks you technical decisions:**
+   - Should we use JWT tokens or sessions?
+   - Where should we store user data?
+   - Do you want OAuth support later?
+
+3. **Automatic TDD cycles run** (no input needed):
+   - Test writer creates tests for registration → tests fail
+   - Implementer writes code → tests pass
+   - Simplifier cleans up → tests still pass
+   - Repeat for login, password reset, etc.
+
+4. **Documenter runs automatically**
+
+5. **You get a summary:**
+   - Files created/modified
+   - Tests passing
+   - Links to docs/requirements/, docs/plans/, docs/decisions/
+
+**Total interaction:** ~10 questions answered, then sit back and watch.
+
+---
+
+### Manual Approach (Alternative)
+
+If you prefer step-by-step control:
+
+**Step 1: Clarify**
 ```
 Use the clarifier agent to gather requirements for user authentication
 ```
+→ Answer questions → get `docs/requirements/user-authentication.md`
 
-**Claude asks you questions like:**
-- Should users log in with email, username, or both?
-- Do you need password reset functionality?
-- Should sessions expire? After how long?
-- What happens when login fails 3 times?
-
-**You get:** `docs/requirements/user-authentication.md`
-
-### 2. Create Technical Plan
-
-**You say:**
+**Step 2: Plan**
 ```
 Use the planner agent to create a technical plan for user authentication
 ```
+→ Answer questions → get `docs/plans/user-authentication.md` with task list
 
-**Claude asks you questions like:**
-- Should we use JWT tokens or sessions?
-- Where should we store user data?
-- Do you want OAuth support later?
-
-**You get:** `docs/plans/user-authentication.md` with tasks like:
+**Step 3: Build each task**
 ```
-[T001] [US1] Setup: Create user model
-[T002] [US1] Test: Write tests for user registration
-[T003] [US1] Implement: Create registration endpoint
-[T004] [US1] Test: Write tests for login
-[T005] [US1] Implement: Create login endpoint
-...
+Use the test-writer agent for task T001
+Use the implementer agent for task T001
+Use the simplifier agent for the code from task T001
 ```
+→ Repeat for T002, T003, etc.
 
-### 3. Build Task by Task
-
-**For each task, you run three agents:**
-
-```
-Use the test-writer agent for task T002
-```
-→ Tests are written and FAIL (expected!)
-
-```
-Use the implementer agent for task T002
-```
-→ Code is written, tests now PASS
-
-```
-Use the simplifier agent for the registration code
-```
-→ Code is cleaned up, tests still PASS
-
-**Repeat for T003, T004, T005...**
-
-### 4. Document
-
-**You say:**
+**Step 4: Document**
 ```
 Use the documenter agent for user authentication
 ```
-
-**You get:** `docs/decisions/user-authentication.md` explaining:
-- Why you chose JWT over sessions
-- Why passwords are hashed with bcrypt
-- Why sessions expire after 24 hours
 
 ---
 
@@ -587,20 +616,11 @@ Then in Claude Code, use both systems:
 # 2. Use spec-kit to clarify ambiguities
 /speckit.clarify
 
-# 3. Switch to Lemongrab for TDD implementation
-Use the planner agent to create a plan based on the spec in .specify/specs/user-auth/
-
-# 4. Build with TDD (for each task in the plan)
-Use the test-writer agent for task T001
-Use the implementer agent for task T001
-# ... continue for each task
-
-# 5. Finish with Lemongrab
-Use the simplifier agent for the authentication code
-Use the documenter agent for user authentication
+# 3. Use the orchestrator for TDD implementation
+Use the orchestrator agent to implement user authentication based on the spec in .specify/specs/user-auth/
 ```
 
-This gives you spec-kit's structured specifications plus Lemongrab's TDD discipline.
+This gives you spec-kit's structured specifications plus Lemongrab's automated TDD workflow.
 
 ---
 
@@ -618,6 +638,7 @@ your-project/
 │
 ├── .claude/
 │   └── agents/                    # Agent definitions for Claude Code
+│       ├── orchestrator.md        # Runs full workflow automatically
 │       ├── clarifier.md           # Gathers requirements
 │       ├── planner.md             # Creates technical plans
 │       ├── test-writer.md         # Writes failing tests

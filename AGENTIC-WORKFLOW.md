@@ -26,22 +26,28 @@ This workflow enforces:
 ```
 [Setup: /speckit.constitution] → Project principles (one-time, via spec-kit)
          ↓
-    User Request
+    User Request: "Use the orchestrator agent to implement <feature>"
          ↓
-[1. Clarifier] → Asks questions, creates structured spec
-         ↓
-[2. Planner] → Architecture, ordered task breakdown
-         ↓
-[3-5. Per Task Loop]:
-    ┌─────────────────────────────────────────┐
-    │  [Test Writer] → Write tests (RED)      │
-    │        ↓                                │
-    │  [Implementer] → Pass tests (GREEN)     │
-    │        ↓                                │
-    │  [Simplifier] → Clean up (REFACTOR)     │
-    └─────────────────────────────────────────┘
-         ↓
-[6. Documenter] → Updates docs, adds WHY comments
+┌────────────────────────────────────────────────────────────────────┐
+│  ORCHESTRATOR (runs automatically, interrupts only when needed)    │
+│                                                                    │
+│  [1. Clarifier] → Asks questions ←── Human answers                 │
+│         ↓                                                          │
+│  [2. Planner] → Asks tech decisions ←── Human answers              │
+│         ↓                                                          │
+│  [3-5. Per Task Loop]:                                             │
+│      ┌─────────────────────────────────────────┐                   │
+│      │  [Test Writer] → Write tests (RED)      │                   │
+│      │        ↓                                │                   │
+│      │  [Implementer] → Pass tests (GREEN)     │  ← Auto-proceeds  │
+│      │        ↓                                │                   │
+│      │  [Simplifier] → Clean up (REFACTOR)     │                   │
+│      └─────────────────────────────────────────┘                   │
+│         ↓                                                          │
+│  [6. Documenter] → Updates docs, adds WHY comments                 │
+│         ↓                                                          │
+│  Done! Summary provided to user                                    │
+└────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Setup Instructions
@@ -78,6 +84,7 @@ Claude should create:
 ```
 .claude/
 └── agents/
+    ├── orchestrator.md    # Runs full workflow automatically
     ├── clarifier.md       # Requirements gathering
     ├── planner.md         # Technical design + tasks
     ├── test-writer.md     # Per-task tests
@@ -97,6 +104,75 @@ docs/
 ---
 
 ## Agent Definitions
+
+### 0. orchestrator.md (Recommended Entry Point)
+
+```markdown
+---
+name: orchestrator
+description: Runs the full TDD workflow automatically. Use this to implement a complete feature with minimal manual intervention.
+tools: Read, Write, Edit, Bash, Glob, Grep, Task, AskUserQuestion
+model: opus
+---
+
+You are a workflow orchestrator. You run the complete TDD workflow for a feature, delegating to specialized agents and only interrupting the user when decisions are needed.
+
+WORKFLOW SEQUENCE:
+
+1. CLARIFY - Gather requirements (will ask user questions)
+2. PLAN - Create technical design (will ask user about tech decisions)
+3. BUILD - For each task in the plan:
+   a. TEST - Write failing tests
+   b. IMPLEMENT - Make tests pass
+   c. SIMPLIFY - Clean up code
+4. DOCUMENT - Record decisions and update docs
+
+YOUR PROCESS:
+
+1. Read .specify/memory/constitution.md to understand project principles
+2. Launch the clarifier agent for the requested feature
+   - Wait for it to complete (it will ask the user questions)
+   - Verify docs/requirements/<feature>.md was created
+3. Launch the planner agent
+   - Wait for it to complete (it will ask technical questions)
+   - Verify docs/plans/<feature>.md was created
+   - Extract the task list from the plan
+4. For each task in order (respecting dependencies):
+   - If it's a Test task: launch test-writer agent
+   - If it's an Implement task: launch implementer agent
+   - After implementation: launch simplifier agent
+   - Verify tests pass before moving to next task
+5. Launch the documenter agent
+6. Report completion to user
+
+WHEN TO INTERRUPT THE USER:
+
+- Clarifier and planner will ask questions automatically via AskUserQuestion
+- If tests fail repeatedly (3+ attempts), stop and ask for help
+- If a task is ambiguous, ask for clarification
+- If you detect a gap between requirements and tests, ask how to proceed
+
+WHEN TO PROCEED AUTOMATICALLY:
+
+- Moving between workflow phases when previous phase completed successfully
+- Running test → implement → simplify cycles
+- Moving to next task when current task passes tests
+
+ERROR HANDLING:
+
+- If tests fail: let implementer retry (up to 3 times)
+- If still failing: ask user whether to skip, debug, or modify requirements
+- If agent fails: report error and ask how to proceed
+
+OUTPUT:
+
+At completion, provide a summary:
+- Features implemented
+- Files created/modified
+- Tests passing
+- Any issues encountered
+- Links to created documentation
+```
 
 ### 1. clarifier.md
 
@@ -395,6 +471,27 @@ files in .claude/agents/ and the docs folder structure as specified.
 
 ### For Each Feature
 
+#### Option 1: Orchestrator (Recommended)
+
+Use the orchestrator for automated workflow with human checkpoints only when needed:
+
+```
+Use the orchestrator agent to implement <feature>
+```
+
+The orchestrator will:
+1. Run clarifier → **ask you questions about requirements**
+2. Run planner → **ask you technical decisions**
+3. Automatically cycle through test → implement → simplify for each task
+4. Run documenter
+5. Report completion
+
+You only get interrupted when decisions are needed.
+
+#### Option 2: Manual Control
+
+If you prefer to control each step manually:
+
 ```
 # Step 1: Clarify requirements
 Use the clarifier agent to gather requirements for <feature>
@@ -413,25 +510,20 @@ Use the simplifier agent for the code from task [T001]
 Use the documenter agent for <feature>
 ```
 
-Or describe the full workflow:
-
-```
-Implement <feature> following the TDD workflow: clarify requirements, create plan, then for each task: write tests, implement, simplify. Finally document.
-```
-
 ---
 
 ## Agent Summary
 
-| Order | Agent/Command            | Purpose                        | Key Constraint                |
-| ----- | ------------------------ | ------------------------------ | ----------------------------- |
-| 0     | `/speckit.constitution`  | Establish project principles   | Run ONCE per project          |
-| 1     | clarifier                | Gather structured requirements | NEVER assume - always ASK     |
-| 2     | planner                  | Technical design + tasks       | NEVER write code - only plan  |
-| 3     | test-writer              | Write failing tests per task   | Tests BEFORE code             |
-| 4     | implementer              | Pass tests per task            | MINIMUM code only             |
-| 5     | simplifier               | Remove complexity              | Keep tests GREEN              |
-| 6     | documenter               | Explain the WHY                | Update existing docs          |
+| Agent/Command            | Purpose                        | Key Constraint                |
+| ------------------------ | ------------------------------ | ----------------------------- |
+| `/speckit.constitution`  | Establish project principles   | Run ONCE per project          |
+| **orchestrator**         | **Run full workflow automatically** | **Interrupts only when needed** |
+| clarifier                | Gather structured requirements | NEVER assume - always ASK     |
+| planner                  | Technical design + tasks       | NEVER write code - only plan  |
+| test-writer              | Write failing tests per task   | Tests BEFORE code             |
+| implementer              | Pass tests per task            | MINIMUM code only             |
+| simplifier               | Remove complexity              | Keep tests GREEN              |
+| documenter               | Explain the WHY                | Update existing docs          |
 
 ---
 
