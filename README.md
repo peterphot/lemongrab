@@ -54,7 +54,7 @@ Choose your path:
 #### Step 1: Clone the Template
 
 ```bash
-git clone https://github.com/your-username/lemongrab.git my-new-project
+git clone https://github.com/peterphot/lemongrab.git my-new-project
 cd my-new-project
 rm -rf .git  # Remove template's git history
 git init     # Start fresh
@@ -103,7 +103,7 @@ cd your-existing-project
 specify init .
 
 # Download the workflow file
-curl -o AGENTIC-WORKFLOW.md https://raw.githubusercontent.com/your-username/lemongrab/main/AGENTIC-WORKFLOW.md
+curl -o AGENTIC-WORKFLOW.md https://raw.githubusercontent.com/peterphot/lemongrab/main/AGENTIC-WORKFLOW.md
 ```
 
 Or manually copy `AGENTIC-WORKFLOW.md` from the Lemongrab template into your project root.
