@@ -70,7 +70,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 uv tool install specify-cli --from git+https://github.com/github/spec-kit.git
 
 # Initialize spec-kit in your project
-specify init my-new-project
+specify init --here
 ```
 
 Now skip to [Step 3: Create Your Project Constitution](#step-3-create-your-project-constitution).
