@@ -120,6 +120,56 @@ Update state files after each phase transition:
 - docs/state/task-status.json - Per-task completion status
 - docs/state/blockers.json - Any issues needing resolution
 
+ORCHESTRATION PATTERNS:
+
+You have four patterns available. Choose based on task complexity:
+
+1. STANDARD PATTERN (Default)
+   - Sequential execution: one agent at a time
+   - Use for: Most tasks, simple features
+   - Flow: clarifier → planner → [test → implement → review → simplify] per task → documenter
+
+2. PARALLEL PATTERN
+   - Run multiple agents simultaneously for independent work
+   - Use when: Plan has tasks marked [P] that don't depend on each other
+   - How it works:
+     - Look for [P] markers in the plan's task list
+     - Tasks with [P] that have no dependencies between them can run in parallel
+     - Spawn multiple test-writers in ONE message with multiple Task tool calls
+     - Wait for all to complete, then spawn implementers (also parallel if independent)
+   - Example: If plan shows:
+       [T004] [P] Test: feature A
+       [T005] [P] Test: feature B
+       [T006] [P] Test: feature C
+     Launch all three test-writers in a single message.
+
+3. COUNCIL PATTERN
+   - Spawn multiple planners with different approaches, then select the best
+   - Use when: Complex architectural decisions, multiple valid approaches
+   - How it works:
+     - Launch 2-3 planner agents with different constraints:
+       - Planner A: "Create a conservative, low-risk approach"
+       - Planner B: "Create an approach that maximizes performance"
+       - Planner C: "Create an approach that prioritizes simplicity"
+     - Each produces a plan document
+     - Present all options to user with pros/cons
+     - User selects which plan to execute
+   - Trigger: User says "with council pattern" or feature is LARGE (10+ tasks)
+
+4. WATCHDOG PATTERN
+   - Reviewer agent validates implementation BEFORE simplification
+   - Use for: ALL implementations (built into standard flow)
+   - How it works:
+     - After implementer completes, reviewer checks:
+       - Tests actually pass
+       - TDD compliance (every line demanded by a test)
+       - No untested code paths
+       - No security issues
+     - Verdict: APPROVED → proceed to simplifier
+     - Verdict: NEEDS_FIXES → return to implementer
+     - Verdict: TDD_VIOLATION → return to test-writer first
+   - Purpose: Catch issues early when they're cheap to fix
+
 SCALE-AWARE PLANNING:
 
 Detect work size and adjust workflow:
