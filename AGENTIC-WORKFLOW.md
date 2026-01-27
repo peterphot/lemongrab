@@ -623,40 +623,38 @@ Associate a commit with its ticket:
 
 LOCAL TICKET TEMPLATE:
 
-```markdown
-# [TXXX] [Title]
+    # [TXXX] [Title]
 
-## Status
-- [ ] Backlog
-- [ ] In Progress
-- [ ] Completed
+    ## Status
+    - [ ] Backlog
+    - [ ] In Progress
+    - [ ] Completed
 
-## Created
-[Date]
+    ## Created
+    [Date]
 
-## Summary
-[What and why]
+    ## Summary
+    [What and why]
 
-## Source
-- Plan: docs/plans/<feature>.md
-- Task: [TXXX]
+    ## Source
+    - Plan: docs/plans/<feature>.md
+    - Task: [TXXX]
 
-## Acceptance Criteria
-- [ ] [Criterion]
+    ## Acceptance Criteria
+    - [ ] [Criterion]
 
-## Implementation Notes
-[Approach, decisions]
+    ## Implementation Notes
+    [Approach, decisions]
 
-## Files Changed
-| File | Change |
-|------|--------|
+    ## Files Changed
+    | File | Change |
+    |------|--------|
 
-## Commits
-- `hash` - message
+    ## Commits
+    - `hash` - message
 
-## Completed
-[Date]
-```
+    ## Completed
+    [Date]
 
 LINEAR ISSUE TEMPLATE:
 
@@ -817,25 +815,22 @@ Your process:
 REQUIREMENT TRACEABILITY:
 
 Before writing tests, create a mapping:
-```
-Requirement → Test Coverage
-FR-001: User can login → test_login_with_valid_credentials, test_login_with_invalid_password
-FR-002: Session expires → test_session_timeout_after_30_min, test_session_refresh
-```
+
+    Requirement → Test Coverage
+    FR-001: User can login → test_login_with_valid_credentials, test_login_with_invalid_password
+    FR-002: Session expires → test_session_timeout_after_30_min, test_session_refresh
 
 Every functional requirement MUST have at least one test. If a requirement has no obvious test, FLAG IT.
 
 TEST NAMING CONVENTION:
 
-```
-describe('[US1] User Authentication', () => {
-  describe('[FR-001] Login', () => {
-    it('should authenticate user with valid email and password', ...)
-    it('should reject login with invalid password', ...)
-    it('should reject login with non-existent email', ...)
-  });
-});
-```
+    describe('[US1] User Authentication', () => {
+      describe('[FR-001] Login', () => {
+        it('should authenticate user with valid email and password', ...)
+        it('should reject login with invalid password', ...)
+        it('should reject login with non-existent email', ...)
+      });
+    });
 
 Include requirement IDs in test names for traceability.
 
@@ -886,28 +881,26 @@ TEST ISOLATION RULES:
 
 Output format:
 
-```
-## Test Report: Task [TXXX]
+    ## Test Report: Task [TXXX]
 
-### Requirement Traceability
-| Requirement | Test(s) | Status |
-|-------------|---------|--------|
-| FR-001 | test_login_valid, test_login_invalid | Covered |
-| FR-002 | test_session_timeout | Covered |
-| FR-003 | (none) | ⚠️ NEEDS TEST |
+    ### Requirement Traceability
+    | Requirement | Test(s) | Status |
+    |-------------|---------|--------|
+    | FR-001 | test_login_valid, test_login_invalid | Covered |
+    | FR-002 | test_session_timeout | Covered |
+    | FR-003 | (none) | ⚠️ NEEDS TEST |
 
-### Tests Written: X total
-- Happy path: Y tests
-- Boundary: Y tests
-- Error cases: Y tests
+    ### Tests Written: X total
+    - Happy path: Y tests
+    - Boundary: Y tests
+    - Error cases: Y tests
 
-### Failure Verification
-All tests fail for CORRECT reasons:
-- test_login_valid: "loginUser is not defined" ✓
-- test_login_invalid: "loginUser is not defined" ✓
+    ### Failure Verification
+    All tests fail for CORRECT reasons:
+    - test_login_valid: "loginUser is not defined" ✓
+    - test_login_invalid: "loginUser is not defined" ✓
 
-### Ready for Implementation: YES/NO
-```
+    ### Ready for Implementation: YES/NO
 ```
 
 ### 4. implementer.md
@@ -934,13 +927,11 @@ CRITICAL RULES:
 
 THE TDD MANTRA:
 
-```
-1. Run tests → See them FAIL (RED)
-2. Write MINIMAL code to pass ONE test
-3. Run tests → See that ONE test PASS (GREEN)
-4. Repeat for next failing test
-5. When all tests pass → STOP WRITING CODE
-```
+    1. Run tests → See them FAIL (RED)
+    2. Write MINIMAL code to pass ONE test
+    3. Run tests → See that ONE test PASS (GREEN)
+    4. Repeat for next failing test
+    5. When all tests pass → STOP WRITING CODE
 
 Your process:
 
@@ -970,14 +961,12 @@ CODE COVERAGE VERIFICATION:
 
 After tests pass, mentally trace each line of your code:
 
-```
-Line of code → Test(s) that exercise it
-function login(email, password) {  → test_login_valid, test_login_invalid
-  if (!email) return { error: 'Email required' };  → test_login_missing_email
-  if (!password) return { error: 'Password required' };  → test_login_missing_password
-  ...
-}
-```
+    Line of code → Test(s) that exercise it
+    function login(email, password) {  → test_login_valid, test_login_invalid
+      if (!email) return { error: 'Email required' };  → test_login_missing_email
+      if (!password) return { error: 'Password required' };  → test_login_missing_password
+      ...
+    }
 
 If ANY line has no test exercising it → either:
 1. Delete the line (it's not needed)
@@ -1021,35 +1010,33 @@ Anti-patterns to AVOID:
 
 Output format:
 
-```
-## Implementation Report: Task [TXXX]
+    ## Implementation Report: Task [TXXX]
 
-### TDD Cycle Log
-| Test | Code Written | Lines |
-|------|--------------|-------|
-| test_login_valid | Created login() function | 5 |
-| test_login_invalid | Added password check | 2 |
-| test_login_missing_email | Added email validation | 2 |
+    ### TDD Cycle Log
+    | Test | Code Written | Lines |
+    |------|--------------|-------|
+    | test_login_valid | Created login() function | 5 |
+    | test_login_invalid | Added password check | 2 |
+    | test_login_missing_email | Added email validation | 2 |
 
-### Tests: X passing, 0 failing
+    ### Tests: X passing, 0 failing
 
-### Code Coverage Analysis
-| Code Section | Exercised By |
-|--------------|--------------|
-| login() lines 1-5 | test_login_valid |
-| login() lines 6-7 | test_login_invalid |
-| login() line 8 | ⚠️ NO TEST - flagged for review |
+    ### Code Coverage Analysis
+    | Code Section | Exercised By |
+    |--------------|--------------|
+    | login() lines 1-5 | test_login_valid |
+    | login() lines 6-7 | test_login_invalid |
+    | login() line 8 | ⚠️ NO TEST - flagged for review |
 
-### Diff Summary
-- Files created: 1
-- Files modified: 0
-- Total lines added: 9
-- Lines demanded by tests: 9 ✓
+    ### Diff Summary
+    - Files created: 1
+    - Files modified: 0
+    - Total lines added: 9
+    - Lines demanded by tests: 9 ✓
 
-### Untested Code Paths: NONE / LIST
+    ### Untested Code Paths: NONE / LIST
 
-### Ready for Review: YES/NO
-```
+    ### Ready for Review: YES/NO
 ```
 
 ### 5. reviewer.md (NEW - Watchdog Pattern)
@@ -1094,9 +1081,8 @@ Check that implementer followed TDD rules:
 □ No untested edge cases in the code
 
 For each function/method, trace:
-```
-Code line → Which test exercises it?
-```
+
+    Code line → Which test exercises it?
 
 If ANY line has no test → CRITICAL: "Untested code at line X"
 
@@ -1157,39 +1143,37 @@ INFO (note for documenter):
 
 Output format:
 
-```
-## Review: Task [TXXX]
+    ## Review: Task [TXXX]
 
-### Tests: PASSING ✓
+    ### Tests: PASSING ✓
 
-### TDD Compliance Audit
-| Check | Status |
-|-------|--------|
-| All code demanded by tests | ✓ / ✗ |
-| No untested branches | ✓ / ✗ |
-| Requirement traceability complete | ✓ / ✗ |
-| Tests are independent | ✓ / ✗ |
+    ### TDD Compliance Audit
+    | Check | Status |
+    |-------|--------|
+    | All code demanded by tests | ✓ / ✗ |
+    | No untested branches | ✓ / ✗ |
+    | Requirement traceability complete | ✓ / ✗ |
+    | Tests are independent | ✓ / ✗ |
 
-### Untested Code Paths
-- NONE / List specific lines
+    ### Untested Code Paths
+    - NONE / List specific lines
 
-### Mutation Testing Results
-| Mutation | Would Test Catch? |
-|----------|-------------------|
-| login(): change > to >= | ✓ test_boundary catches |
-| validate(): remove null check | ✗ NO TEST - needs coverage |
+    ### Mutation Testing Results
+    | Mutation | Would Test Catch? |
+    |----------|-------------------|
+    | login(): change > to >= | ✓ test_boundary catches |
+    | validate(): remove null check | ✗ NO TEST - needs coverage |
 
-### Critical Issues: <count>
-- [CRITICAL] <description>
+    ### Critical Issues: <count>
+    - [CRITICAL] <description>
 
-### Warnings: <count>
-- [WARNING] <description>
+    ### Warnings: <count>
+    - [WARNING] <description>
 
-### Notes: <count>
-- [INFO] <description>
+    ### Notes: <count>
+    - [INFO] <description>
 
-### Verdict: APPROVED | NEEDS_FIXES | TDD_VIOLATION
-```
+    ### Verdict: APPROVED | NEEDS_FIXES | TDD_VIOLATION
 
 VERDICT RULES:
 
