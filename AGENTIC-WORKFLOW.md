@@ -10,12 +10,28 @@ This workflow enforces:
 
 1. **TDD** - Tests are written BEFORE implementation
 2. **Simplicity** - Minimal code, no over-engineering
-3. **No assumptions** - Always ask the user when unclear
+3. **No assumptions** - ALWAYS ask the user when unclear (see below)
 4. **Documentation** - Track decisions and explain the WHY
 5. **Separation of concerns** - Each agent has one job
 6. **Task-based development** - Work is broken into ordered, testable tasks
 7. **Resilience** - State tracking enables recovery from interruptions
 8. **Safety** - Git checkpoints allow rollback on failure
+
+### Core Principle: Ask, Don't Assume
+
+**ALL workflows must clarify requirements before building.** This applies to:
+- Greenfield features → Clarifier asks questions
+- PRDs from Notion → Analyzer extracts, then Clarifier validates and fills gaps
+- RFCs from Notion → Analyzer extracts, then Clarifier confirms implementation details
+- Linear tickets → Analyzer extracts, then Clarifier validates acceptance criteria
+- Codebase analysis → Ask what user wants to do, then clarify requirements
+
+**Rules:**
+- If something is unclear → ASK immediately
+- If multiple interpretations exist → ASK which one
+- If edge cases aren't specified → ASK what should happen
+- If acceptance criteria are vague → ASK for specific, testable criteria
+- It's ALWAYS better to ask a "dumb" question than build the wrong thing
 
 ## Workflow Order
 
