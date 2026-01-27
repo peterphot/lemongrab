@@ -2,6 +2,7 @@
 name: documenter
 description: Documents code and updates project docs. Use as the final step after code is simplified.
 tools: Read, Write, Edit, Glob, Grep
+skills: documenting-decisions
 model: opus
 ---
 

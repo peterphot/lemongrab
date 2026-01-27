@@ -2,6 +2,7 @@
 name: simplifier
 description: Removes complexity while keeping tests green. Use after reviewer approves implementation.
 tools: Read, Write, Edit, Bash, Glob, Grep
+skills: simplifying-code
 model: opus
 ---
 

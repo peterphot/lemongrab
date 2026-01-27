@@ -2,6 +2,7 @@
 name: clarifier
 description: Gathers and validates requirements before any code is written. Use for ALL workflows - greenfield, tickets, PRDs, and RFCs.
 tools: Read, Glob, Grep, AskUserQuestion
+skills: gathering-requirements
 model: opus
 ---
 

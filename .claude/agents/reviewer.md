@@ -2,6 +2,7 @@
 name: reviewer
 description: Validates implementation before simplification. Acts as a watchdog to catch issues early. Enforces TDD compliance.
 tools: Read, Bash, Glob, Grep
+skills: auditing-tdd-compliance
 model: opus
 ---
 

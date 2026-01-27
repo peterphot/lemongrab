@@ -2,6 +2,7 @@
 name: planner
 description: Creates technical design and task breakdown. Use AFTER requirements are clear, BEFORE tests are written.
 tools: Read, Write, Edit, Glob, Grep, AskUserQuestion
+skills: planning-technical-work
 model: opus
 ---
 

@@ -221,6 +221,7 @@ git reset --soft <commit-hash>
 name: orchestrator
 description: Runs TDD workflows for features, tickets, or codebase analysis. Supports multiple entry points including greenfield projects, existing codebases, PRDs, RFCs, and Linear tickets.
 tools: Read, Write, Edit, Bash, Glob, Grep, Task, AskUserQuestion
+skills: communicating-progress
 model: opus
 ---
 
@@ -511,6 +512,7 @@ At completion, provide a summary:
 name: analyzer
 description: Builds context from codebases, PRDs, RFCs, or tickets. Use to understand existing code or extract requirements from external documents.
 tools: Read, Glob, Grep, Bash, WebFetch, AskUserQuestion, mcp__plugin_forge_notion__notion-search, mcp__plugin_forge_notion__notion-fetch, mcp__plugin_forge_linear__get_issue, mcp__plugin_forge_linear__list_comments
+skills: analyzing-codebases, integrating-external-sources
 model: opus
 ---
 
@@ -672,6 +674,7 @@ NEVER assume you know what the user wants. Always confirm.
 name: ticket-manager
 description: Creates and tracks work items in Linear or locally. Use to create tickets from plans, update progress, or link commits to work items.
 tools: Read, Write, Edit, Bash, Glob, AskUserQuestion, mcp__plugin_forge_linear__list_issue_statuses, mcp__plugin_forge_linear__create_issue, mcp__plugin_forge_linear__update_issue, mcp__plugin_forge_linear__create_comment, mcp__plugin_forge_linear__list_teams
+skills: managing-work-items
 model: opus
 ---
 
@@ -815,6 +818,7 @@ CRITICAL RULES:
 name: clarifier
 description: Gathers and validates requirements before any code is written. Use for ALL workflows - greenfield, tickets, PRDs, and RFCs.
 tools: Read, Glob, Grep, AskUserQuestion
+skills: gathering-requirements
 model: opus
 ---
 
@@ -887,6 +891,7 @@ Output: A requirements document at docs/requirements/<feature-name>.md with:
 name: planner
 description: Creates technical design and task breakdown. Use AFTER requirements are clear, BEFORE tests are written.
 tools: Read, Write, Edit, Glob, Grep, AskUserQuestion
+skills: planning-technical-work
 model: opus
 ---
 
@@ -943,6 +948,7 @@ Output: A plan document at docs/plans/<feature-name>.md following the Plan Docum
 name: test-writer
 description: Writes failing tests for a specific task. Use when planner assigns a Test task.
 tools: Read, Write, Edit, Bash, Glob, Grep
+skills: enforcing-tdd
 model: opus
 ---
 
@@ -1065,6 +1071,7 @@ Output format:
 name: implementer
 description: Writes minimal code to pass tests for a specific task. Use after test-writer completes a Test task.
 tools: Read, Write, Edit, Bash, Glob, Grep
+skills: enforcing-tdd
 model: opus
 ---
 
@@ -1201,6 +1208,7 @@ Output format:
 name: reviewer
 description: Validates implementation before simplification. Acts as a watchdog to catch issues early. Enforces TDD compliance.
 tools: Read, Bash, Glob, Grep
+skills: auditing-tdd-compliance
 model: opus
 ---
 
@@ -1346,6 +1354,7 @@ Output: Review report with clear verdict.
 name: simplifier
 description: Removes complexity while keeping tests green. Use after reviewer approves implementation.
 tools: Read, Write, Edit, Bash, Glob, Grep
+skills: simplifying-code
 model: opus
 ---
 
@@ -1392,6 +1401,7 @@ Output: Simpler code that still passes all tests.
 name: documenter
 description: Documents code and updates project docs. Use as the final step after code is simplified.
 tools: Read, Write, Edit, Glob, Grep
+skills: documenting-decisions
 model: opus
 ---
 

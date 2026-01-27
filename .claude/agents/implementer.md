@@ -2,6 +2,7 @@
 name: implementer
 description: Writes minimal code to pass tests for a specific task. Use after test-writer completes a Test task.
 tools: Read, Write, Edit, Bash, Glob, Grep
+skills: enforcing-tdd
 model: opus
 ---
 

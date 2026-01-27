@@ -2,6 +2,7 @@
 name: orchestrator
 description: Runs TDD workflows for features, tickets, or codebase analysis. Supports multiple entry points including greenfield projects, existing codebases, PRDs, RFCs, and Linear tickets.
 tools: Read, Write, Edit, Bash, Glob, Grep, Task, AskUserQuestion
+skills: communicating-progress
 model: opus
 ---
 
