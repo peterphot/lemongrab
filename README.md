@@ -21,9 +21,10 @@ Lemongrab is a starter template you can clone for new projects. It sets up speci
 - **Code review** - Reviewer agent catches issues early (watchdog pattern)
 - **Minimal code** - Only write what's needed to pass tests
 - **Clean code** - Refactoring is a dedicated step
-- **Documentation** - The "why" is captured, not just the "what"
+- **Documentation** - Captures both the "what" and the "why"
 - **Resilience** - State tracking enables recovery from interruptions
 - **Safety** - Git checkpoints allow rollback on failure
+- **Flexibility** - Multiple entry points for different workflows
 
 ---
 
@@ -55,30 +56,77 @@ files in .claude/agents/ and the docs folder structure as specified.
 ```
 
 **What Claude will create:**
-1. `.claude/agents/` with all 8 agent definition files
-2. `docs/requirements/`, `docs/plans/`, `docs/decisions/`, and `docs/state/` folders
+1. `.claude/agents/` with all 10 agent definition files
+2. `docs/` folder structure for requirements, plans, decisions, analysis, tickets, and state
 
 **Verify it worked:**
 ```bash
 ls .claude/agents/
-# Should show: clarifier.md, documenter.md, implementer.md, orchestrator.md,
-#              planner.md, reviewer.md, simplifier.md, test-writer.md
+# Should show: analyzer.md, clarifier.md, documenter.md, implementer.md,
+#              orchestrator.md, planner.md, reviewer.md, simplifier.md,
+#              test-writer.md, ticket-manager.md
 
 ls docs/
-# Should show: decisions/, plans/, requirements/, state/
+# Should show: analysis/, decisions/, plans/, requirements/, state/, tickets/
 ```
 
 ### Step 3: You're Ready!
 
-Start building features:
+Start building with any of these entry points:
 
 ```
 Use the orchestrator agent to implement <your feature>
+Use the orchestrator agent to analyze this codebase
+Use the orchestrator agent to implement ticket LIN-123
+Use the orchestrator agent to implement from PRD <notion-url>
 ```
 
 ---
 
-## The Workflow
+## Supported Workflows
+
+Lemongrab supports multiple entry points depending on your situation:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         WORKFLOW ENTRY POINTS                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────┐   ┌─────────────────┐   ┌─────────────────┐           │
+│  │  NEW FEATURE    │   │ EXISTING CODE   │   │  FROM TICKET    │           │
+│  │  (Greenfield)   │   │   (Join/Add)    │   │   (Linear)      │           │
+│  └────────┬────────┘   └────────┬────────┘   └────────┬────────┘           │
+│           │                     │                     │                     │
+│           ▼                     ▼                     ▼                     │
+│  "implement <feature>"  "analyze codebase"   "implement ticket LIN-123"    │
+│                                                                             │
+│  ┌─────────────────┐   ┌─────────────────┐   ┌─────────────────┐           │
+│  │   FROM PRD      │   │   FROM RFC      │   │  NEW PROJECT    │           │
+│  │   (Notion)      │   │   (Notion)      │   │  (Bootstrap)    │           │
+│  └────────┬────────┘   └────────┬────────┘   └────────┬────────┘           │
+│           │                     │                     │                     │
+│           ▼                     ▼                     ▼                     │
+│  "implement from PRD   "implement from RFC   "bootstrap <project-type>"    │
+│   <notion-url>"         <notion-url>"                                       │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Workflow Comparison
+
+| Entry Point | Use When | What Happens |
+|-------------|----------|--------------|
+| `implement <feature>` | Building new functionality from scratch | Full workflow: clarify → plan → build → document |
+| `analyze codebase` | Joining existing project or exploring | Builds context, creates analysis report |
+| `implement ticket LIN-123` | Work is defined in Linear | Extracts requirements from ticket, builds |
+| `implement from PRD <url>` | PRD exists in Notion | Extracts requirements, creates tickets, builds |
+| `implement from RFC <url>` | RFC exists with tech decisions | Uses RFC decisions as constraints, builds |
+| `bootstrap <type>` | Starting a brand new project | Creates structure, then transitions to features |
+| `resume <feature>` | Interrupted mid-workflow | Picks up from saved state |
+
+---
+
+## Standard Workflow (implement feature)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -155,6 +203,119 @@ Use the orchestrator agent to implement <your feature>
 
 ---
 
+## Ticket Workflow (from Linear)
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  YOU: "Use the orchestrator to implement ticket LIN-123"            │
+└─────────────────────────────────────────────────────────────────────┘
+                                   │
+                                   ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  ANALYZER (extracts from Linear)                                    │
+├─────────────────────────────────────────────────────────────────────┤
+│  • Fetches ticket details from Linear API                           │
+│  • Fetches comments for additional context                          │
+│  • Extracts acceptance criteria                                     │
+│  • Creates docs/requirements/<ticket-id>.md                         │
+└─────────────────────────────────────────────────────────────────────┘
+                                   │
+                                   ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  PLANNER (scale-aware)                                              │
+├─────────────────────────────────────────────────────────────────────┤
+│  Small ticket (1-3 tasks) → Minimal plan, quick cycle               │
+│  Large ticket (4+ tasks) → Full plan with architecture              │
+└─────────────────────────────────────────────────────────────────────┘
+                                   │
+                                   ▼
+                    [Standard BUILD cycle]
+                                   │
+                                   ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  TICKET MANAGER (updates Linear)                                    │
+├─────────────────────────────────────────────────────────────────────┤
+│  • Updates ticket status: Done                                      │
+│  • Adds completion comment with summary                             │
+│  • Links commits to ticket                                          │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## PRD Workflow (from Notion)
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  YOU: "Use the orchestrator to implement from PRD <notion-url>"     │
+└─────────────────────────────────────────────────────────────────────┘
+                                   │
+                                   ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  ANALYZER (extracts from Notion PRD)                                │
+├─────────────────────────────────────────────────────────────────────┤
+│  • Fetches PRD from Notion                                          │
+│  • Extracts user stories, acceptance criteria                       │
+│  • Identifies out of scope                                          │
+│  • Flags missing information                                        │
+│  • Creates docs/requirements/<feature>.md                           │
+└─────────────────────────────────────────────────────────────────────┘
+                                   │
+                                   ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  ORCHESTRATOR ASKS:                                                 │
+│  "PRD contains X user stories. Create Linear tickets, local         │
+│   tickets, or proceed without tickets?"                             │
+└─────────────────────────────────────────────────────────────────────┘
+                                   │
+              ┌────────────────────┼────────────────────┐
+              ▼                    ▼                    ▼
+        [Linear]             [Local]              [No tickets]
+              │                    │                    │
+              └────────────────────┼────────────────────┘
+                                   │
+                                   ▼
+                    [Standard PLAN → BUILD cycle]
+                    (Skips CLARIFY - PRD provides requirements)
+```
+
+---
+
+## Analysis Workflow (existing codebase)
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  YOU: "Use the orchestrator to analyze this codebase"               │
+└─────────────────────────────────────────────────────────────────────┘
+                                   │
+                                   ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  ANALYZER (explores codebase)                                       │
+├─────────────────────────────────────────────────────────────────────┤
+│  • Maps directory structure                                         │
+│  • Identifies technology stack                                      │
+│  • Detects architecture patterns                                    │
+│  • Finds entry points and key components                            │
+│  • Notes established conventions                                    │
+│  • Creates docs/analysis/<project>.md                               │
+└─────────────────────────────────────────────────────────────────────┘
+                                   │
+                                   ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  ORCHESTRATOR ASKS:                                                 │
+│  "Analysis complete. What would you like to do?"                    │
+│  • Implement a feature                                              │
+│  • Fix a bug                                                        │
+│  • Add tests                                                        │
+│  • Refactor                                                         │
+└─────────────────────────────────────────────────────────────────────┘
+                                   │
+                                   ▼
+                    [Transitions to appropriate workflow]
+```
+
+---
+
 ## Orchestration Patterns
 
 ### Standard Pattern (Default)
@@ -183,14 +344,16 @@ Reviewer agent catches issues between implementation and simplification.
 
 | Agent | Purpose | When to Use |
 |-------|---------|-------------|
-| **Orchestrator** | Runs full workflow automatically | Every feature (recommended entry point) |
-| **Clarifier** | Gathers requirements | Start of any new feature |
+| **Orchestrator** | Runs workflows with multiple entry points | Every workflow (recommended entry point) |
+| **Analyzer** | Builds context from code, PRDs, RFCs, tickets | Joining projects, extracting requirements |
+| **Ticket Manager** | Creates/tracks work items in Linear or locally | Planning work, tracking progress |
+| **Clarifier** | Gathers requirements through questions | Start of any new feature |
 | **Planner** | Creates technical design + tasks | After requirements are clear |
 | **Test Writer** | Writes failing tests | Before implementation |
 | **Implementer** | Makes tests pass | After tests exist |
-| **Reviewer** | Validates before cleanup (NEW!) | After implementation |
+| **Reviewer** | Validates and audits TDD compliance | After implementation |
 | **Simplifier** | Removes complexity | After review approves |
-| **Documenter** | Records the "why" | After code is complete |
+| **Documenter** | Records the "what" and "why" | After code is complete |
 
 ---
 
@@ -238,14 +401,16 @@ Use the orchestrator agent to rollback <feature> to task [T002]
 your-project/
 ├── .claude/
 │   └── agents/
-│       ├── orchestrator.md       # Runs full workflow automatically
+│       ├── orchestrator.md       # Workflow orchestration (multiple entry points)
+│       ├── analyzer.md           # Context building (code, PRDs, RFCs, tickets)
+│       ├── ticket-manager.md     # Work item tracking (Linear or local)
 │       ├── clarifier.md          # Requirements gathering
 │       ├── planner.md            # Technical design
 │       ├── test-writer.md        # Write failing tests
 │       ├── implementer.md        # Make tests pass
-│       ├── reviewer.md           # Validate before cleanup
+│       ├── reviewer.md           # Validate and audit TDD compliance
 │       ├── simplifier.md         # Clean up code
-│       └── documenter.md         # Document the why
+│       └── documenter.md         # Document what and why
 ├── skills/                       # Domain knowledge for agents
 │   ├── enforcing-tdd/            # TDD discipline patterns
 │   ├── auditing-tdd-compliance/  # TDD audit & mutation testing
@@ -253,11 +418,19 @@ your-project/
 │   ├── planning-technical-work/  # Task breakdown & architecture
 │   ├── documenting-decisions/    # WHAT + WHY documentation
 │   ├── simplifying-code/         # Safe refactoring patterns
-│   └── communicating-progress/   # Status reports & handoffs
+│   ├── communicating-progress/   # Status reports & handoffs
+│   ├── analyzing-codebases/      # Codebase exploration patterns
+│   ├── integrating-external-sources/  # PRD/RFC/ticket extraction
+│   └── managing-work-items/      # Linear & local ticket management
 ├── docs/
-│   ├── requirements/             # Feature requirements
+│   ├── requirements/             # Feature requirements (gathered or extracted)
 │   ├── plans/                    # Technical plans
 │   ├── decisions/                # Decision logs
+│   ├── analysis/                 # Codebase analysis reports
+│   ├── tickets/                  # Local ticket tracking
+│   │   ├── backlog/
+│   │   ├── active/
+│   │   └── completed/
 │   └── state/                    # Workflow state
 ├── AGENTIC-WORKFLOW.md           # Workflow documentation
 └── README.md                     # This file
@@ -278,6 +451,9 @@ Skills provide reusable domain knowledge that agents leverage automatically:
 | `documenting-decisions` | WHAT + WHY documentation, ADR templates | documenter |
 | `simplifying-code` | Safe refactoring, code smell detection | simplifier |
 | `communicating-progress` | Status reports, blockers, handoffs | orchestrator, all agents |
+| `analyzing-codebases` | Structure analysis, pattern detection | analyzer |
+| `integrating-external-sources` | PRD/RFC/ticket extraction patterns | analyzer |
+| `managing-work-items` | Linear & local ticket management | ticket-manager |
 
 **Agents handle orchestration.** Skills provide expertise.
 
@@ -287,6 +463,9 @@ Skills provide reusable domain knowledge that agents leverage automatically:
 │    └── Uses SKILL (domain knowledge)                │
 │                                                     │
 │  Examples:                                          │
+│  analyzer agent → analyzing-codebases skill         │
+│  analyzer agent → integrating-external-sources      │
+│  ticket-manager → managing-work-items skill         │
 │  test-writer agent → enforcing-tdd skill            │
 │  reviewer agent → auditing-tdd-compliance skill     │
 │  planner agent → planning-technical-work skill      │
