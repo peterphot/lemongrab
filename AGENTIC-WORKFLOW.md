@@ -51,14 +51,9 @@ This workflow enforces:
 
 ## Setup Instructions
 
-Tell Claude:
+**No setup required!** All agents and folder structures are pre-created when you clone the template.
 
-```
-Read AGENTIC-WORKFLOW.md and set up the agentic workflow. Create all the agent
-files in .claude/agents/ and the docs folder structure as specified.
-```
-
-Claude should create:
+**Pre-configured structure:**
 
 ```
 .claude/

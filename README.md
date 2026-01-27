@@ -39,38 +39,33 @@ rm -rf .git  # Remove template's git history
 git init     # Start fresh
 ```
 
-### Step 2: Set Up the Agents
+### Step 2: You're Ready!
 
-Open Claude Code in your project directory:
+Everything is pre-configured. No additional setup required.
 
-```bash
-cd my-new-project
-claude
-```
+**What's included:**
+- `.claude/agents/` - All 10 agent definition files
+- `skills/` - All 10 skill definition files
+- `docs/` - Folder structure for requirements, plans, decisions, analysis, tickets, and state
 
-Then say:
-
-```
-Read AGENTIC-WORKFLOW.md and set up the agentic workflow. Create all the agent
-files in .claude/agents/ and the docs folder structure as specified.
-```
-
-**What Claude will create:**
-1. `.claude/agents/` with all 10 agent definition files
-2. `docs/` folder structure for requirements, plans, decisions, analysis, tickets, and state
-
-**Verify it worked:**
+**Verify the structure:**
 ```bash
 ls .claude/agents/
-# Should show: analyzer.md, clarifier.md, documenter.md, implementer.md,
-#              orchestrator.md, planner.md, reviewer.md, simplifier.md,
-#              test-writer.md, ticket-manager.md
+# Shows: analyzer.md, clarifier.md, documenter.md, implementer.md,
+#        orchestrator.md, planner.md, reviewer.md, simplifier.md,
+#        test-writer.md, ticket-manager.md
+
+ls skills/
+# Shows: analyzing-codebases/, auditing-tdd-compliance/, communicating-progress/,
+#        documenting-decisions/, enforcing-tdd/, gathering-requirements/,
+#        integrating-external-sources/, managing-work-items/, planning-technical-work/,
+#        simplifying-code/
 
 ls docs/
-# Should show: analysis/, decisions/, plans/, requirements/, state/, tickets/
+# Shows: analysis/, decisions/, plans/, requirements/, state/, tickets/
 ```
 
-### Step 3: You're Ready!
+### Step 3: Start Building!
 
 Start building with any of these entry points:
 
