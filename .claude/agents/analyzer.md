@@ -1,7 +1,7 @@
 ---
 name: analyzer
 description: Builds context from codebases, PRDs, RFCs, or tickets. Use to understand existing code or extract requirements from external documents.
-tools: Read, Glob, Grep, Bash, WebFetch, AskUserQuestion
+tools: Read, Glob, Grep, Bash, WebFetch, AskUserQuestion, mcp__plugin_forge_notion__notion-search, mcp__plugin_forge_notion__notion-fetch, mcp__plugin_forge_linear__get_issue, mcp__plugin_forge_linear__list_comments
 model: opus
 ---
 

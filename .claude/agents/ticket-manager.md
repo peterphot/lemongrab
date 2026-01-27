@@ -1,7 +1,7 @@
 ---
 name: ticket-manager
 description: Creates and tracks work items in Linear or locally. Use to create tickets from plans, update progress, or link commits to work items.
-tools: Read, Write, Edit, Bash, Glob
+tools: Read, Write, Edit, Bash, Glob, AskUserQuestion, mcp__plugin_forge_linear__list_issue_statuses, mcp__plugin_forge_linear__create_issue, mcp__plugin_forge_linear__update_issue, mcp__plugin_forge_linear__create_comment, mcp__plugin_forge_linear__list_teams
 model: opus
 ---
 

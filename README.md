@@ -28,6 +28,41 @@ Lemongrab is a starter template you can clone for new projects. It sets up speci
 
 ---
 
+## Prerequisites
+
+### Required for All Workflows
+- **Claude Code CLI** - The Claude Code command-line tool
+
+### Required for Specific Workflows
+
+| Workflow | MCP Integration Required |
+|----------|--------------------------|
+| `implement <feature>` | None - works out of the box |
+| `analyze this codebase` | None - works out of the box |
+| `implement ticket LIN-123` | Linear MCP plugin |
+| `implement from PRD <url>` | Notion MCP plugin |
+| `implement from RFC <url>` | Notion MCP plugin |
+| `bootstrap <project>` | None - works out of the box |
+
+### Setting Up MCP Integrations
+
+**Linear Integration** (for ticket workflows):
+1. Ensure the Linear MCP plugin is installed and configured
+2. Authenticate with your Linear workspace
+3. The agents will use: `mcp__plugin_forge_linear__*` tools
+
+**Notion Integration** (for PRD/RFC workflows):
+1. Ensure the Notion MCP plugin is installed and configured
+2. Authenticate with your Notion workspace
+3. The agents will use: `mcp__plugin_forge_notion__*` tools
+
+If you don't have these integrations, you can still use:
+- Greenfield feature implementation
+- Codebase analysis
+- Local ticket tracking (instead of Linear)
+
+---
+
 ## Quick Start
 
 ### Step 1: Clone the Template
