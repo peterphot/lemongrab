@@ -243,16 +243,55 @@ your-project/
 │       ├── planner.md            # Technical design
 │       ├── test-writer.md        # Write failing tests
 │       ├── implementer.md        # Make tests pass
-│       ├── reviewer.md           # Validate before cleanup (NEW)
+│       ├── reviewer.md           # Validate before cleanup
 │       ├── simplifier.md         # Clean up code
 │       └── documenter.md         # Document the why
+├── skills/                       # Domain knowledge for agents
+│   ├── enforcing-tdd/            # TDD discipline patterns
+│   ├── auditing-tdd-compliance/  # TDD audit & mutation testing
+│   ├── gathering-requirements/   # Requirement question frameworks
+│   ├── planning-technical-work/  # Task breakdown & architecture
+│   ├── documenting-decisions/    # WHAT + WHY documentation
+│   ├── simplifying-code/         # Safe refactoring patterns
+│   └── communicating-progress/   # Status reports & handoffs
 ├── docs/
 │   ├── requirements/             # Feature requirements
 │   ├── plans/                    # Technical plans
 │   ├── decisions/                # Decision logs
-│   └── state/                    # Workflow state (NEW)
+│   └── state/                    # Workflow state
 ├── AGENTIC-WORKFLOW.md           # Workflow documentation
 └── README.md                     # This file
+```
+
+---
+
+## Skills (Domain Knowledge)
+
+Skills provide reusable domain knowledge that agents leverage automatically:
+
+| Skill | Purpose | Used By |
+|-------|---------|---------|
+| `enforcing-tdd` | TDD discipline, red-green-refactor | test-writer, implementer |
+| `auditing-tdd-compliance` | TDD audit, mutation testing | reviewer |
+| `gathering-requirements` | Question frameworks, testable criteria | clarifier |
+| `planning-technical-work` | Task breakdown, dependencies, architecture | planner |
+| `documenting-decisions` | WHAT + WHY documentation, ADR templates | documenter |
+| `simplifying-code` | Safe refactoring, code smell detection | simplifier |
+| `communicating-progress` | Status reports, blockers, handoffs | orchestrator, all agents |
+
+**Agents handle orchestration.** Skills provide expertise.
+
+```
+┌─────────────────────────────────────────────────────┐
+│  AGENT (orchestration)                              │
+│    └── Uses SKILL (domain knowledge)                │
+│                                                     │
+│  Examples:                                          │
+│  test-writer agent → enforcing-tdd skill            │
+│  reviewer agent → auditing-tdd-compliance skill     │
+│  planner agent → planning-technical-work skill      │
+│  documenter agent → documenting-decisions skill     │
+└─────────────────────────────────────────────────────┘
 ```
 
 ---
