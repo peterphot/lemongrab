@@ -1,4 +1,4 @@
-# Orchestrator Workflow Walkthrough
+# Lemongrab Workflow Walkthrough
 
 This document demonstrates the complete TDD multi-agent workflow using a hypothetical feature: **config file parser**.
 
@@ -176,7 +176,7 @@ T007 test-writer ──┘
 T008 implementer (handles both)
 ```
 
-The orchestrator spawns multiple agents in a single message for parallel tasks.
+Lemongrab spawns multiple agents in a single message for parallel tasks.
 
 ---
 
@@ -214,7 +214,7 @@ After all tasks complete, the documenter records decisions:
 
 ## State Files
 
-The orchestrator maintains state for resilience:
+Lemongrab maintains state for resilience:
 
 ```
 docs/state/
@@ -249,10 +249,10 @@ docs/state/
 
 ## Summary Report
 
-At completion, the orchestrator provides a summary:
+At completion, lemongrab provides a summary:
 
 ```
-┌─ Orchestrator Complete ────────────────────────────────┐
+┌─ Lemongrab Complete ───────────────────────────────────┐
 │                                                         │
 │  Feature: config-parser                                │
 │  Tasks completed: 8/8                                  │
@@ -282,13 +282,13 @@ git log --oneline --grep="checkpoint:.*config-parser"
 git reset --hard <checkpoint-hash>
 ```
 
-The orchestrator can also handle rollbacks automatically when tests fail repeatedly.
+Lemongrab can also handle rollbacks automatically when tests fail repeatedly.
 
 ---
 
 ## Orchestration Patterns
 
-The orchestrator supports four patterns:
+Lemongrab supports four patterns:
 
 | Pattern | When to Use | Description |
 |---------|-------------|-------------|
@@ -303,14 +303,14 @@ The orchestrator supports four patterns:
 
 ```
 # Standard workflow
-Use the orchestrator agent to implement <feature>
+Use lemongrab agent to implement <feature>
 
 # With council pattern (multiple plan options)
-Use the orchestrator agent with council pattern to implement <feature>
+Use lemongrab agent with council pattern to implement <feature>
 
 # Resume interrupted workflow
-Use the orchestrator agent to resume <feature>
+Use lemongrab agent to resume <feature>
 
 # Rollback
-Use the orchestrator agent to rollback <feature> to task [TXXX]
+Use lemongrab agent to rollback <feature> to task [TXXX]
 ```

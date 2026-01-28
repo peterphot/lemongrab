@@ -87,7 +87,7 @@ Everything is pre-configured. No additional setup required.
 ```bash
 ls .claude/agents/
 # Shows: analyzer.md, clarifier.md, documenter.md, implementer.md,
-#        orchestrator.md, planner.md, reviewer.md, simplifier.md,
+#        lemongrab.md, planner.md, reviewer.md, simplifier.md,
 #        test-writer.md, ticket-manager.md
 
 ls skills/
@@ -105,10 +105,10 @@ ls docs/
 Start building with any of these entry points:
 
 ```
-Use the orchestrator agent to implement <your feature>
-Use the orchestrator agent to analyze this codebase
-Use the orchestrator agent to implement ticket LIN-123
-Use the orchestrator agent to implement from PRD <notion-url>
+Use the lemongrab agent to implement <your feature>
+Use the lemongrab agent to analyze this codebase
+Use the lemongrab agent to implement ticket LIN-123
+Use the lemongrab agent to implement from PRD <notion-url>
 ```
 
 ---
@@ -160,12 +160,12 @@ Lemongrab supports multiple entry points depending on your situation:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│  YOU: "Use the orchestrator agent to implement <feature>"           │
+│  YOU: "Use the lemongrab agent to implement <feature>"              │
 └─────────────────────────────────────────────────────────────────────┘
                                    │
                                    ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│  ORCHESTRATOR (runs automatically, interrupts only when needed)     │
+│  LEMONGRAB (runs automatically, interrupts only when needed)        │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                     │
 │  ┌───────────────────────────────────────────────────────────────┐  │
@@ -237,7 +237,7 @@ Lemongrab supports multiple entry points depending on your situation:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│  YOU: "Use the orchestrator to implement ticket LIN-123"            │
+│  YOU: "Use lemongrab to implement ticket LIN-123"                   │
 └─────────────────────────────────────────────────────────────────────┘
                                    │
                                    ▼
@@ -277,7 +277,7 @@ Lemongrab supports multiple entry points depending on your situation:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│  YOU: "Use the orchestrator to implement from PRD <notion-url>"     │
+│  YOU: "Use lemongrab to implement from PRD <notion-url>"            │
 └─────────────────────────────────────────────────────────────────────┘
                                    │
                                    ▼
@@ -293,7 +293,7 @@ Lemongrab supports multiple entry points depending on your situation:
                                    │
                                    ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│  ORCHESTRATOR ASKS:                                                 │
+│  LEMONGRAB ASKS:                                                 │
 │  "PRD contains X user stories. Create Linear tickets, local         │
 │   tickets, or proceed without tickets?"                             │
 └─────────────────────────────────────────────────────────────────────┘
@@ -315,7 +315,7 @@ Lemongrab supports multiple entry points depending on your situation:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│  YOU: "Use the orchestrator to analyze this codebase"               │
+│  YOU: "Use lemongrab to analyze this codebase"                      │
 └─────────────────────────────────────────────────────────────────────┘
                                    │
                                    ▼
@@ -332,7 +332,7 @@ Lemongrab supports multiple entry points depending on your situation:
                                    │
                                    ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│  ORCHESTRATOR ASKS:                                                 │
+│  LEMONGRAB ASKS:                                                 │
 │  "Analysis complete. What would you like to do?"                    │
 │  • Implement a feature                                              │
 │  • Fix a bug                                                        │
@@ -362,7 +362,7 @@ For tasks marked `[P]`, spawn multiple test-writers simultaneously:
 ### Council Pattern
 For complex features, spawn multiple planners with different approaches:
 ```
-Use the orchestrator agent with council pattern to implement <feature>
+Use lemongrab with council pattern to implement <feature>
 ```
 
 ### Watchdog Pattern
@@ -374,7 +374,7 @@ Reviewer agent catches issues between implementation and simplification.
 
 | Agent | Purpose | When to Use |
 |-------|---------|-------------|
-| **Orchestrator** | Runs workflows with multiple entry points | Every workflow (recommended entry point) |
+| **Lemongrab** | Runs workflows with multiple entry points | Every workflow (recommended entry point) |
 | **Analyzer** | Builds context from code, PRDs, RFCs, tickets | Joining projects, extracting requirements |
 | **Ticket Manager** | Creates/tracks work items in Linear or locally | Planning work, tracking progress |
 | **Clarifier** | Gathers requirements through questions | Start of any new feature |
@@ -397,7 +397,7 @@ The workflow maintains state in `docs/state/` for resilience:
 
 **Resume after interruption:**
 ```
-Use the orchestrator agent to resume <feature>
+Use lemongrab to resume <feature>
 ```
 
 ---
@@ -418,9 +418,9 @@ git log --oneline --grep="checkpoint:.*<feature>"
 git reset --hard <commit-hash>
 ```
 
-Or ask the orchestrator:
+Or ask lemongrab:
 ```
-Use the orchestrator agent to rollback <feature> to task [T002]
+Use lemongrab to rollback <feature> to task [T002]
 ```
 
 ---
@@ -431,7 +431,7 @@ Use the orchestrator agent to rollback <feature> to task [T002]
 your-project/
 ├── .claude/
 │   └── agents/
-│       ├── orchestrator.md       # Workflow orchestration (multiple entry points)
+│       ├── lemongrab.md          # Workflow orchestration (multiple entry points)
 │       ├── analyzer.md           # Context building (code, PRDs, RFCs, tickets)
 │       ├── ticket-manager.md     # Work item tracking (Linear or local)
 │       ├── clarifier.md          # Requirements gathering
@@ -480,7 +480,7 @@ Skills provide reusable domain knowledge that agents leverage automatically:
 | `planning-technical-work` | Task breakdown, dependencies, architecture | planner |
 | `documenting-decisions` | WHAT + WHY documentation, ADR templates | documenter |
 | `simplifying-code` | Safe refactoring, code smell detection | simplifier |
-| `communicating-progress` | Status reports, blockers, handoffs | orchestrator, all agents |
+| `communicating-progress` | Status reports, blockers, handoffs | lemongrab, all agents |
 | `analyzing-codebases` | Structure analysis, pattern detection | analyzer |
 | `integrating-external-sources` | PRD/RFC/ticket extraction patterns | analyzer |
 | `managing-work-items` | Linear & local ticket management | ticket-manager |
@@ -507,7 +507,7 @@ Skills provide reusable domain knowledge that agents leverage automatically:
 
 ## Manual Workflow (Alternative)
 
-If you prefer step-by-step control instead of the orchestrator:
+If you prefer step-by-step control instead of lemongrab:
 
 ```
 # Step 1: Clarify requirements
@@ -587,7 +587,7 @@ Edit the files in `.claude/agents/`. Each is a markdown file with instructions.
 
 The workflow saves state to `docs/state/`. Just say:
 ```
-Use the orchestrator agent to resume <feature>
+Use lemongrab to resume <feature>
 ```
 
 ### "What is a TDD_VIOLATION verdict?"

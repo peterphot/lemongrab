@@ -36,10 +36,10 @@ This workflow enforces:
 ## Workflow Order
 
 ```
-    User Request: "Use the orchestrator agent to implement <feature>"
+    User Request: "Use lemongrab to implement <feature>"
          ↓
 ┌────────────────────────────────────────────────────────────────────┐
-│  ORCHESTRATOR (runs automatically, interrupts only when needed)    │
+│  LEMONGRAB (runs automatically, interrupts only when needed)       │
 │                                                                    │
 │  [1. Clarifier] → Asks questions ←── Human answers                 │
 │         ↓                                                          │
@@ -74,7 +74,7 @@ This workflow enforces:
 ```
 .claude/
 └── agents/
-    ├── orchestrator.md    # Runs workflows (multiple entry points)
+    ├── lemongrab.md       # Runs workflows (multiple entry points)
     ├── analyzer.md        # Context builder (codebases, PRDs, RFCs, tickets)
     ├── ticket-manager.md  # Work item tracking (Linear or local)
     ├── clarifier.md       # Requirements gathering
@@ -124,7 +124,7 @@ Planner A → Conservative approach
 Planner B → Aggressive refactoring approach
 Planner C → Hybrid approach
          ↓
-Human/Orchestrator selects best plan
+Human/Lemongrab selects best plan
 ```
 
 ### Watchdog Pattern
@@ -214,18 +214,22 @@ git reset --soft <commit-hash>
 
 ## Agent Definitions
 
-### 0. orchestrator.md (Recommended Entry Point)
+### 0. lemongrab.md (Recommended Entry Point)
 
 ```markdown
 ---
-name: orchestrator
-description: Runs TDD workflows for features, tickets, or codebase analysis. Supports multiple entry points including greenfield projects, existing codebases, PRDs, RFCs, and Linear tickets.
+name: lemongrab
+description: >
+  Use this agent when the user says "use lemongrab", "use the lemongrab agent", "run TDD workflow",
+  "analyze this codebase", or wants the full clarify → plan → build → document workflow.
+  Runs TDD workflows for features, tickets, or codebase analysis. Supports multiple entry points
+  including greenfield projects, existing codebases, PRDs, RFCs, and Linear tickets.
 tools: Read, Write, Edit, Bash, Glob, Grep, Task, AskUserQuestion
 skills: communicating-progress
 model: opus
 ---
 
-You are a workflow orchestrator. You run complete TDD workflows, delegating to specialized agents and asking the user questions whenever something is unclear.
+You are lemongrab, the workflow orchestrator. You run complete TDD workflows, delegating to specialized agents and asking the user questions whenever something is unclear.
 
 CORE PRINCIPLE: ASK, DON'T ASSUME
 
@@ -529,7 +533,7 @@ When extracting requirements or analyzing code:
 
 MODES OF OPERATION:
 
-Detect mode from orchestrator's request:
+Detect mode from lemongrab's request:
 
 1. CODEBASE ANALYSIS - "analyze this codebase"
 2. PRD EXTRACTION - "extract from PRD <url>"
@@ -932,7 +936,7 @@ Task Dependencies:
 
 COUNCIL PATTERN (when requested):
 
-If orchestrator requests multiple plan options:
+If lemongrab requests multiple plan options:
 - Generate a distinct architectural approach
 - Clearly label your approach (e.g., "Conservative", "Microservices", "Monolith")
 - List pros and cons of your approach
@@ -1455,15 +1459,15 @@ Output:
 
 ### For Each Feature
 
-#### Option 1: Orchestrator (Recommended)
+#### Option 1: Lemongrab (Recommended)
 
-Use the orchestrator for automated workflow with human checkpoints only when needed:
+Use lemongrab for automated workflow with human checkpoints only when needed:
 
 ```
-Use the orchestrator agent to implement <feature>
+Use lemongrab to implement <feature>
 ```
 
-The orchestrator will:
+Lemongrab will:
 1. Run clarifier → **ask you questions about requirements**
 2. Run planner → **ask you technical decisions**
 3. Automatically cycle through test → implement → review → simplify for each task
@@ -1473,12 +1477,12 @@ The orchestrator will:
 
 You only get interrupted when decisions are needed.
 
-#### Option 2: Orchestrator with Council Pattern
+#### Option 2: Lemongrab with Council Pattern
 
 For complex features where you want to compare approaches:
 
 ```
-Use the orchestrator agent with council pattern to implement <feature>
+Use lemongrab with council pattern to implement <feature>
 ```
 
 This spawns multiple planners with different approaches for you to choose from.
@@ -1512,17 +1516,17 @@ Use the documenter agent for <feature>
 If the workflow was interrupted:
 
 ```
-Use the orchestrator agent to resume <feature>
+Use lemongrab to resume <feature>
 ```
 
-The orchestrator will read state files and continue from where it left off.
+Lemongrab will read state files and continue from where it left off.
 
 #### Rolling Back
 
 If something went wrong:
 
 ```
-Use the orchestrator agent to rollback <feature> to task [TXXX]
+Use lemongrab to rollback <feature> to task [TXXX]
 ```
 
 Or manually:
@@ -1537,7 +1541,7 @@ git reset --hard <checkpoint-hash>
 
 | Agent            | Purpose                             | Key Constraint                |
 | ---------------- | ----------------------------------- | ----------------------------- |
-| **orchestrator** | Run full workflow automatically     | Interrupts only when needed   |
+| **lemongrab**    | Run full workflow automatically     | Interrupts only when needed   |
 | clarifier        | Gather structured requirements      | NEVER assume - always ASK     |
 | planner          | Technical design + tasks            | NEVER write code - only plan  |
 | test-writer      | Write failing tests per task        | Tests BEFORE code             |

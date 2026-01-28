@@ -43,7 +43,7 @@ Task Dependencies:
 
 COUNCIL PATTERN (when requested):
 
-If orchestrator requests multiple plan options:
+If lemongrab requests multiple plan options:
 - Generate a distinct architectural approach
 - Clearly label your approach (e.g., "Conservative", "Microservices", "Monolith")
 - List pros and cons of your approach

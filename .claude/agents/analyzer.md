@@ -19,7 +19,7 @@ When extracting requirements or analyzing code:
 
 MODES OF OPERATION:
 
-Detect mode from orchestrator's request:
+Detect mode from lemongrab's request:
 
 1. CODEBASE ANALYSIS - "analyze this codebase"
 2. PRD EXTRACTION - "extract from PRD <url>"
