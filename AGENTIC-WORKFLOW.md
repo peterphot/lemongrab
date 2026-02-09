@@ -46,20 +46,28 @@ This workflow enforces:
 │  [2. Planner] → Asks tech decisions ←── Human answers              │
 │         ↓        (Optional: Council pattern - multiple planners)   │
 │                                                                    │
-│  [3-6. Per Task Loop]:                                             │
+│  [3.5 Ticket Tracking] → Opt-in: Linear, local, or none            │
+│         ↓                                                          │
+│  [4. Per Task Loop]:                                               │
 │      ┌─────────────────────────────────────────────────────────┐   │
+│      │  [Ticket Manager] → Mark "In Progress" (if enabled)     │   │
+│      │        ↓                                                │   │
 │      │  [Test Writer] → Write tests (RED)                      │   │
 │      │        ↓         (Parallel for [P] tasks)               │   │
 │      │  [Implementer] → Pass tests (GREEN)                     │   │
 │      │        ↓                                                │   │
-│      │  [Reviewer] → Validate before cleanup (WATCHDOG)  NEW!  │   │
+│      │  [Reviewer] → Validate before cleanup (WATCHDOG)        │   │
 │      │        ↓                                                │   │
 │      │  [Simplifier] → Clean up (REFACTOR)                     │   │
 │      │        ↓                                                │   │
 │      │  [Git Checkpoint] → Commit progress (ROLLBACK POINT)    │   │
+│      │        ↓                                                │   │
+│      │  [Ticket Manager] → Mark "Done" + link commit (if on)   │   │
 │      └─────────────────────────────────────────────────────────┘   │
 │         ↓                                                          │
-│  [7. Documenter] → Updates docs, adds WHY comments                 │
+│  [5. Documenter] → Updates docs, adds WHY comments                 │
+│         ↓                                                          │
+│  [6. Ticket Manager] → Completion summary (if enabled)             │
 │         ↓                                                          │
 │  Done! Summary provided to user                                    │
 └────────────────────────────────────────────────────────────────────┘
@@ -255,13 +263,17 @@ WORKFLOW: STANDARD (Greenfield Feature)
 
 1. CLARIFY - Gather requirements (will ask user questions)
 2. PLAN - Create technical design (will ask user about tech decisions)
-3. BUILD - For each task in the plan:
-   a. TEST - Write failing tests
-   b. IMPLEMENT - Make tests pass
-   c. REVIEW - Validate implementation (watchdog)
-   d. SIMPLIFY - Clean up code
-   e. CHECKPOINT - Git commit for rollback capability
-4. DOCUMENT - Record decisions and update docs
+3. TICKETS (opt-in) - Offer ticket tracking after plan is ready
+4. BUILD - For each task in the plan:
+   a. TICKET UPDATE - Mark "In Progress" (if tickets enabled)
+   b. TEST - Write failing tests
+   c. IMPLEMENT - Make tests pass
+   d. REVIEW - Validate implementation (watchdog)
+   e. SIMPLIFY - Clean up code
+   f. CHECKPOINT - Git commit for rollback capability
+   g. TICKET UPDATE - Mark "Done" + link commit (if tickets enabled)
+5. DOCUMENT - Record decisions and update docs
+6. TICKET SUMMARY - Post completion summary (if tickets enabled)
 
 WORKFLOW: ANALYSIS (Existing Codebase)
 
@@ -287,9 +299,14 @@ WORKFLOW: TICKET (From Linear)
 3. Scale planning based on ticket complexity:
    - Simple ticket → Minimal plan (1-3 tasks)
    - Complex ticket → Full plan with architecture
-4. Continue with BUILD phase
-5. Update Linear ticket status as work progresses
-6. Comment on ticket with completion summary
+4. TICKETS - Implicit (no need to ask). Store source ticket in task-status.json:
+   - Set tickets.enabled = true, tickets.type = "linear"
+   - Set tickets.sourceTicket = "<LIN-123>" (the source ticket)
+   - Map ALL tasks to this source ticket in tickets.mapping
+   - Individual task completions become progress comments (not status changes)
+   - Only the COMPLETION SUMMARY sets the ticket to "Done"
+5. Continue with BUILD phase (ticket updates happen automatically per YOUR PROCESS)
+6. COMPLETION SUMMARY via ticket-manager posts summary and sets status to "Done"
 
 WORKFLOW: PRD (From Notion)
 
@@ -305,7 +322,8 @@ WORKFLOW: PRD (From Notion)
    - Never assume - always ask when something is unclear
    - Output: docs/requirements/<feature>.md (validated)
 3. ASK: "This PRD contains X user stories. Should I create Linear tickets, local tickets, or proceed without tickets?"
-4. If tickets requested: Launch ticket-manager to create work items
+4. If tickets requested: Launch ticket-manager to create work items. Store mapping in task-status.json.
+   Ongoing status updates are handled automatically by YOUR PROCESS touchpoints.
 5. Continue with PLAN phase
 
 WORKFLOW: RFC (From Notion)
@@ -412,7 +430,7 @@ LARGE (10+ tasks):
 - Consider breaking into multiple features
 - Use council pattern for planning
 - More frequent user check-ins
-- Create Linear tickets for tracking
+- Recommend ticket tracking (offered after PLAN phase)
 
 YOUR PROCESS (Standard):
 
@@ -428,10 +446,24 @@ YOUR PROCESS (Standard):
    - Verify docs/plans/<feature>.md was created
    - Extract the task list from the plan
    - Update state: phase = "PLAN_COMPLETE"
+3.5. TICKET TRACKING (opt-in) - Offer ticket tracking after plan:
+   - TICKET workflow: Skip asking. Tickets are implicit. Store source ticket in
+     task-status.json with all tasks mapping to it. Set tickets.sourceTicket.
+   - PRD workflow: Already asked at step 3 of PRD workflow. Store the mapping
+     from ticket-manager's CREATE response.
+   - STANDARD, RFC, BOOTSTRAP workflows: ASK: "Plan has X tasks. Track with
+     Linear tickets, local tickets, or no tickets?"
+     If yes: Launch ticket-manager in CREATE mode. Store mapping in task-status.json.
+   - If declined or not applicable: Set tickets.enabled = false in task-status.json.
+     All subsequent touchpoints are guarded by this flag.
 4. For each task in order (respecting dependencies):
    - Update state: currentTask = task ID
+   - TOUCHPOINT 2 - If tickets.enabled: Launch ticket-manager (UPDATE STATUS → "In Progress")
+     for tickets.mapping[currentTask]. For shared tickets (sourceTicket set), this posts a
+     progress comment instead of changing status.
    - PARALLEL EXECUTION: If multiple [P] tasks exist with no dependencies between them,
-     launch their test-writers simultaneously using parallel Task tool calls
+     launch their test-writers simultaneously using parallel Task tool calls.
+     Ticket-manager UPDATE STATUS calls can be launched in parallel alongside test-writers.
    - If it's a Test task: launch test-writer agent
    - If it's an Implement task: launch implementer agent
    - After implementation: launch reviewer agent (watchdog)
@@ -440,9 +472,42 @@ YOUR PROCESS (Standard):
    - Verify tests pass before moving to next task
    - Create git checkpoint: git commit -m "checkpoint: [TXXX] <description>"
    - Update task-status.json with checkpoint hash
+   - TOUCHPOINT 3 - If tickets.enabled: Launch ticket-manager (UPDATE STATUS → "Done")
+     for tickets.mapping[currentTask]. For shared tickets, this posts a progress comment.
+   - TOUCHPOINT 4 - If tickets.enabled: Launch ticket-manager (LINK COMMIT)
+     with ticket ID, commit hash, and commit message.
+     (Touchpoints 3 and 4 can be combined into a single ticket-manager call.)
 5. Launch the documenter agent
-6. Clean up state files (or archive them)
-7. Report completion to user
+6. TOUCHPOINT 5 - If tickets.enabled: Launch ticket-manager (COMPLETION SUMMARY)
+   with feature name, task-status.json path, and plan path.
+   This posts the final summary and sets tickets to "Done".
+7. Clean up state files (or archive them)
+8. Report completion to user
+
+TICKET STATE IN task-status.json:
+
+The task-status.json file includes a top-level tickets section:
+
+    {
+      "feature": "<name>",
+      "tickets": {
+        "enabled": true,
+        "type": "linear | local",
+        "team": "<Linear team, if applicable>",
+        "sourceTicket": "<LIN-123 or null>",
+        "mapping": {
+          "T001": { "ticketId": "<uuid or path>", "identifier": "<LIN-456 or T001>" },
+          "T002": { "ticketId": "<uuid or path>", "identifier": "<LIN-457 or T002>" }
+        }
+      },
+      "tasks": { ... }
+    }
+
+- tickets.enabled: Guards all touchpoints. If false, skip all ticket operations.
+- tickets.sourceTicket: Set in TICKET workflow. When present, all tasks map to
+  this ticket and individual completions are progress comments.
+- tickets.mapping: Persists ticket IDs for resume-safety. On resume, the
+  orchestrator picks up ticket tracking with mapping intact.
 
 PARALLEL EXECUTION RULES:
 
@@ -690,6 +755,7 @@ MODES OF OPERATION:
 2. UPDATE STATUS - Update ticket status as work progresses
 3. LINK COMMIT - Associate commits with tickets
 4. SYNC STATUS - Sync local and Linear status
+5. COMPLETION SUMMARY - Post a summary when all work is done
 
 MODE: CREATE FROM PLAN
 
@@ -746,6 +812,62 @@ Associate a commit with its ticket:
 
 2. If LOCAL:
    - Add commit hash to ticket's Commits section
+
+MODE: COMPLETION SUMMARY
+
+Post a final summary when all tasks are complete:
+
+1. Read docs/state/task-status.json for task completion data
+2. Read the plan (docs/plans/<feature>.md) for context
+3. Read git log for commit history
+
+4. If LINEAR:
+   mcp__plugin_forge_linear__create_comment
+     issueId: "<issue ID>"
+     body: "<completion summary from template below>"
+
+   mcp__plugin_forge_linear__update_issue
+     id: "<issue ID>"
+     state: "Done"
+
+5. If LOCAL:
+   - Append completion summary to ticket file
+   - Update status to Completed
+   - Move file to docs/tickets/completed/
+
+COMPLETION SUMMARY TEMPLATE:
+
+    ## Completion Summary
+
+    ### Tasks Completed
+    - [T001] <title> ✓
+    - [T002] <title> ✓
+    - [T003] <title> ✓
+
+    ### Test Results
+    - X tests passing, 0 failing
+
+    ### Files Changed
+    | File | Change |
+    |------|--------|
+    | path/to/file | Created/Modified |
+
+    ### Git Checkpoints
+    - `abc123` - checkpoint: [T001] <description>
+    - `def456` - checkpoint: [T002] <description>
+
+    ### Documentation
+    - Requirements: docs/requirements/<feature>.md
+    - Plan: docs/plans/<feature>.md
+    - Decisions: docs/decisions/<feature>.md
+
+SHARED TICKET AWARENESS (TICKET workflow):
+
+When all tasks map to the same source ticket (i.e., tickets.sourceTicket is set):
+- Individual task completions → post PROGRESS COMMENTS, not status changes
+- Only COMPLETION SUMMARY sets the ticket to "Done"
+- Progress comment format:
+  "Task [TXXX] complete: <title>. X of Y tasks done."
 
 LOCAL TICKET TEMPLATE:
 
@@ -813,6 +935,19 @@ CRITICAL RULES:
 - Maintain bidirectional links (ticket ↔ code)
 - Update status promptly
 - Include meaningful descriptions
+
+STATE AWARENESS:
+
+Before performing any operation, read docs/state/task-status.json for context:
+
+- tickets.enabled - If false, report that ticket tracking is not active and exit
+- tickets.type - "linear" or "local" (determines which tools to use)
+- tickets.team - Linear team name (if applicable)
+- tickets.sourceTicket - Source ticket ID (TICKET workflow); when set, all tasks map to this ticket
+- tickets.mapping - Maps task IDs to ticket IDs/paths (e.g., T001 → LIN-456 or docs/tickets/active/T001-slug.md)
+
+Use this state to determine ticket IDs without needing them passed explicitly.
+If the state file doesn't exist or has no tickets section, ASK the orchestrator for ticket context.
 ```
 
 ### 1. clarifier.md
@@ -1801,6 +1936,15 @@ If this code were deleted, here's how to rebuild it:
 ```json
 {
   "feature": "<feature-name>",
+  "tickets": {
+    "enabled": true,
+    "type": "linear | local",
+    "team": "<Linear team, if applicable>",
+    "sourceTicket": "<LIN-123 or null>",
+    "mapping": {
+      "T001": { "ticketId": "<uuid or path>", "identifier": "<LIN-456 or T001>" }
+    }
+  },
   "tasks": {
     "T001": {
       "status": "pending | in_progress | completed | failed",

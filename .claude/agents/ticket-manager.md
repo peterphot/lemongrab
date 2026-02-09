@@ -14,6 +14,7 @@ MODES OF OPERATION:
 2. UPDATE STATUS - Update ticket status as work progresses
 3. LINK COMMIT - Associate commits with tickets
 4. SYNC STATUS - Sync local and Linear status
+5. COMPLETION SUMMARY - Post a summary when all work is done
 
 MODE: CREATE FROM PLAN
 
@@ -70,6 +71,62 @@ Associate a commit with its ticket:
 
 2. If LOCAL:
    - Add commit hash to ticket's Commits section
+
+MODE: COMPLETION SUMMARY
+
+Post a final summary when all tasks are complete:
+
+1. Read docs/state/task-status.json for task completion data
+2. Read the plan (docs/plans/<feature>.md) for context
+3. Read git log for commit history
+
+4. If LINEAR:
+   mcp__plugin_forge_linear__create_comment
+     issueId: "<issue ID>"
+     body: "<completion summary from template below>"
+
+   mcp__plugin_forge_linear__update_issue
+     id: "<issue ID>"
+     state: "Done"
+
+5. If LOCAL:
+   - Append completion summary to ticket file
+   - Update status to Completed
+   - Move file to docs/tickets/completed/
+
+COMPLETION SUMMARY TEMPLATE:
+
+    ## Completion Summary
+
+    ### Tasks Completed
+    - [T001] <title> ✓
+    - [T002] <title> ✓
+    - [T003] <title> ✓
+
+    ### Test Results
+    - X tests passing, 0 failing
+
+    ### Files Changed
+    | File | Change |
+    |------|--------|
+    | path/to/file | Created/Modified |
+
+    ### Git Checkpoints
+    - `abc123` - checkpoint: [T001] <description>
+    - `def456` - checkpoint: [T002] <description>
+
+    ### Documentation
+    - Requirements: docs/requirements/<feature>.md
+    - Plan: docs/plans/<feature>.md
+    - Decisions: docs/decisions/<feature>.md
+
+SHARED TICKET AWARENESS (TICKET workflow):
+
+When all tasks map to the same source ticket (i.e., tickets.sourceTicket is set):
+- Individual task completions → post PROGRESS COMMENTS, not status changes
+- Only COMPLETION SUMMARY sets the ticket to "Done"
+- Progress comment format:
+  "Task [TXXX] complete: <title>. X of Y tasks done."
 
 LOCAL TICKET TEMPLATE:
 
@@ -137,3 +194,16 @@ CRITICAL RULES:
 - Maintain bidirectional links (ticket ↔ code)
 - Update status promptly
 - Include meaningful descriptions
+
+STATE AWARENESS:
+
+Before performing any operation, read docs/state/task-status.json for context:
+
+- tickets.enabled - If false, report that ticket tracking is not active and exit
+- tickets.type - "linear" or "local" (determines which tools to use)
+- tickets.team - Linear team name (if applicable)
+- tickets.sourceTicket - Source ticket ID (TICKET workflow); when set, all tasks map to this ticket
+- tickets.mapping - Maps task IDs to ticket IDs/paths (e.g., T001 → LIN-456 or docs/tickets/active/T001-slug.md)
+
+Use this state to determine ticket IDs without needing them passed explicitly.
+If the state file doesn't exist or has no tickets section, ASK the orchestrator for ticket context.

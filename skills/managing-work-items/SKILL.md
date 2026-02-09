@@ -329,6 +329,69 @@ Add to ticket's Commits section:
 - `abc123` - feat(auth): add login endpoint
 ```
 
+## Completion Summary
+
+When all tasks for a feature are complete, post a final summary to the ticket(s).
+
+### Completion Summary Template
+
+```markdown
+## Completion Summary
+
+### Tasks Completed
+- [T001] <title> ✓
+- [T002] <title> ✓
+- [T003] <title> ✓
+
+### Test Results
+- X tests passing, 0 failing
+
+### Files Changed
+| File | Change |
+|------|--------|
+| path/to/file | Created/Modified |
+
+### Git Checkpoints
+- `abc123` - checkpoint: [T001] <description>
+- `def456` - checkpoint: [T002] <description>
+
+### Documentation
+- Requirements: docs/requirements/<feature>.md
+- Plan: docs/plans/<feature>.md
+- Decisions: docs/decisions/<feature>.md
+```
+
+### Summary Content Guidance
+
+- **Tasks:** List all tasks with completion status from task-status.json
+- **Test results:** Run test suite and report pass/fail counts
+- **Files changed:** Aggregate from git log across all checkpoints
+- **Checkpoints:** List commit hashes and messages from task-status.json
+- **Documentation:** Link to all generated docs
+
+### Shared Ticket (TICKET workflow)
+
+When all tasks map to the same source ticket:
+- Individual task completions are progress comments (not status changes)
+- Only the completion summary sets the ticket to "Done"
+- Progress comment format: "Task [TXXX] complete: <title>. X of Y tasks done."
+
+### Posting the Summary
+
+**Linear:**
+```
+mcp__plugin_forge_linear__create_comment
+  issueId: "[issue ID]"
+  body: "[completion summary]"
+
+mcp__plugin_forge_linear__update_issue
+  id: "[issue ID]"
+  state: "Done"
+```
+
+**Local:**
+Append summary to ticket file, update status to Completed, move to completed/.
+
 ## Checklist
 
 ### Before Creating Tickets
@@ -353,4 +416,5 @@ Add to ticket's Commits section:
 - [ ] Status set to Done/Completed
 - [ ] All commits linked
 - [ ] Files changed documented
+- [ ] Completion summary added to ticket
 - [ ] Moved to completed (local)

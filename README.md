@@ -186,8 +186,22 @@ Lemongrab supports multiple entry points depending on your situation:
 │                                   │                                 │
 │                                   ▼                                 │
 │  ┌───────────────────────────────────────────────────────────────┐  │
+│  │  2.5 TICKET TRACKING (opt-in)                                 │  │
+│  │     "Track with Linear tickets, local tickets, or none?"      │  │
+│  │     → If yes: TICKET MANAGER creates tickets from plan        │  │
+│  │     → Stores mapping in task-status.json                      │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+│                                   │                                 │
+│                                   ▼                                 │
+│  ┌───────────────────────────────────────────────────────────────┐  │
 │  │  3-6. FOR EACH TASK (automatic, no input needed)              │  │
 │  │                                                               │  │
+│  │     ┌─────────────────┐                                       │  │
+│  │     │ TICKET MANAGER  │  Mark ticket "In Progress"            │  │
+│  │     │ (if enabled)    │  (runs in parallel with test-writer)  │  │
+│  │     └────────┬────────┘                                       │  │
+│  │              │                                                │  │
+│  │              ▼                                                │  │
 │  │     ┌─────────────────┐                                       │  │
 │  │     │  TEST WRITER    │  Write tests for this task            │  │
 │  │     │  (RED phase)    │  → Tests FAIL (correct!)              │  │
@@ -202,7 +216,7 @@ Lemongrab supports multiple entry points depending on your situation:
 │  │              │                                                │  │
 │  │              ▼                                                │  │
 │  │     ┌─────────────────┐                                       │  │
-│  │     │  REVIEWER       │  Validate before cleanup (NEW!)       │  │
+│  │     │  REVIEWER       │  Validate before cleanup              │  │
 │  │     │  (WATCHDOG)     │  → APPROVED or NEEDS_FIXES            │  │
 │  │     └────────┬────────┘                                       │  │
 │  │              │                                                │  │
@@ -215,6 +229,12 @@ Lemongrab supports multiple entry points depending on your situation:
 │  │              ▼                                                │  │
 │  │     ┌─────────────────┐                                       │  │
 │  │     │  GIT CHECKPOINT │  Commit for rollback capability       │  │
+│  │     └────────┬────────┘                                       │  │
+│  │              │                                                │  │
+│  │              ▼                                                │  │
+│  │     ┌─────────────────┐                                       │  │
+│  │     │ TICKET MANAGER  │  Mark "Done" + link commit            │  │
+│  │     │ (if enabled)    │  (after checkpoint)                   │  │
 │  │     └─────────────────┘                                       │  │
 │  └───────────────────────────────────────────────────────────────┘  │
 │                                   │                                 │
@@ -224,6 +244,13 @@ Lemongrab supports multiple entry points depending on your situation:
 │  │     "Why did we build it this way?"                           │  │
 │  │     → Adds comments, creates decision log                     │  │
 │  │     → Output: docs/decisions/<feature>.md                     │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+│                                   │                                 │
+│                                   ▼                                 │
+│  ┌───────────────────────────────────────────────────────────────┐  │
+│  │  8. TICKET MANAGER (if enabled)                               │  │
+│  │     Posts completion summary to ticket(s)                      │  │
+│  │     Sets final status to "Done"                                │  │
 │  └───────────────────────────────────────────────────────────────┘  │
 │                                   │                                 │
 │                                   ▼                                 │
@@ -260,14 +287,18 @@ Lemongrab supports multiple entry points depending on your situation:
                                    │
                                    ▼
                     [Standard BUILD cycle]
+                    Ticket status updated automatically per-task:
+                    • "In Progress" at task start (progress comment)
+                    • "Done" comment + commit link at task end
                                    │
                                    ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│  TICKET MANAGER (updates Linear)                                    │
+│  TICKET MANAGER (completion summary)                                │
 ├─────────────────────────────────────────────────────────────────────┤
-│  • Updates ticket status: Done                                      │
-│  • Adds completion comment with summary                             │
-│  • Links commits to ticket                                          │
+│  • Posts completion summary with all tasks, tests, files changed    │
+│  • Sets ticket status to Done (only now, not per-task)              │
+│  • Links all commits to ticket                                      │
+│  (Individual per-task updates happened during BUILD)                │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -307,6 +338,8 @@ Lemongrab supports multiple entry points depending on your situation:
                                    ▼
                     [Standard PLAN → BUILD cycle]
                     (Skips CLARIFY - PRD provides requirements)
+                    If tickets enabled, status updates happen
+                    automatically during BUILD per-task
 ```
 
 ---
@@ -376,7 +409,7 @@ Reviewer agent catches issues between implementation and simplification.
 |-------|---------|-------------|
 | **Lemongrab** | Runs workflows with multiple entry points | Every workflow (recommended entry point) |
 | **Analyzer** | Builds context from code, PRDs, RFCs, tickets | Joining projects, extracting requirements |
-| **Ticket Manager** | Creates/tracks work items in Linear or locally | Planning work, tracking progress |
+| **Ticket Manager** | Creates/tracks work items, updates status per-task, posts completion summaries | After planning (create), during build (status/commits), at completion (summary) |
 | **Clarifier** | Gathers requirements through questions | Start of any new feature |
 | **Planner** | Creates technical design + tasks | After requirements are clear |
 | **Test Writer** | Writes failing tests | Before implementation |
