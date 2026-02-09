@@ -186,7 +186,7 @@ Lemongrab supports multiple entry points depending on your situation:
 │                                   │                                 │
 │                                   ▼                                 │
 │  ┌───────────────────────────────────────────────────────────────┐  │
-│  │  2.5 TICKET TRACKING (opt-in)                                 │  │
+│  │  3.5 TICKET TRACKING (opt-in)                                 │  │
 │  │     "Track with Linear tickets, local tickets, or none?"      │  │
 │  │     → If yes: TICKET MANAGER creates tickets from plan        │  │
 │  │     → Stores mapping in task-status.json                      │  │

@@ -1684,6 +1684,8 @@ git reset --hard <checkpoint-hash>
 | **reviewer**     | Validate before cleanup (NEW)       | NEVER modify - only report    |
 | simplifier       | Remove complexity                   | Keep tests GREEN              |
 | documenter       | Explain the WHY                     | Update existing docs          |
+| analyzer         | Build context from code/PRDs/RFCs   | Read-only - never modify code |
+| ticket-manager   | Create/track tickets, status updates, completion summaries | Follow tickets.enabled guard  |
 
 ---
 
