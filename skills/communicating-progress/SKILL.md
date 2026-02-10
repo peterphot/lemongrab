@@ -348,10 +348,25 @@ When updating workflow state, use these formats:
 ### task-status.json
 ```json
 {
-  "T001": {"status": "complete", "checkpoint": "abc123"},
-  "T002": {"status": "complete", "checkpoint": "def456"},
-  "T003": {"status": "complete", "checkpoint": "ghi789"},
-  "T004": {"status": "in_progress", "started": "2024-01-15T10:30:00Z"}
+  "feature": "user-authentication",
+  "tickets": {
+    "enabled": true,
+    "type": "linear",
+    "team": "Engineering",
+    "sourceTicket": null,
+    "mapping": {
+      "T001": { "ticketId": "uuid-001", "identifier": "LIN-456" },
+      "T002": { "ticketId": "uuid-002", "identifier": "LIN-457" },
+      "T003": { "ticketId": "uuid-003", "identifier": "LIN-458" },
+      "T004": { "ticketId": "uuid-004", "identifier": "LIN-459" }
+    }
+  },
+  "tasks": {
+    "T001": {"status": "complete", "checkpoint": "abc123"},
+    "T002": {"status": "complete", "checkpoint": "def456"},
+    "T003": {"status": "complete", "checkpoint": "ghi789"},
+    "T004": {"status": "in_progress", "started": "2024-01-15T10:30:00Z"}
+  }
 }
 ```
 
