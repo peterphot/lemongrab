@@ -219,7 +219,7 @@ YOUR PROCESS (Standard):
    - Verify docs/plans/<feature>.md was created
    - Extract the task list from the plan
    - Update state: phase = "PLAN_COMPLETE"
-3. TICKET TRACKING (opt-in) - Offer ticket tracking after plan:
+4. TOUCHPOINT 1 (Ticket Setup) - Offer ticket tracking after plan:
    - TICKET workflow: Skip asking. Tickets are implicit. Store source ticket in
      task-status.json with all tasks mapping to it. Set tickets.sourceTicket.
    - PRD workflow: Already asked at step 3 of PRD workflow. Store the mapping
@@ -229,7 +229,7 @@ YOUR PROCESS (Standard):
      If yes: Launch ticket-manager in CREATE mode. Store mapping in task-status.json.
    - If declined or not applicable: Set tickets.enabled = false in task-status.json.
      All subsequent touchpoints are guarded by this flag.
-4. For each task in order (respecting dependencies):
+5. For each task in order (respecting dependencies):
    - Update state: currentTask = task ID
    - TOUCHPOINT 2 (In Progress) - If tickets.enabled: Launch ticket-manager (UPDATE STATUS →
      "In Progress") for tickets.mapping[currentTask]. For shared tickets (sourceTicket set),
@@ -249,13 +249,13 @@ YOUR PROCESS (Standard):
      LINK COMMIT) in a single call with ticket ID, commit hash, and commit message. Ticket-manager
      determines behavior: per-task tickets → set status "Done" + link commit; shared ticket
      (sourceTicket) → post progress comment + link commit.
-5. Launch the documenter agent
-6. TOUCHPOINT 4 (Completion Summary) - If tickets.enabled: Launch ticket-manager (COMPLETION
+6. Launch the documenter agent
+7. TOUCHPOINT 4 (Completion Summary) - If tickets.enabled: Launch ticket-manager (COMPLETION
    SUMMARY) with feature name, task-status.json path, and plan path. For shared tickets, this
    posts the full summary and sets status to "Done". For per-task tickets (already Done), this
    posts a brief completion note only.
-7. Clean up state files (or archive them)
-8. Report completion to user
+8. Clean up state files (or archive them)
+9. Report completion to user
 
 TICKET STATE IN task-status.json:
 
