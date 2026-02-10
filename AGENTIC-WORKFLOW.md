@@ -458,9 +458,9 @@ YOUR PROCESS (Standard):
      All subsequent touchpoints are guarded by this flag.
 4. For each task in order (respecting dependencies):
    - Update state: currentTask = task ID
-   - TOUCHPOINT 2 - If tickets.enabled: Launch ticket-manager (UPDATE STATUS → "In Progress")
-     for tickets.mapping[currentTask]. For shared tickets (sourceTicket set), this posts a
-     progress comment instead of changing status.
+   - TOUCHPOINT 2 (In Progress) - If tickets.enabled: Launch ticket-manager (UPDATE STATUS →
+     "In Progress") for tickets.mapping[currentTask]. For shared tickets (sourceTicket set),
+     this posts a progress comment instead of changing status.
    - PARALLEL EXECUTION: If multiple [P] tasks exist with no dependencies between them,
      launch their test-writers simultaneously using parallel Task tool calls.
      Ticket-manager UPDATE STATUS calls can be launched in parallel alongside test-writers.
@@ -472,14 +472,15 @@ YOUR PROCESS (Standard):
    - Verify tests pass before moving to next task
    - Create git checkpoint: git commit -m "checkpoint: [TXXX] <description>"
    - Update task-status.json with checkpoint hash
-   - TOUCHPOINTS 3+4 - If tickets.enabled: Launch ticket-manager (TASK COMPLETE + LINK COMMIT)
-     in a single call with ticket ID, commit hash, and commit message. Ticket-manager determines
-     behavior: per-task tickets → set status "Done" + link commit; shared ticket (sourceTicket)
-     → post progress comment + link commit.
+   - TOUCHPOINT 3 (Task Complete) - If tickets.enabled: Launch ticket-manager (TASK COMPLETE +
+     LINK COMMIT) in a single call with ticket ID, commit hash, and commit message. Ticket-manager
+     determines behavior: per-task tickets → set status "Done" + link commit; shared ticket
+     (sourceTicket) → post progress comment + link commit.
 5. Launch the documenter agent
-6. TOUCHPOINT 5 - If tickets.enabled: Launch ticket-manager (COMPLETION SUMMARY)
-   with feature name, task-status.json path, and plan path.
-   This posts the final summary and sets tickets to "Done".
+6. TOUCHPOINT 4 (Completion Summary) - If tickets.enabled: Launch ticket-manager (COMPLETION
+   SUMMARY) with feature name, task-status.json path, and plan path. For shared tickets, this
+   posts the full summary and sets status to "Done". For per-task tickets (already Done), this
+   posts a brief completion note only.
 7. Clean up state files (or archive them)
 8. Report completion to user
 
@@ -836,21 +837,26 @@ Post a final summary when all tasks are complete:
    - If multiple per-task tickets (no sourceTicket): post a brief completion note to each
      ticket referencing the overall feature, not the full summary. Example:
      "Task [TXXX] completed as part of <feature>. See docs/decisions/<feature>.md for full summary."
-     Then set each ticket to Done.
+     Do NOT change status — per-task tickets were already set to "Done" during TASK COMPLETE.
 
 4. If LINEAR:
-   mcp__plugin_forge_linear__create_comment
-     issueId: "<issue ID>"
-     body: "<completion summary from template below>"
+   - Shared ticket (sourceTicket set):
+     mcp__plugin_forge_linear__create_comment
+       issueId: "<source ticket ID>"
+       body: "<completion summary from template below>"
 
-   mcp__plugin_forge_linear__update_issue
-     id: "<issue ID>"
-     state: "Done"
+     mcp__plugin_forge_linear__update_issue
+       id: "<source ticket ID>"
+       state: "Done"
+
+   - Per-task tickets (no sourceTicket): post brief note only, no status change
+     mcp__plugin_forge_linear__create_comment
+       issueId: "<each ticket ID>"
+       body: "Completed as part of <feature>. See docs/decisions/<feature>.md for full summary."
 
 5. If LOCAL:
-   - Append completion summary to ticket file
-   - Update status to Completed
-   - Move file to docs/tickets/completed/
+   - Shared ticket: append completion summary, update status to Completed, move to completed/
+   - Per-task tickets: append brief note only (already in completed/)
 
 COMPLETION SUMMARY TEMPLATE:
 

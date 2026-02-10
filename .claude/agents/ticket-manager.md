@@ -92,21 +92,26 @@ Post a final summary when all tasks are complete:
    - If multiple per-task tickets (no sourceTicket): post a brief completion note to each
      ticket referencing the overall feature, not the full summary. Example:
      "Task [TXXX] completed as part of <feature>. See docs/decisions/<feature>.md for full summary."
-     Then set each ticket to Done.
+     Do NOT change status — per-task tickets were already set to "Done" during TASK COMPLETE.
 
 4. If LINEAR:
-   mcp__plugin_forge_linear__create_comment
-     issueId: "<issue ID>"
-     body: "<completion summary from template below>"
+   - Shared ticket (sourceTicket set):
+     mcp__plugin_forge_linear__create_comment
+       issueId: "<source ticket ID>"
+       body: "<completion summary from template below>"
 
-   mcp__plugin_forge_linear__update_issue
-     id: "<issue ID>"
-     state: "Done"
+     mcp__plugin_forge_linear__update_issue
+       id: "<source ticket ID>"
+       state: "Done"
+
+   - Per-task tickets (no sourceTicket): post brief note only, no status change
+     mcp__plugin_forge_linear__create_comment
+       issueId: "<each ticket ID>"
+       body: "Completed as part of <feature>. See docs/decisions/<feature>.md for full summary."
 
 5. If LOCAL:
-   - Append completion summary to ticket file
-   - Update status to Completed
-   - Move file to docs/tickets/completed/
+   - Shared ticket: append completion summary, update status to Completed, move to completed/
+   - Per-task tickets: append brief note only (already in completed/)
 
 COMPLETION SUMMARY TEMPLATE:
 

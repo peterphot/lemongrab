@@ -380,25 +380,36 @@ When all tasks map to the same source ticket:
 ### Per-Task Tickets (STANDARD/PRD workflows)
 
 When each task has its own ticket:
+- Each ticket was already set to "Done" during TASK COMPLETE — do NOT change status again
 - Each ticket gets a brief completion note, not the full feature summary
-- Format: "Task [TXXX] completed as part of <feature>. See docs/decisions/<feature>.md for full summary."
+- Format: "Completed as part of <feature>. See docs/decisions/<feature>.md for full summary."
 - The full completion summary goes to the decision log, not to individual tickets
 
 ### Posting the Summary
 
-**Linear:**
+**Linear (shared ticket):**
 ```
 mcp__plugin_forge_linear__create_comment
-  issueId: "[issue ID]"
+  issueId: "[source ticket ID]"
   body: "[completion summary]"
 
 mcp__plugin_forge_linear__update_issue
-  id: "[issue ID]"
+  id: "[source ticket ID]"
   state: "Done"
 ```
 
-**Local:**
+**Linear (per-task tickets):** Post brief note only, no status change.
+```
+mcp__plugin_forge_linear__create_comment
+  issueId: "[each ticket ID]"
+  body: "Completed as part of <feature>. See docs/decisions/<feature>.md for full summary."
+```
+
+**Local (shared ticket):**
 Append summary to ticket file, update status to Completed, move to completed/.
+
+**Local (per-task tickets):**
+Append brief note only (tickets already in completed/).
 
 ## Checklist
 
