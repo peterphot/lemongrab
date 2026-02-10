@@ -186,7 +186,7 @@ Lemongrab supports multiple entry points depending on your situation:
 │                                   │                                 │
 │                                   ▼                                 │
 │  ┌───────────────────────────────────────────────────────────────┐  │
-│  │  3.5 TICKET TRACKING (opt-in)                                 │  │
+│  │  3. TICKET TRACKING (opt-in)                                  │  │
 │  │     "Track with Linear tickets, local tickets, or none?"      │  │
 │  │     → If yes: TICKET MANAGER creates tickets from plan        │  │
 │  │     → Stores mapping in task-status.json                      │  │
@@ -194,7 +194,7 @@ Lemongrab supports multiple entry points depending on your situation:
 │                                   │                                 │
 │                                   ▼                                 │
 │  ┌───────────────────────────────────────────────────────────────┐  │
-│  │  3-6. FOR EACH TASK (automatic, no input needed)              │  │
+│  │  4. FOR EACH TASK (automatic, no input needed)                │  │
 │  │                                                               │  │
 │  │     ┌─────────────────┐                                       │  │
 │  │     │ TICKET MANAGER  │  Mark ticket "In Progress"            │  │
@@ -240,7 +240,7 @@ Lemongrab supports multiple entry points depending on your situation:
 │                                   │                                 │
 │                                   ▼                                 │
 │  ┌───────────────────────────────────────────────────────────────┐  │
-│  │  7. DOCUMENTER                                                │  │
+│  │  5. DOCUMENTER                                                │  │
 │  │     "Why did we build it this way?"                           │  │
 │  │     → Adds comments, creates decision log                     │  │
 │  │     → Output: docs/decisions/<feature>.md                     │  │
@@ -248,7 +248,7 @@ Lemongrab supports multiple entry points depending on your situation:
 │                                   │                                 │
 │                                   ▼                                 │
 │  ┌───────────────────────────────────────────────────────────────┐  │
-│  │  8. TICKET MANAGER (if enabled)                               │  │
+│  │  6. TICKET MANAGER (if enabled)                               │  │
 │  │     Posts completion summary to ticket(s)                      │  │
 │  │     Sets final status to "Done"                                │  │
 │  └───────────────────────────────────────────────────────────────┘  │

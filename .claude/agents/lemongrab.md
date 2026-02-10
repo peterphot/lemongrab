@@ -219,7 +219,7 @@ YOUR PROCESS (Standard):
    - Verify docs/plans/<feature>.md was created
    - Extract the task list from the plan
    - Update state: phase = "PLAN_COMPLETE"
-3.5. TICKET TRACKING (opt-in) - Offer ticket tracking after plan:
+3. TICKET TRACKING (opt-in) - Offer ticket tracking after plan:
    - TICKET workflow: Skip asking. Tickets are implicit. Store source ticket in
      task-status.json with all tasks mapping to it. Set tickets.sourceTicket.
    - PRD workflow: Already asked at step 3 of PRD workflow. Store the mapping
@@ -245,11 +245,11 @@ YOUR PROCESS (Standard):
    - Verify tests pass before moving to next task
    - Create git checkpoint: git commit -m "checkpoint: [TXXX] <description>"
    - Update task-status.json with checkpoint hash
-   - TOUCHPOINT 3 - If tickets.enabled: Launch ticket-manager (UPDATE STATUS → "Done")
-     for tickets.mapping[currentTask]. For shared tickets, this posts a progress comment.
+   - TOUCHPOINT 3 - If tickets.enabled: Launch ticket-manager (TASK COMPLETE)
+     for tickets.mapping[currentTask]. Ticket-manager determines behavior:
+     per-task tickets → set status "Done"; shared ticket (sourceTicket) → post progress comment.
    - TOUCHPOINT 4 - If tickets.enabled: Launch ticket-manager (LINK COMMIT)
      with ticket ID, commit hash, and commit message.
-     (Touchpoints 3 and 4 can be combined into a single ticket-manager call.)
 5. Launch the documenter agent
 6. TOUCHPOINT 5 - If tickets.enabled: Launch ticket-manager (COMPLETION SUMMARY)
    with feature name, task-status.json path, and plan path.

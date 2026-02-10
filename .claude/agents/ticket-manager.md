@@ -79,6 +79,8 @@ Post a final summary when all tasks are complete:
 1. Read docs/state/task-status.json for task completion data
 2. Read the plan (docs/plans/<feature>.md) for context
 3. Read git log for commit history
+   - If sourceTicket is set: post summary to that single ticket
+   - If multiple tickets (no sourceTicket): post summary to each ticket and set all to Done
 
 4. If LINEAR:
    mcp__plugin_forge_linear__create_comment

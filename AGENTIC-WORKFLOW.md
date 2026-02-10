@@ -46,7 +46,7 @@ This workflow enforces:
 │  [2. Planner] → Asks tech decisions ←── Human answers              │
 │         ↓        (Optional: Council pattern - multiple planners)   │
 │                                                                    │
-│  [3.5 Ticket Tracking] → Opt-in: Linear, local, or none            │
+│  [3. Ticket Tracking] → Opt-in: Linear, local, or none             │
 │         ↓                                                          │
 │  [4. Per Task Loop]:                                               │
 │      ┌─────────────────────────────────────────────────────────┐   │
@@ -446,7 +446,7 @@ YOUR PROCESS (Standard):
    - Verify docs/plans/<feature>.md was created
    - Extract the task list from the plan
    - Update state: phase = "PLAN_COMPLETE"
-3.5. TICKET TRACKING (opt-in) - Offer ticket tracking after plan:
+3. TICKET TRACKING (opt-in) - Offer ticket tracking after plan:
    - TICKET workflow: Skip asking. Tickets are implicit. Store source ticket in
      task-status.json with all tasks mapping to it. Set tickets.sourceTicket.
    - PRD workflow: Already asked at step 3 of PRD workflow. Store the mapping
@@ -472,11 +472,11 @@ YOUR PROCESS (Standard):
    - Verify tests pass before moving to next task
    - Create git checkpoint: git commit -m "checkpoint: [TXXX] <description>"
    - Update task-status.json with checkpoint hash
-   - TOUCHPOINT 3 - If tickets.enabled: Launch ticket-manager (UPDATE STATUS → "Done")
-     for tickets.mapping[currentTask]. For shared tickets, this posts a progress comment.
+   - TOUCHPOINT 3 - If tickets.enabled: Launch ticket-manager (TASK COMPLETE)
+     for tickets.mapping[currentTask]. Ticket-manager determines behavior:
+     per-task tickets → set status "Done"; shared ticket (sourceTicket) → post progress comment.
    - TOUCHPOINT 4 - If tickets.enabled: Launch ticket-manager (LINK COMMIT)
      with ticket ID, commit hash, and commit message.
-     (Touchpoints 3 and 4 can be combined into a single ticket-manager call.)
 5. Launch the documenter agent
 6. TOUCHPOINT 5 - If tickets.enabled: Launch ticket-manager (COMPLETION SUMMARY)
    with feature name, task-status.json path, and plan path.
@@ -820,6 +820,8 @@ Post a final summary when all tasks are complete:
 1. Read docs/state/task-status.json for task completion data
 2. Read the plan (docs/plans/<feature>.md) for context
 3. Read git log for commit history
+   - If sourceTicket is set: post summary to that single ticket
+   - If multiple tickets (no sourceTicket): post summary to each ticket and set all to Done
 
 4. If LINEAR:
    mcp__plugin_forge_linear__create_comment
@@ -1681,7 +1683,7 @@ git reset --hard <checkpoint-hash>
 | planner          | Technical design + tasks            | NEVER write code - only plan  |
 | test-writer      | Write failing tests per task        | Tests BEFORE code             |
 | implementer      | Pass tests per task                 | MINIMUM code only             |
-| **reviewer**     | Validate before cleanup (NEW)       | NEVER modify - only report    |
+| **reviewer**     | Validate before cleanup             | NEVER modify - only report    |
 | simplifier       | Remove complexity                   | Keep tests GREEN              |
 | documenter       | Explain the WHY                     | Update existing docs          |
 | analyzer         | Build context from code/PRDs/RFCs   | Read-only - never modify code |
