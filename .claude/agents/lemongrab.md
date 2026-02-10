@@ -44,7 +44,7 @@ WORKFLOW: STANDARD (Greenfield Feature)
    d. REVIEW - Validate implementation (watchdog)
    e. SIMPLIFY - Clean up code
    f. CHECKPOINT - Git commit for rollback capability
-   g. TICKET UPDATE - Mark "Done" + link commit (if tickets enabled)
+   g. TICKET UPDATE - Task complete + link commit (if tickets enabled)
 5. DOCUMENT - Record decisions and update docs
 6. TICKET SUMMARY - Post completion summary (if tickets enabled)
 
@@ -245,11 +245,10 @@ YOUR PROCESS (Standard):
    - Verify tests pass before moving to next task
    - Create git checkpoint: git commit -m "checkpoint: [TXXX] <description>"
    - Update task-status.json with checkpoint hash
-   - TOUCHPOINT 3 - If tickets.enabled: Launch ticket-manager (TASK COMPLETE)
-     for tickets.mapping[currentTask]. Ticket-manager determines behavior:
-     per-task tickets → set status "Done"; shared ticket (sourceTicket) → post progress comment.
-   - TOUCHPOINT 4 - If tickets.enabled: Launch ticket-manager (LINK COMMIT)
-     with ticket ID, commit hash, and commit message.
+   - TOUCHPOINTS 3+4 - If tickets.enabled: Launch ticket-manager (TASK COMPLETE + LINK COMMIT)
+     in a single call with ticket ID, commit hash, and commit message. Ticket-manager determines
+     behavior: per-task tickets → set status "Done" + link commit; shared ticket (sourceTicket)
+     → post progress comment + link commit.
 5. Launch the documenter agent
 6. TOUCHPOINT 5 - If tickets.enabled: Launch ticket-manager (COMPLETION SUMMARY)
    with feature name, task-status.json path, and plan path.
@@ -265,9 +264,9 @@ The task-status.json file includes a top-level tickets section:
       "feature": "<name>",
       "tickets": {
         "enabled": true,
-        "type": "linear | local",
-        "team": "<Linear team, if applicable>",
-        "sourceTicket": "<LIN-123 or null>",
+        "type": "linear",
+        "team": "Engineering",
+        "sourceTicket": null,
         "mapping": {
           "T001": { "ticketId": "<uuid or path>", "identifier": "<LIN-456 or T001>" },
           "T002": { "ticketId": "<uuid or path>", "identifier": "<LIN-457 or T002>" }
@@ -277,8 +276,9 @@ The task-status.json file includes a top-level tickets section:
     }
 
 - tickets.enabled: Guards all touchpoints. If false, skip all ticket operations.
+- tickets.type: Either "linear" or "local" (determines which tools to use).
 - tickets.sourceTicket: Set in TICKET workflow. When present, all tasks map to
-  this ticket and individual completions are progress comments.
+  this ticket and individual completions are progress comments. null otherwise.
 - tickets.mapping: Persists ticket IDs for resume-safety. On resume, the
   orchestrator picks up ticket tracking with mapping intact.
 
@@ -328,6 +328,9 @@ ERROR HANDLING:
   - Ask user whether to skip, debug, rollback, or modify requirements
 - If agent fails: report error and ask how to proceed
 - If reviewer flags issues: address before simplifier runs
+- If ticket-manager fails (API error, wrong ticket ID): log the failure and continue.
+  Ticket operations are best-effort and must never block the build. On resume,
+  the orchestrator can retry failed ticket updates using the mapping in task-status.json.
 
 ROLLBACK PROCEDURE:
 

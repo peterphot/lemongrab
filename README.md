@@ -233,7 +233,7 @@ Lemongrab supports multiple entry points depending on your situation:
 │  │              │                                                │  │
 │  │              ▼                                                │  │
 │  │     ┌─────────────────┐                                       │  │
-│  │     │ TICKET MANAGER  │  Mark "Done" + link commit            │  │
+│  │     │ TICKET MANAGER  │  Task complete + link commit           │  │
 │  │     │ (if enabled)    │  (after checkpoint)                   │  │
 │  │     └─────────────────┘                                       │  │
 │  └───────────────────────────────────────────────────────────────┘  │

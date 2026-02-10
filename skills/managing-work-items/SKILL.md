@@ -374,7 +374,15 @@ When all tasks for a feature are complete, post a final summary to the ticket(s)
 When all tasks map to the same source ticket:
 - Individual task completions are progress comments (not status changes)
 - Only the completion summary sets the ticket to "Done"
+- Post the full completion summary template to the shared ticket
 - Progress comment format: "Task [TXXX] complete: <title>. X of Y tasks done."
+
+### Per-Task Tickets (STANDARD/PRD workflows)
+
+When each task has its own ticket:
+- Each ticket gets a brief completion note, not the full feature summary
+- Format: "Task [TXXX] completed as part of <feature>. See docs/decisions/<feature>.md for full summary."
+- The full completion summary goes to the decision log, not to individual tickets
 
 ### Posting the Summary
 

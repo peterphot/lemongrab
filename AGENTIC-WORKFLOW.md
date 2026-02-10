@@ -62,7 +62,7 @@ This workflow enforces:
 │      │        ↓                                                │   │
 │      │  [Git Checkpoint] → Commit progress (ROLLBACK POINT)    │   │
 │      │        ↓                                                │   │
-│      │  [Ticket Manager] → Mark "Done" + link commit (if on)   │   │
+│      │  [Ticket Manager] → Task complete + link commit (if on)  │   │
 │      └─────────────────────────────────────────────────────────┘   │
 │         ↓                                                          │
 │  [5. Documenter] → Updates docs, adds WHY comments                 │
@@ -271,7 +271,7 @@ WORKFLOW: STANDARD (Greenfield Feature)
    d. REVIEW - Validate implementation (watchdog)
    e. SIMPLIFY - Clean up code
    f. CHECKPOINT - Git commit for rollback capability
-   g. TICKET UPDATE - Mark "Done" + link commit (if tickets enabled)
+   g. TICKET UPDATE - Task complete + link commit (if tickets enabled)
 5. DOCUMENT - Record decisions and update docs
 6. TICKET SUMMARY - Post completion summary (if tickets enabled)
 
@@ -472,11 +472,10 @@ YOUR PROCESS (Standard):
    - Verify tests pass before moving to next task
    - Create git checkpoint: git commit -m "checkpoint: [TXXX] <description>"
    - Update task-status.json with checkpoint hash
-   - TOUCHPOINT 3 - If tickets.enabled: Launch ticket-manager (TASK COMPLETE)
-     for tickets.mapping[currentTask]. Ticket-manager determines behavior:
-     per-task tickets → set status "Done"; shared ticket (sourceTicket) → post progress comment.
-   - TOUCHPOINT 4 - If tickets.enabled: Launch ticket-manager (LINK COMMIT)
-     with ticket ID, commit hash, and commit message.
+   - TOUCHPOINTS 3+4 - If tickets.enabled: Launch ticket-manager (TASK COMPLETE + LINK COMMIT)
+     in a single call with ticket ID, commit hash, and commit message. Ticket-manager determines
+     behavior: per-task tickets → set status "Done" + link commit; shared ticket (sourceTicket)
+     → post progress comment + link commit.
 5. Launch the documenter agent
 6. TOUCHPOINT 5 - If tickets.enabled: Launch ticket-manager (COMPLETION SUMMARY)
    with feature name, task-status.json path, and plan path.
@@ -492,9 +491,9 @@ The task-status.json file includes a top-level tickets section:
       "feature": "<name>",
       "tickets": {
         "enabled": true,
-        "type": "linear | local",
-        "team": "<Linear team, if applicable>",
-        "sourceTicket": "<LIN-123 or null>",
+        "type": "linear",
+        "team": "Engineering",
+        "sourceTicket": null,
         "mapping": {
           "T001": { "ticketId": "<uuid or path>", "identifier": "<LIN-456 or T001>" },
           "T002": { "ticketId": "<uuid or path>", "identifier": "<LIN-457 or T002>" }
@@ -504,8 +503,9 @@ The task-status.json file includes a top-level tickets section:
     }
 
 - tickets.enabled: Guards all touchpoints. If false, skip all ticket operations.
+- tickets.type: Either "linear" or "local" (determines which tools to use).
 - tickets.sourceTicket: Set in TICKET workflow. When present, all tasks map to
-  this ticket and individual completions are progress comments.
+  this ticket and individual completions are progress comments. null otherwise.
 - tickets.mapping: Persists ticket IDs for resume-safety. On resume, the
   orchestrator picks up ticket tracking with mapping intact.
 
@@ -554,6 +554,9 @@ ERROR HANDLING:
   - Ask user whether to skip, debug, rollback, or modify requirements
 - If agent fails: report error and ask how to proceed
 - If reviewer flags issues: address before simplifier runs
+- If ticket-manager fails (API error, wrong ticket ID): log the failure and continue.
+  Ticket operations are best-effort and must never block the build. On resume,
+  the orchestrator can retry failed ticket updates using the mapping in task-status.json.
 
 ROLLBACK PROCEDURE:
 
@@ -753,7 +756,7 @@ MODES OF OPERATION:
 
 1. CREATE FROM PLAN - Create tickets from a technical plan
 2. UPDATE STATUS - Update ticket status as work progresses
-3. LINK COMMIT - Associate commits with tickets
+3. TASK COMPLETE + LINK COMMIT - Mark task done and associate commit with ticket (combined)
 4. SYNC STATUS - Sync local and Linear status
 5. COMPLETION SUMMARY - Post a summary when all work is done
 
@@ -801,17 +804,26 @@ Update ticket status as work progresses:
    - Update status checkbox in ticket file
    - Move file between backlog/active/completed
 
-MODE: LINK COMMIT
+MODE: TASK COMPLETE + LINK COMMIT
 
-Associate a commit with its ticket:
+Mark a task done and associate its commit with the ticket. This combined mode
+replaces separate "update status" + "link commit" calls at task end.
 
 1. If LINEAR:
+   - For per-task tickets: update status to "Done" + post commit comment
+   - For shared ticket (sourceTicket set): post progress comment + commit link
    mcp__plugin_forge_linear__create_comment
      issueId: "<issue ID>"
-     body: "Commit `<hash>`: <message>"
+     body: "Task [TXXX] complete: <title>. X of Y tasks done.\nCommit `<hash>`: <message>"
+
+   mcp__plugin_forge_linear__update_issue  (per-task tickets only)
+     id: "<issue ID>"
+     state: "Done"
 
 2. If LOCAL:
+   - Update status checkbox in ticket file
    - Add commit hash to ticket's Commits section
+   - For per-task: move to completed/; for shared: keep in active/
 
 MODE: COMPLETION SUMMARY
 
@@ -820,8 +832,11 @@ Post a final summary when all tasks are complete:
 1. Read docs/state/task-status.json for task completion data
 2. Read the plan (docs/plans/<feature>.md) for context
 3. Read git log for commit history
-   - If sourceTicket is set: post summary to that single ticket
-   - If multiple tickets (no sourceTicket): post summary to each ticket and set all to Done
+   - If sourceTicket is set: post the full feature summary to that single ticket
+   - If multiple per-task tickets (no sourceTicket): post a brief completion note to each
+     ticket referencing the overall feature, not the full summary. Example:
+     "Task [TXXX] completed as part of <feature>. See docs/decisions/<feature>.md for full summary."
+     Then set each ticket to Done.
 
 4. If LINEAR:
    mcp__plugin_forge_linear__create_comment
@@ -938,12 +953,19 @@ CRITICAL RULES:
 - Update status promptly
 - Include meaningful descriptions
 
+FAILURE HANDLING:
+
+Ticket operations are best-effort and must never block the build workflow.
+- If a Linear API call fails: log the error and return a failure report to the orchestrator.
+- Do NOT retry automatically - let the orchestrator decide whether to retry or skip.
+- Include the failed operation details so it can be retried on resume.
+
 STATE AWARENESS:
 
 Before performing any operation, read docs/state/task-status.json for context:
 
 - tickets.enabled - If false, report that ticket tracking is not active and exit
-- tickets.type - "linear" or "local" (determines which tools to use)
+- tickets.type - Either "linear" or "local" (determines which tools to use)
 - tickets.team - Linear team name (if applicable)
 - tickets.sourceTicket - Source ticket ID (TICKET workflow); when set, all tasks map to this ticket
 - tickets.mapping - Maps task IDs to ticket IDs/paths (e.g., T001 → LIN-456 or docs/tickets/active/T001-slug.md)
@@ -1942,9 +1964,9 @@ If this code were deleted, here's how to rebuild it:
   "feature": "<feature-name>",
   "tickets": {
     "enabled": true,
-    "type": "linear | local",
-    "team": "<Linear team, if applicable>",
-    "sourceTicket": "<LIN-123 or null>",
+    "type": "linear",
+    "team": "Engineering",
+    "sourceTicket": null,
     "mapping": {
       "T001": { "ticketId": "<uuid or path>", "identifier": "<LIN-456 or T001>" }
     }

@@ -12,7 +12,7 @@ MODES OF OPERATION:
 
 1. CREATE FROM PLAN - Create tickets from a technical plan
 2. UPDATE STATUS - Update ticket status as work progresses
-3. LINK COMMIT - Associate commits with tickets
+3. TASK COMPLETE + LINK COMMIT - Mark task done and associate commit with ticket (combined)
 4. SYNC STATUS - Sync local and Linear status
 5. COMPLETION SUMMARY - Post a summary when all work is done
 
@@ -60,17 +60,26 @@ Update ticket status as work progresses:
    - Update status checkbox in ticket file
    - Move file between backlog/active/completed
 
-MODE: LINK COMMIT
+MODE: TASK COMPLETE + LINK COMMIT
 
-Associate a commit with its ticket:
+Mark a task done and associate its commit with the ticket. This combined mode
+replaces separate "update status" + "link commit" calls at task end.
 
 1. If LINEAR:
+   - For per-task tickets: update status to "Done" + post commit comment
+   - For shared ticket (sourceTicket set): post progress comment + commit link
    mcp__plugin_forge_linear__create_comment
      issueId: "<issue ID>"
-     body: "Commit `<hash>`: <message>"
+     body: "Task [TXXX] complete: <title>. X of Y tasks done.\nCommit `<hash>`: <message>"
+
+   mcp__plugin_forge_linear__update_issue  (per-task tickets only)
+     id: "<issue ID>"
+     state: "Done"
 
 2. If LOCAL:
+   - Update status checkbox in ticket file
    - Add commit hash to ticket's Commits section
+   - For per-task: move to completed/; for shared: keep in active/
 
 MODE: COMPLETION SUMMARY
 
@@ -79,8 +88,11 @@ Post a final summary when all tasks are complete:
 1. Read docs/state/task-status.json for task completion data
 2. Read the plan (docs/plans/<feature>.md) for context
 3. Read git log for commit history
-   - If sourceTicket is set: post summary to that single ticket
-   - If multiple tickets (no sourceTicket): post summary to each ticket and set all to Done
+   - If sourceTicket is set: post the full feature summary to that single ticket
+   - If multiple per-task tickets (no sourceTicket): post a brief completion note to each
+     ticket referencing the overall feature, not the full summary. Example:
+     "Task [TXXX] completed as part of <feature>. See docs/decisions/<feature>.md for full summary."
+     Then set each ticket to Done.
 
 4. If LINEAR:
    mcp__plugin_forge_linear__create_comment
@@ -197,12 +209,19 @@ CRITICAL RULES:
 - Update status promptly
 - Include meaningful descriptions
 
+FAILURE HANDLING:
+
+Ticket operations are best-effort and must never block the build workflow.
+- If a Linear API call fails: log the error and return a failure report to the orchestrator.
+- Do NOT retry automatically - let the orchestrator decide whether to retry or skip.
+- Include the failed operation details so it can be retried on resume.
+
 STATE AWARENESS:
 
 Before performing any operation, read docs/state/task-status.json for context:
 
 - tickets.enabled - If false, report that ticket tracking is not active and exit
-- tickets.type - "linear" or "local" (determines which tools to use)
+- tickets.type - Either "linear" or "local" (determines which tools to use)
 - tickets.team - Linear team name (if applicable)
 - tickets.sourceTicket - Source ticket ID (TICKET workflow); when set, all tasks map to this ticket
 - tickets.mapping - Maps task IDs to ticket IDs/paths (e.g., T001 → LIN-456 or docs/tickets/active/T001-slug.md)
