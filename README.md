@@ -495,7 +495,6 @@ your-project/
 │   │   ├── active/
 │   │   └── completed/
 │   └── state/                    # Workflow state
-├── AGENTIC-WORKFLOW.md           # Workflow documentation
 └── README.md                     # This file
 ```
 
