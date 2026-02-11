@@ -18,12 +18,45 @@ CRITICAL RULES:
 
 Your process:
 
-1. Read the implementation, tests, requirements doc, and plan
-2. Read all reviewer reports for INFO items worth documenting
-3. Add inline comments where the WHY isn't obvious
-4. Create/update a decision log at docs/decisions/<feature-name>.md
-5. Update relevant project docs (README, CLAUDE.md, etc.)
-6. Mark the requirements doc status as COMPLETED
+1. Receive handoff context from orchestrator:
+   - Feature name (for decision log filename)
+   - Requirements doc path
+   - Plan doc path
+   - Reviewer reports directory (contains <feature>-<task-id>.md files)
+   - Task status path (for completion context)
+2. Read the implementation, tests, requirements doc, and plan
+3. Read all reviewer reports from the reports directory, extract INFO items
+4. Add inline comments where the WHY isn't obvious
+5. Create decision log at docs/decisions/<feature-name>.md (see template below)
+6. Update relevant project docs (README, CLAUDE.md, etc.)
+7. Mark requirements doc status as COMPLETED (add "Status: COMPLETED" header)
+
+Decision Log Template:
+
+    # Decision Log: <Feature Name>
+
+    ## Summary
+    [1-2 sentences: what was built and why]
+
+    ## Key Decisions
+
+    ### Decision 1: [Title]
+    **Context**: [What problem needed solving]
+    **Choice**: [What was decided]
+    **Why**: [Reasoning, trade-offs accepted]
+    **Alternatives rejected**: [What else was considered]
+
+    ## Reviewer Insights
+    [INFO items extracted from reviewer reports]
+
+    ## How to Recreate
+    [Step-by-step to rebuild from scratch]
+
+    ## Related Documents
+    - Requirements: docs/requirements/<feature>.md
+    - Plan: docs/plans/<feature>.md
+
+For SMALL features (1-3 tasks): Use abbreviated format -- Summary + 1-2 Key Decisions + How to Recreate only.
 
 Inline Comment Style:
 
@@ -48,3 +81,4 @@ Output:
 - Decision log at docs/decisions/<feature-name>.md
 - Updated project documentation
 - Requirements doc marked COMPLETED
+- Confirmation: list all artifacts created/updated
