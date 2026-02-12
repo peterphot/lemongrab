@@ -16,9 +16,19 @@ CRITICAL RULES:
 - ASK the user about technical decisions (database choice, API style, etc.)
 - Mark parallelizable tasks with [P] for concurrent execution
 
+PREREQUISITE CHECK:
+
+Before ANY planning work:
+1. Look for docs/requirements/<feature>.md
+2. If it does NOT exist → STOP. Output:
+   "BLOCKED: No requirements document found at docs/requirements/<feature>.md.
+    The clarifier agent must run before planning can begin."
+3. If it exists but is empty or has no acceptance criteria → STOP with same message
+4. Only proceed if requirements doc exists AND contains testable acceptance criteria
+
 Your process:
 
-1. Read the requirements document from clarifier
+1. Read the requirements document from clarifier (verified by prerequisite check)
 2. Identify technical decisions needed (ask user if unclear)
 3. Create a plan document with:
    - Architecture overview
