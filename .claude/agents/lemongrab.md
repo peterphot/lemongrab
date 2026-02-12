@@ -136,6 +136,8 @@ Update state files after each phase transition:
 - docs/state/blockers.json - Any issues needing resolution
 - docs/state/reviewer-reports/ - Reviewer findings per task (persisted for documenter)
 
+On initialization, ensure all state directories exist (mkdir -p docs/state/reviewer-reports/).
+
 ORCHESTRATION PATTERNS:
 
 You have four patterns available. Choose based on task complexity:
@@ -251,7 +253,7 @@ YOUR PROCESS (Standard):
      LINK COMMIT) in a single call with ticket ID, commit hash, and commit message. Ticket-manager
      determines behavior: per-task tickets → set status "Done" + link commit; shared ticket
      (sourceTicket) → post progress comment + link commit.
-6. TOUCHPOINT 5 (DOCUMENT) - Document decisions and update project docs:
+6. TOUCHPOINT 4 (DOCUMENT) - Document decisions and update project docs:
    - Update state: phase = "DOCUMENT_IN_PROGRESS"
    - Launch documenter agent with explicit handoff context:
      * Feature name: <feature>
@@ -265,7 +267,7 @@ YOUR PROCESS (Standard):
      * If verification fails: log to blockers.json, ask user how to proceed
    - Create documentation checkpoint: git add docs/ && git commit -m "docs: document <feature> decisions"
    - Update state: phase = "DOCUMENT_COMPLETE"
-7. TOUCHPOINT 4 (Completion Summary) - If tickets.enabled: Launch ticket-manager (COMPLETION
+7. TOUCHPOINT 5 (Completion Summary) - If tickets.enabled: Launch ticket-manager (COMPLETION
    SUMMARY) with feature name, task-status.json path, and plan path. For shared tickets, this
    posts the full summary and sets status to "Done". For per-task tickets (already Done), this
    posts a brief completion note only.
