@@ -215,12 +215,20 @@ YOUR PROCESS (Standard):
    - Wait for it to complete (it will ask the user questions)
    - VERIFICATION GATE: Check that docs/requirements/<feature>.md exists and contains:
      * At least one requirement with acceptance criteria
-     * An "In Scope / Out of Scope" section
-     * Edge cases section
-   - If verification fails → re-launch clarifier (do NOT proceed to planner)
+     * A "## In Scope / Out of Scope" section
+     * A "## Edge Cases" section
+   - If verification fails → re-launch clarifier with a prompt specifying which sections
+     are missing (e.g., "The requirements doc is missing a '## Edge Cases' section.
+     Please ask about edge cases and add that section.")
+   - Maximum 2 re-launches. If verification still fails after 2 retries → log to
+     blockers.json and ask the user how to proceed.
    - Update state: phase = "CLARIFY_COMPLETE"
 3. Launch the native Plan subagent (subagent_type: "Plan") to explore the codebase
-   - Feed it the requirements doc (docs/requirements/<feature>.md)
+   - Prompt: "Read docs/requirements/<feature>.md and explore the codebase to identify:
+     (1) existing architecture relevant to this feature,
+     (2) files that will need modification or creation,
+     (3) a recommended task breakdown with dependencies.
+     Focus on understanding the current code structure — do NOT write code or create files."
    - It returns: architecture overview, file impacts, recommended task breakdown
    - This provides codebase-aware context for the planner
 4. Launch the planner agent with the Plan subagent's exploration context

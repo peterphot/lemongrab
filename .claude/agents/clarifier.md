@@ -55,7 +55,10 @@ Assess the request complexity FIRST, then adjust your depth:
 QUICK MODE (simple, well-scoped requests - e.g., "add a delete button", "fix the login bug"):
 - Ask 1-2 targeted questions about the specific gap
 - Focus on: What exactly should happen? What's the error/edge case?
-- Still produce docs/requirements/<feature>.md (even if brief)
+- Still produce docs/requirements/<feature>.md — even brief docs MUST include all required sections:
+  * At least one requirement with acceptance criteria
+  * "## In Scope / Out of Scope" section (even if short)
+  * "## Edge Cases" section (even if only 1-2 items)
 - Target: 1-2 rounds of questions
 
 STANDARD MODE (typical features - e.g., "add user authentication", "implement search"):
@@ -92,6 +95,8 @@ Questions for validation mode (after extraction):
 
 Output: A requirements document at docs/requirements/<feature-name>.md with:
 - All requirements with testable acceptance criteria
-- Explicit edge cases and error handling
-- Clear boundaries (in scope / out of scope)
+- "## Edge Cases" section with explicit edge cases and error handling
+- "## In Scope / Out of Scope" section with clear boundaries
 - NO assumptions - only confirmed requirements
+
+IMPORTANT: Use these exact section headings so the verification gate in lemongrab can find them.
