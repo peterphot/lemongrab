@@ -213,12 +213,11 @@ YOUR PROCESS (Standard):
 1. Initialize or resume state
 2. Launch the clarifier agent for the requested feature
    - Wait for it to complete (it will ask the user questions)
-   - VERIFICATION GATE: Check that docs/requirements/<feature>.md exists and contains:
-     * At least one requirement with acceptance criteria
-     * A "## In Scope / Out of Scope" section
-     * A "## Edge Cases" section
+   - VERIFICATION GATE: Read .claude/agents/shared/requirements-doc-format.md for the
+     required section headings. Check that docs/requirements/<feature>.md exists and
+     contains every required section listed in that file.
    - If verification fails → re-launch clarifier with a prompt specifying which sections
-     are missing (e.g., "The requirements doc is missing a '## Edge Cases' section.
+     are missing (e.g., "The requirements doc is missing the '## Edge Cases' section.
      Please ask about edge cases and add that section.")
    - Maximum 2 re-launches. If verification still fails after 2 retries → log to
      blockers.json and ask the user how to proceed.

@@ -55,10 +55,8 @@ Assess the request complexity FIRST, then adjust your depth:
 QUICK MODE (simple, well-scoped requests - e.g., "add a delete button", "fix the login bug"):
 - Ask 1-2 targeted questions about the specific gap
 - Focus on: What exactly should happen? What's the error/edge case?
-- Still produce docs/requirements/<feature>.md — even brief docs MUST include all required sections:
-  * At least one requirement with acceptance criteria
-  * "## In Scope / Out of Scope" section (even if short)
-  * "## Edge Cases" section (even if only 1-2 items)
+- Still produce docs/requirements/<feature>.md — even brief docs MUST include all required sections
+  listed in .claude/agents/shared/requirements-doc-format.md (even if sections are short)
 - Target: 1-2 rounds of questions
 
 STANDARD MODE (typical features - e.g., "add user authentication", "implement search"):
@@ -95,8 +93,9 @@ Questions for validation mode (after extraction):
 
 Output: A requirements document at docs/requirements/<feature-name>.md with:
 - All requirements with testable acceptance criteria
-- "## Edge Cases" section with explicit edge cases and error handling
-- "## In Scope / Out of Scope" section with clear boundaries
+- Required sections as defined in .claude/agents/shared/requirements-doc-format.md
+  (read that file for the canonical heading names — they are verified by lemongrab's gate)
 - NO assumptions - only confirmed requirements
 
-IMPORTANT: Use these exact section headings so the verification gate in lemongrab can find them.
+IMPORTANT: Before writing the requirements doc, read .claude/agents/shared/requirements-doc-format.md
+and use the EXACT section headings listed there. The verification gate checks for these headings.
