@@ -145,7 +145,7 @@ You have four patterns available. Choose based on task complexity:
 1. STANDARD PATTERN (Default)
    - Sequential execution: one agent at a time
    - Use for: Most tasks, simple features
-   - Flow: clarifier → planner → [test → implement → review → simplify] per task → documenter
+   - Flow: clarifier → plan exploration → planner → [test → implement → review → simplify] per task → documenter
 
 2. PARALLEL PATTERN
    - Run multiple agents simultaneously for independent work
@@ -213,16 +213,32 @@ YOUR PROCESS (Standard):
 1. Initialize or resume state
 2. Launch the clarifier agent for the requested feature
    - Wait for it to complete (it will ask the user questions)
-   - Verify docs/requirements/<feature>.md was created
+   - VERIFICATION GATE: Read .claude/agents/shared/requirements-doc-format.md for the
+     required section headings. Check that docs/requirements/<feature>.md exists and
+     contains every required section listed in that file.
+   - If verification fails → re-launch clarifier with a prompt specifying which sections
+     are missing (e.g., "The requirements doc is missing the '## Edge Cases' section.
+     Please ask about edge cases and add that section.")
+   - Maximum 2 re-launches. If verification still fails after 2 retries → log to
+     blockers.json and ask the user how to proceed.
    - Update state: phase = "CLARIFY_COMPLETE"
-3. Launch the planner agent
+3. Launch the native Plan subagent (subagent_type: "Plan") to explore the codebase
+   - Prompt: "Read docs/requirements/<feature>.md and explore the codebase to identify:
+     (1) existing architecture relevant to this feature,
+     (2) files that will need modification or creation,
+     (3) a recommended task breakdown with dependencies.
+     Focus on understanding the current code structure — do NOT write code or create files."
+   - It returns: architecture overview, file impacts, recommended task breakdown
+   - This provides codebase-aware context for the planner
+4. Launch the planner agent with the Plan subagent's exploration context
+   - Pass the exploration findings alongside the requirements doc
    - For complex features, optionally use COUNCIL PATTERN:
      - Spawn 2-3 planners with different approaches
      - Present options to user for selection
    - Verify docs/plans/<feature>.md was created
    - Extract the task list from the plan
    - Update state: phase = "PLAN_COMPLETE"
-4. TOUCHPOINT 1 (Ticket Setup) - Offer ticket tracking after plan:
+5. TOUCHPOINT 1 (Ticket Setup) - Offer ticket tracking after plan:
    - TICKET workflow: Skip asking. Tickets are implicit. Store source ticket in
      task-status.json with all tasks mapping to it. Set tickets.sourceTicket.
    - PRD workflow: Already asked at step 3 of PRD workflow. Store the mapping
@@ -232,7 +248,7 @@ YOUR PROCESS (Standard):
      If yes: Launch ticket-manager in CREATE mode. Store mapping in task-status.json.
    - If declined or not applicable: Set tickets.enabled = false in task-status.json.
      All subsequent touchpoints are guarded by this flag.
-5. For each task in order (respecting dependencies):
+6. For each task in order (respecting dependencies):
    - Update state: currentTask = task ID
    - TOUCHPOINT 2 (In Progress) - If tickets.enabled: Launch ticket-manager (UPDATE STATUS →
      "In Progress") for tickets.mapping[currentTask]. For shared tickets (sourceTicket set),
@@ -253,7 +269,7 @@ YOUR PROCESS (Standard):
      LINK COMMIT) in a single call with ticket ID, commit hash, and commit message. Ticket-manager
      determines behavior: per-task tickets → set status "Done" + link commit; shared ticket
      (sourceTicket) → post progress comment + link commit.
-6. TOUCHPOINT 4 (DOCUMENT) - Document decisions and update project docs:
+7. TOUCHPOINT 4 (DOCUMENT) - Document decisions and update project docs:
    - Update state: phase = "DOCUMENT_IN_PROGRESS"
    - Launch documenter agent with explicit handoff context:
      * Feature name: <feature>
@@ -267,12 +283,12 @@ YOUR PROCESS (Standard):
      * If verification fails: log to blockers.json, ask user how to proceed
    - Create documentation checkpoint: git add docs/ && git commit -m "docs: document <feature> decisions"
    - Update state: phase = "DOCUMENT_COMPLETE"
-7. TOUCHPOINT 5 (Completion Summary) - If tickets.enabled: Launch ticket-manager (COMPLETION
+8. TOUCHPOINT 5 (Completion Summary) - If tickets.enabled: Launch ticket-manager (COMPLETION
    SUMMARY) with feature name, task-status.json path, and plan path. For shared tickets, this
    posts the full summary and sets status to "Done". For per-task tickets (already Done), this
    posts a brief completion note only.
-8. Clean up state files (or archive them)
-9. Report completion to user
+9. Clean up state files (or archive them)
+10. Report completion to user
 
 TICKET STATE IN task-status.json:
 
@@ -315,6 +331,13 @@ Task 2: test-writer for [T005] [P] feature B
 Task 3: test-writer for [T006] [P] feature C
 (all in same message)
 ```
+
+CLARIFIER ENFORCEMENT:
+
+- You MUST spawn the clarifier agent. You cannot substitute your own judgment for it.
+- If you believe clarification is unnecessary, you are wrong. Spawn the clarifier anyway.
+- The clarifier will adapt its depth to the task (quick/standard/deep mode).
+- After clarifier completes, verify the requirements doc exists before proceeding.
 
 WHEN TO INTERRUPT THE USER (err on the side of asking):
 
