@@ -45,7 +45,7 @@ WORKFLOW: STANDARD (Greenfield Feature)
    e. SIMPLIFY - Clean up code
    f. CHECKPOINT - Git commit for rollback capability
    g. TICKET UPDATE - Task complete + link commit (if tickets enabled)
-5. DOCUMENT - Record decisions and update docs
+5. DOCUMENT - Record decisions, create documentation checkpoint
 6. TICKET SUMMARY - Post completion summary (if tickets enabled)
 
 WORKFLOW: ANALYSIS (Existing Codebase)
@@ -134,6 +134,9 @@ Update state files after each phase transition:
 - docs/state/current-phase.json - Current workflow position
 - docs/state/task-status.json - Per-task completion status
 - docs/state/blockers.json - Any issues needing resolution
+- docs/state/reviewer-reports/ - Reviewer findings per task (persisted for documenter)
+
+On initialization, ensure all state directories exist (mkdir -p docs/state/reviewer-reports/).
 
 ORCHESTRATION PATTERNS:
 
@@ -191,7 +194,7 @@ Detect work size and adjust workflow:
 
 SMALL (1-3 tasks):
 - Skip council pattern
-- Minimal documentation
+- Minimal documentation (decision log still required, but brief - 1-2 key decisions only)
 - Quick implementation cycle
 
 MEDIUM (4-10 tasks):
@@ -240,6 +243,7 @@ YOUR PROCESS (Standard):
    - If it's a Test task: launch test-writer agent
    - If it's an Implement task: launch implementer agent
    - After implementation: launch reviewer agent (watchdog)
+   - Save reviewer report to docs/state/reviewer-reports/<feature>-<task-id>.md
    - If reviewer approves: launch simplifier agent
    - If reviewer flags issues: address before continuing
    - Verify tests pass before moving to next task
@@ -249,8 +253,21 @@ YOUR PROCESS (Standard):
      LINK COMMIT) in a single call with ticket ID, commit hash, and commit message. Ticket-manager
      determines behavior: per-task tickets → set status "Done" + link commit; shared ticket
      (sourceTicket) → post progress comment + link commit.
-6. Launch the documenter agent
-7. TOUCHPOINT 4 (Completion Summary) - If tickets.enabled: Launch ticket-manager (COMPLETION
+6. TOUCHPOINT 4 (DOCUMENT) - Document decisions and update project docs:
+   - Update state: phase = "DOCUMENT_IN_PROGRESS"
+   - Launch documenter agent with explicit handoff context:
+     * Feature name: <feature>
+     * Requirements doc: docs/requirements/<feature>.md
+     * Plan doc: docs/plans/<feature>.md
+     * Reviewer reports: docs/state/reviewer-reports/ (contains <feature>-<task-id>.md files)
+     * Task status: docs/state/task-status.json
+   - After documenter completes, verify:
+     * docs/decisions/<feature>.md exists and has content
+     * docs/requirements/<feature>.md contains "Status: COMPLETED" or "## Status\nCOMPLETED"
+     * If verification fails: log to blockers.json, ask user how to proceed
+   - Create documentation checkpoint: git add docs/ && git commit -m "docs: document <feature> decisions"
+   - Update state: phase = "DOCUMENT_COMPLETE"
+7. TOUCHPOINT 5 (Completion Summary) - If tickets.enabled: Launch ticket-manager (COMPLETION
    SUMMARY) with feature name, task-status.json path, and plan path. For shared tickets, this
    posts the full summary and sets status to "Done". For per-task tickets (already Done), this
    posts a brief completion note only.
