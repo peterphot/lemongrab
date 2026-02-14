@@ -380,6 +380,10 @@ EXTRACTION PROCEDURE:
        - **Context**: <context>
 
 4. If no DECISIONS block is present, skip (no error)
+5. If the block is present but malformed (missing fields, broken indentation), append it
+   raw under a `## Parse Error (<Phase> Phase)` heading and continue — do not block the workflow.
+6. DEDUPLICATION: On agent retries, check for existing IDs before appending. If an ID
+   (e.g., D-CLARIFY-001) already exists in decisions.md, skip that entry to avoid duplicates.
 
 ORCHESTRATOR'S OWN DECISIONS TO LOG (use D-ORCH-NNN IDs):
 - Scale assessment (SMALL/MEDIUM/LARGE) and why

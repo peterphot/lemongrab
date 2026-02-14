@@ -153,6 +153,9 @@ What counts as a decision in the review phase:
 - Performance trade-offs accepted
 - Technical debt identified and consciously deferred
 
+Only translate INFO items that represent a conscious trade-off or non-obvious choice.
+Routine observations (e.g., "code is well-structured") are NOT decisions — omit them.
+
 Use `who: claude` for implementation choices you observed. Use context to explain the trade-off.
 
 Format reference: .claude/agents/shared/decision-output-format.md (read it for the exact structure).

@@ -62,4 +62,8 @@ WHEN TO OMIT THE BLOCK:
 - If no ambiguity was resolved and no choices were made
 - The block is REQUIRED for clarifier and planner, OPTIONAL for implementer and simplifier
 
+TIMESTAMP FORMAT:
+
+All timestamps use ISO 8601: `YYYY-MM-DDTHH:MM:SSZ` (e.g., `2026-02-14T06:21:12Z`).
+
 Both agents and the orchestrator MUST read this file as the single source of truth for the format.

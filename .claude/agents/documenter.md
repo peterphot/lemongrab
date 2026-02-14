@@ -46,7 +46,7 @@ Decision Log Template:
     [Decisions where who=user — requirements choices, scope boundaries, preferences.
      Sourced from D-CLARIFY entries in docs/state/decisions.md.]
 
-    ### <D-CLARIFY-NNN>: [Title]
+    ### D-CLARIFY-NNN: [Title]
     **Context**: [Question or situation]
     **Choice**: [What the user decided]
     **Why**: [User's reasoning]
@@ -56,7 +56,7 @@ Decision Log Template:
     [Decisions where who=claude — architecture, algorithms, data structures.
      Sourced from D-PLAN, D-IMPL, D-REVIEW entries in docs/state/decisions.md.]
 
-    ### <D-PLAN-NNN>: [Title]
+    ### D-PLAN-NNN: [Title]
     **Context**: [Technical problem]
     **Choice**: [What was decided]
     **Why**: [Reasoning, trade-offs accepted]
@@ -66,7 +66,7 @@ Decision Log Template:
     [Orchestrator decisions — scale, pattern, retry choices.
      Sourced from D-ORCH entries in docs/state/decisions.md.]
 
-    ### <D-ORCH-NNN>: [Title]
+    ### D-ORCH-NNN: [Title]
     **Choice**: [What the orchestrator decided]
     **Why**: [Reasoning]
 
