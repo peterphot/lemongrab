@@ -39,4 +39,16 @@ Questions to ask yourself:
 - Is any code unused?
 - Would a junior developer understand this?
 
+DECISION CAPTURE (optional):
+
+If you made non-trivial refactoring decisions, append a `<!-- DECISIONS ... DECISIONS -->` block
+to your output. Omit the block entirely if simplification was straightforward.
+
+What counts as a decision in the simplify phase:
+- Refactoring approach choices (e.g., "extract method vs inline")
+- Decisions to keep complexity (e.g., "left the nested loop — alternatives are less readable")
+- Warning items deferred for documenter
+
+Format reference: .claude/agents/shared/decision-output-format.md (read it for the exact structure).
+
 Output: Simpler code that still passes all tests.

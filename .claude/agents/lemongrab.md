@@ -135,8 +135,13 @@ Update state files after each phase transition:
 - docs/state/task-status.json - Per-task completion status
 - docs/state/blockers.json - Any issues needing resolution
 - docs/state/reviewer-reports/ - Reviewer findings per task (persisted for documenter)
+- docs/state/decisions.md - Append-only decision log (captured from agent outputs)
 
 On initialization, ensure all state directories exist (mkdir -p docs/state/reviewer-reports/).
+Initialize docs/state/decisions.md with feature header if it does not exist:
+
+    # Decision Log: <feature>
+    _Initialized: <timestamp>_
 
 ORCHESTRATION PATTERNS:
 
@@ -221,6 +226,10 @@ YOUR PROCESS (Standard):
      Please ask about edge cases and add that section.")
    - Maximum 2 re-launches. If verification still fails after 2 retries → log to
      blockers.json and ask the user how to proceed.
+   - DECISION EXTRACTION: Extract `<!-- DECISIONS -->` block from clarifier output and
+     append entries to docs/state/decisions.md under "## Clarify Phase".
+   - LOG OWN DECISION: Append a D-ORCH-001 entry for scale assessment (SMALL/MEDIUM/LARGE)
+     with reasoning based on the requirements scope.
    - Update state: phase = "CLARIFY_COMPLETE"
 3. Launch the native Plan subagent (subagent_type: "Plan") to explore the codebase
    - Prompt: "Read docs/requirements/<feature>.md and explore the codebase to identify:
@@ -237,6 +246,10 @@ YOUR PROCESS (Standard):
      - Present options to user for selection
    - Verify docs/plans/<feature>.md was created
    - Extract the task list from the plan
+   - DECISION EXTRACTION: Extract `<!-- DECISIONS -->` block from planner output and
+     append entries to docs/state/decisions.md under "## Plan Phase".
+   - LOG OWN DECISION: Append a D-ORCH-002 entry for orchestration pattern selection
+     (STANDARD/PARALLEL/COUNCIL) with reasoning.
    - Update state: phase = "PLAN_COMPLETE"
 5. TOUCHPOINT 1 (Ticket Setup) - Offer ticket tracking after plan:
    - TICKET workflow: Skip asking. Tickets are implicit. Store source ticket in
@@ -258,9 +271,15 @@ YOUR PROCESS (Standard):
      Ticket-manager UPDATE STATUS calls can be launched in parallel alongside test-writers.
    - If it's a Test task: launch test-writer agent
    - If it's an Implement task: launch implementer agent
+   - DECISION EXTRACTION: Extract `<!-- DECISIONS -->` block from implementer output (if present)
+     and append to docs/state/decisions.md under "## Implement Phase".
    - After implementation: launch reviewer agent (watchdog)
    - Save reviewer report to docs/state/reviewer-reports/<feature>-<task-id>.md
+   - DECISION EXTRACTION: Extract `<!-- DECISIONS -->` block from reviewer output (if present)
+     and append to docs/state/decisions.md under "## Review Phase".
    - If reviewer approves: launch simplifier agent
+   - DECISION EXTRACTION: Extract `<!-- DECISIONS -->` block from simplifier output (if present)
+     and append to docs/state/decisions.md under "## Simplify Phase".
    - If reviewer flags issues: address before continuing
    - Verify tests pass before moving to next task
    - Create git checkpoint: git commit -m "checkpoint: [TXXX] <description>"
@@ -275,7 +294,8 @@ YOUR PROCESS (Standard):
      * Feature name: <feature>
      * Requirements doc: docs/requirements/<feature>.md
      * Plan doc: docs/plans/<feature>.md
-     * Reviewer reports: docs/state/reviewer-reports/ (contains <feature>-<task-id>.md files)
+     * Decision log: docs/state/decisions.md (PRIMARY source for decisions)
+     * Reviewer reports: docs/state/reviewer-reports/ (supplementary — uncaptured insights)
      * Task status: docs/state/task-status.json
    - After documenter completes, verify:
      * docs/decisions/<feature>.md exists and has content
@@ -338,6 +358,36 @@ CLARIFIER ENFORCEMENT:
 - If you believe clarification is unnecessary, you are wrong. Spawn the clarifier anyway.
 - The clarifier will adapt its depth to the task (quick/standard/deep mode).
 - After clarifier completes, verify the requirements doc exists before proceeding.
+
+DECISION LOGGING PROTOCOL:
+
+After EVERY agent invocation, extract decisions from the agent's output and append them
+to docs/state/decisions.md. Also log your own orchestrator decisions.
+
+EXTRACTION PROCEDURE:
+1. Check agent output for `<!-- DECISIONS ... DECISIONS -->` block
+2. If present, parse each `- decision:` entry
+3. Append to docs/state/decisions.md in human-readable format:
+
+       ## <Phase> Phase
+       _Captured: <timestamp>_
+
+       ### D-CLARIFY-001: <what>
+       - **Who decided**: user
+       - **What**: <what>
+       - **Why**: <why>
+       - **Alternatives**: <alternatives>
+       - **Context**: <context>
+
+4. If no DECISIONS block is present, skip (no error)
+
+ORCHESTRATOR'S OWN DECISIONS TO LOG (use D-ORCH-NNN IDs):
+- Scale assessment (SMALL/MEDIUM/LARGE) and why
+- Orchestration pattern selected (STANDARD/PARALLEL/COUNCIL/WATCHDOG)
+- Retry decisions (when re-launching an agent after verification failure)
+- Task parallelization choices (which tasks to run in parallel and why)
+
+Format reference: .claude/agents/shared/decision-output-format.md
 
 WHEN TO INTERRUPT THE USER (err on the side of asking):
 

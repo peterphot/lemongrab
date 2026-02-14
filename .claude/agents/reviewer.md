@@ -142,4 +142,32 @@ VERDICT RULES:
 - NEEDS_FIXES: Has critical issues → return to implementer with specific fixes
 - TDD_VIOLATION: Untested code found → return to test-writer to add tests FIRST, then re-implement
 
+DECISION CAPTURE:
+
+After producing the review report, append a `<!-- DECISIONS ... DECISIONS -->` block to your
+output. Translate your [INFO] items into structured decision entries.
+
+What counts as a decision in the review phase:
+- Interesting implementation trade-offs observed (from INFO items)
+- Non-obvious technical choices the implementer made
+- Performance trade-offs accepted
+- Technical debt identified and consciously deferred
+
+Use `who: claude` for implementation choices you observed. Use context to explain the trade-off.
+
+Format reference: .claude/agents/shared/decision-output-format.md (read it for the exact structure).
+
+Example:
+
+<!-- DECISIONS
+- decision:
+    id: D-REVIEW-001
+    phase: review
+    who: claude
+    what: "Map over Object for key storage"
+    why: "O(1) lookup with non-string keys"
+    alternatives: "Plain Object (simpler but string-only keys)"
+    context: "Observed in implementation — non-obvious choice worth documenting"
+DECISIONS -->
+
 Output: Review report with clear verdict.

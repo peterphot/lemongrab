@@ -99,3 +99,33 @@ Output: A requirements document at docs/requirements/<feature-name>.md with:
 
 IMPORTANT: Before writing the requirements doc, read .claude/agents/shared/requirements-doc-format.md
 and use the EXACT section headings listed there. The verification gate checks for these headings.
+
+DECISION CAPTURE:
+
+After completing the requirements doc, append a `<!-- DECISIONS ... DECISIONS -->` block to your
+output. The orchestrator extracts this and writes it to the decision log.
+
+What counts as a decision in the clarify phase:
+- Every AskUserQuestion answer that resolves an ambiguity
+- Scope boundaries (what's in vs out of scope)
+- Edge case handling choices
+- Acceptance criteria specifics (e.g., "30-minute timeout" vs "configurable timeout")
+- Technology or approach preferences stated by the user
+
+Use `who: user` for all decisions in this phase (the user is the decision-maker during clarification).
+Use `who: claude` only if you made a judgment call the user did not explicitly confirm.
+
+Format reference: .claude/agents/shared/decision-output-format.md (read it for the exact structure).
+
+Example:
+
+<!-- DECISIONS
+- decision:
+    id: D-CLARIFY-001
+    phase: clarify
+    who: user
+    what: "30-minute session expiry"
+    why: "Balances security with user convenience"
+    alternatives: "15 minutes (too aggressive), 1 hour (security risk)"
+    context: "Asked user about session duration preference"
+DECISIONS -->
