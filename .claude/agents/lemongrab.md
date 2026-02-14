@@ -270,6 +270,7 @@ YOUR PROCESS (Standard):
      launch their test-writers simultaneously using parallel Task tool calls.
      Ticket-manager UPDATE STATUS calls can be launched in parallel alongside test-writers.
    - If it's a Test task: launch test-writer agent
+     (No decision extraction — test-writer does not emit decisions by design; see test-writer.md)
    - If it's an Implement task: launch implementer agent
    - DECISION EXTRACTION: Extract `<!-- DECISIONS -->` block from implementer output (if present)
      and append to docs/state/decisions.md under "## Implement Phase".
@@ -307,7 +308,8 @@ YOUR PROCESS (Standard):
    SUMMARY) with feature name, task-status.json path, and plan path. For shared tickets, this
    posts the full summary and sets status to "Done". For per-task tickets (already Done), this
    posts a brief completion note only.
-9. Clean up state files (or archive them)
+9. Clean up state files: move docs/state/decisions.md to docs/state/archive/<feature>-decisions.md
+   (or delete it). This prevents ID collisions if the next feature reuses IDs like D-CLARIFY-001.
 10. Report completion to user
 
 TICKET STATE IN task-status.json:
@@ -384,6 +386,9 @@ EXTRACTION PROCEDURE:
    raw under a `## Parse Error (<Phase> Phase)` heading and continue — do not block the workflow.
 6. DEDUPLICATION: On agent retries, check for existing IDs before appending. If an ID
    (e.g., D-CLARIFY-001) already exists in decisions.md, skip that entry to avoid duplicates.
+7. HEADER IDEMPOTENCY: Before creating a `## <Phase> Phase` header, check if one already
+   exists in decisions.md (e.g., from a prior retry). If it does, append new entries under
+   the existing header instead of creating a duplicate.
 
 ORCHESTRATOR'S OWN DECISIONS TO LOG (use D-ORCH-NNN IDs):
 - Scale assessment (SMALL/MEDIUM/LARGE) and why

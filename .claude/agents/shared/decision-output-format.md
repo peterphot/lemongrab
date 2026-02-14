@@ -8,7 +8,7 @@ FORMAT:
 <!-- DECISIONS
 - decision:
     id: D-{PHASE}-{NNN}
-    phase: clarify | plan | implement | review | simplify
+    phase: clarify | plan | implement | review | simplify | orchestrate
     who: user | claude
     what: "Short title"
     why: "Reasoning"
