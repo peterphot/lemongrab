@@ -60,3 +60,34 @@ If lemongrab requests multiple plan options:
 - Be opinionated about trade-offs
 
 Output: A plan document at docs/plans/<feature-name>.md following the Plan Document Template below.
+
+DECISION CAPTURE:
+
+After producing the plan document, append a `<!-- DECISIONS ... DECISIONS -->` block to your
+output. The orchestrator extracts this and writes it to the decision log.
+
+What counts as a decision in the plan phase:
+- Architecture pattern choices (e.g., "monolith vs microservices")
+- Technology selections (e.g., "Redis for caching")
+- API design decisions (e.g., "REST vs GraphQL")
+- Data model choices (e.g., "normalized vs denormalized")
+- Task decomposition strategy (e.g., "bottom-up vs top-down")
+- Dependency ordering rationale
+
+Use `who: claude` for technical decisions you made. Use `who: user` when the user explicitly
+chose between options you presented (via AskUserQuestion).
+
+Format reference: .claude/agents/shared/decision-output-format.md (read it for the exact structure).
+
+Example:
+
+<!-- DECISIONS
+- decision:
+    id: D-PLAN-001
+    phase: plan
+    who: claude
+    what: "Bottom-up task ordering"
+    why: "Data layer must exist before API routes can be tested"
+    alternatives: "Top-down (UI first), outside-in (API first)"
+    context: "Determining task dependency order for the plan"
+DECISIONS -->

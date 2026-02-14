@@ -22,14 +22,18 @@ Your process:
    - Feature name (for decision log filename)
    - Requirements doc path
    - Plan doc path
-   - Reviewer reports directory (contains <feature>-<task-id>.md files)
+   - Decision log path: docs/state/decisions.md (PRIMARY source for decisions)
+   - Reviewer reports directory (supplementary — for any uncaptured insights)
    - Task status path (for completion context)
 2. Read the implementation, tests, requirements doc, and plan
-3. Read all reviewer reports from the reports directory, extract INFO items
-4. Add inline comments where the WHY isn't obvious
-5. Create decision log at docs/decisions/<feature-name>.md (see template below)
-6. Update relevant project docs (README, CLAUDE.md, etc.)
-7. Mark requirements doc status as COMPLETED (add "Status: COMPLETED" header)
+3. Read docs/state/decisions.md — this is your PRIMARY source for decisions.
+   It contains structured entries captured in real-time from every phase.
+4. Read reviewer reports as a SUPPLEMENTARY source. Cross-reference against
+   the decision log. Only extract INFO items that aren't already captured.
+5. Add inline comments where the WHY isn't obvious
+6. Create decision log at docs/decisions/<feature-name>.md (see template below)
+7. Update relevant project docs (README, CLAUDE.md, etc.)
+8. Mark requirements doc status as COMPLETED (add "Status: COMPLETED" header)
 
 Decision Log Template:
 
@@ -38,16 +42,36 @@ Decision Log Template:
     ## Summary
     [1-2 sentences: what was built and why]
 
-    ## Key Decisions
+    ## User Decisions
+    [Decisions where who=user — requirements choices, scope boundaries, preferences.
+     Sourced from D-CLARIFY entries in docs/state/decisions.md.]
 
-    ### Decision 1: [Title]
-    **Context**: [What problem needed solving]
+    ### <D-CLARIFY-NNN>: [Title]
+    **Context**: [Question or situation]
+    **Choice**: [What the user decided]
+    **Why**: [User's reasoning]
+    **Alternatives rejected**: [Options not chosen]
+
+    ## Technical Decisions
+    [Decisions where who=claude — architecture, algorithms, data structures.
+     Sourced from D-PLAN, D-IMPL, D-REVIEW entries in docs/state/decisions.md.]
+
+    ### <D-PLAN-NNN>: [Title]
+    **Context**: [Technical problem]
     **Choice**: [What was decided]
     **Why**: [Reasoning, trade-offs accepted]
     **Alternatives rejected**: [What else was considered]
 
+    ## Workflow Decisions
+    [Orchestrator decisions — scale, pattern, retry choices.
+     Sourced from D-ORCH entries in docs/state/decisions.md.]
+
+    ### <D-ORCH-NNN>: [Title]
+    **Choice**: [What the orchestrator decided]
+    **Why**: [Reasoning]
+
     ## Reviewer Insights
-    [INFO items extracted from reviewer reports]
+    [INFO items from reviewer reports NOT already captured in the decision log above]
 
     ## How to Recreate
     [Step-by-step to rebuild from scratch]
@@ -55,8 +79,9 @@ Decision Log Template:
     ## Related Documents
     - Requirements: docs/requirements/<feature>.md
     - Plan: docs/plans/<feature>.md
+    - Raw decision log: docs/state/decisions.md
 
-For SMALL features (1-3 tasks): Use abbreviated format -- Summary + 1-2 Key Decisions + How to Recreate only.
+For SMALL features (1-3 tasks): Use abbreviated format -- Summary + 1-2 Key Decisions (merged categories) + How to Recreate only.
 
 Inline Comment Style:
 

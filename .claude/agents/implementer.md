@@ -130,3 +130,16 @@ Output format:
     ### Untested Code Paths: NONE / LIST
 
     ### Ready for Review: YES/NO
+
+DECISION CAPTURE (optional):
+
+If you made non-trivial implementation decisions, append a `<!-- DECISIONS ... DECISIONS -->` block
+to your output. Omit the block entirely if the implementation was purely mechanical TDD.
+
+What counts as a decision in the implement phase:
+- Data structure choices (e.g., "array vs linked list")
+- Algorithm selection (e.g., "binary search vs linear scan")
+- Library usage decisions (e.g., "chose lodash.debounce over custom implementation")
+- API shape decisions within the scope of the task
+
+Format reference: .claude/agents/shared/decision-output-format.md (read it for the exact structure).
