@@ -1,6 +1,7 @@
 ---
 name: communicating-progress
 description: Communicate progress, status, and blockers clearly during multi-step workflows. Use when reporting task status, escalating blockers, handing off between agents, or summarizing work completed. Provides status templates, blocker formats, and handoff patterns.
+version: 1.0.0
 ---
 
 # Communicating Progress

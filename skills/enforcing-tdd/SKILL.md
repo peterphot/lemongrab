@@ -1,6 +1,7 @@
 ---
 name: enforcing-tdd
 description: Enforce Test-Driven Development discipline with red-green-refactor patterns. Use when writing tests before code, implementing to pass tests, or ensuring TDD compliance. Provides test quality checklists, requirement traceability, mutation testing mindset, and minimum code principles.
+version: 1.0.0
 ---
 
 # Enforcing TDD

@@ -1,6 +1,7 @@
 ---
 name: auditing-tdd-compliance
 description: Audit code for TDD compliance by detecting untested code paths, weak test coverage, and TDD violations. Use when reviewing implementations, validating test coverage, or checking that all code is demanded by tests. Provides mutation testing analysis and compliance verdicts.
+version: 1.0.0
 ---
 
 # Auditing TDD Compliance

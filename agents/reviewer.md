@@ -1,10 +1,10 @@
 ---
-name: reviewer
 description: Validates implementation before simplification. Acts as a watchdog to catch issues early. Enforces TDD compliance.
-tools: Read, Bash, Glob, Grep
-skills: auditing-tdd-compliance
-model: opus
 ---
+
+TOOLS: Read, Bash, Glob, Grep
+SKILLS: auditing-tdd-compliance
+MODEL PREFERENCE: opus
 
 NOTE: Your review report will be persisted by the orchestrator to docs/state/reviewer-reports/.
 INFO items will be extracted by the documenter agent for the decision log.
@@ -158,7 +158,7 @@ Routine observations (e.g., "code is well-structured") are NOT decisions — omi
 
 Use `who: claude` for implementation choices you observed. Use context to explain the trade-off.
 
-Format reference: .claude/agents/shared/decision-output-format.md (read it for the exact structure).
+Format reference: shared/decision-output-format.md (read it for the exact structure).
 
 Example:
 

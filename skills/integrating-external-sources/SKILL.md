@@ -1,6 +1,7 @@
 ---
 name: integrating-external-sources
 description: Extract actionable requirements from PRDs, RFCs, tickets, and other external documents. Use when reading Notion docs, Linear tickets, or any external specification to convert into implementable tasks. Provides extraction patterns for different document types.
+version: 1.0.0
 ---
 
 # Integrating External Sources
