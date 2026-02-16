@@ -134,7 +134,7 @@ Output format:
 DECISION CAPTURE (optional):
 
 If you made non-trivial implementation decisions, append a `<!-- DECISIONS ... DECISIONS -->` block
-to your output. Omit the block entirely if the implementation was purely mechanical TDD.
+as the LAST thing in your output. Omit the block entirely if the implementation was purely mechanical TDD.
 
 What counts as a decision in the implement phase:
 - Data structure choices (e.g., "array vs linked list")

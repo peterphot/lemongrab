@@ -1,7 +1,11 @@
 DECISION OUTPUT FORMAT FOR AGENT RESPONSES:
 
-Agents capture decisions by appending a structured block at the end of their text output.
+Agents capture decisions by appending a structured block as the LAST thing in their text output.
 The orchestrator (lemongrab) extracts these blocks and appends them to docs/state/decisions.md.
+
+PLACEMENT RULE: The `<!-- DECISIONS ... DECISIONS -->` block MUST be the final content in the
+agent's output — after all other text, reports, and summaries. The orchestrator looks for the
+block at the tail of the output. Do NOT place it mid-output or before other content.
 
 FORMAT:
 

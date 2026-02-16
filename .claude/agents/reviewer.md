@@ -144,8 +144,8 @@ VERDICT RULES:
 
 DECISION CAPTURE:
 
-After producing the review report, append a `<!-- DECISIONS ... DECISIONS -->` block to your
-output. Translate your [INFO] items into structured decision entries.
+After producing the review report, append a `<!-- DECISIONS ... DECISIONS -->` block as the
+LAST thing in your output. Translate your [INFO] items into structured decision entries.
 
 What counts as a decision in the review phase:
 - Interesting implementation trade-offs observed (from INFO items)

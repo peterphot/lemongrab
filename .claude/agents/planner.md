@@ -63,8 +63,8 @@ Output: A plan document at docs/plans/<feature-name>.md following the Plan Docum
 
 DECISION CAPTURE:
 
-After producing the plan document, append a `<!-- DECISIONS ... DECISIONS -->` block to your
-output. The orchestrator extracts this and writes it to the decision log.
+After producing the plan document, append a `<!-- DECISIONS ... DECISIONS -->` block as the
+LAST thing in your output. The orchestrator extracts this from the tail of your response.
 
 What counts as a decision in the plan phase:
 - Architecture pattern choices (e.g., "monolith vs microservices")

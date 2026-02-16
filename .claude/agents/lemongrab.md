@@ -137,7 +137,7 @@ Update state files after each phase transition:
 - docs/state/reviewer-reports/ - Reviewer findings per task (persisted for documenter)
 - docs/state/decisions.md - Append-only decision log (captured from agent outputs)
 
-On initialization, ensure all state directories exist (mkdir -p docs/state/reviewer-reports/).
+On initialization, ensure all state directories exist (mkdir -p docs/state/reviewer-reports/ docs/state/archive/).
 Initialize docs/state/decisions.md with feature header if it does not exist:
 
     # Decision Log: <feature>

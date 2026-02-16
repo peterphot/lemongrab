@@ -42,7 +42,7 @@ Questions to ask yourself:
 DECISION CAPTURE (optional):
 
 If you made non-trivial refactoring decisions, append a `<!-- DECISIONS ... DECISIONS -->` block
-to your output. Omit the block entirely if simplification was straightforward.
+as the LAST thing in your output. Omit the block entirely if simplification was straightforward.
 
 What counts as a decision in the simplify phase:
 - Refactoring approach choices (e.g., "extract method vs inline")

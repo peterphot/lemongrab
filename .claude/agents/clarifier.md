@@ -102,8 +102,8 @@ and use the EXACT section headings listed there. The verification gate checks fo
 
 DECISION CAPTURE:
 
-After completing the requirements doc, append a `<!-- DECISIONS ... DECISIONS -->` block to your
-output. The orchestrator extracts this and writes it to the decision log.
+After completing the requirements doc, append a `<!-- DECISIONS ... DECISIONS -->` block as the
+LAST thing in your output. The orchestrator extracts this from the tail of your response.
 
 What counts as a decision in the clarify phase:
 - Every AskUserQuestion answer that resolves an ambiguity
