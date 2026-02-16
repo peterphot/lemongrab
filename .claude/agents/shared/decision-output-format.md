@@ -18,6 +18,20 @@ DECISIONS -->
 
 PHASE PREFIXES FOR IDs:
 
+The `phase` field value maps to an ID prefix as follows:
+
+| phase value   | ID prefix    | Example       |
+|---------------|--------------|---------------|
+| clarify       | D-CLARIFY    | D-CLARIFY-001 |
+| plan          | D-PLAN       | D-PLAN-001    |
+| implement     | D-IMPL       | D-IMPL-001    |
+| review        | D-REVIEW     | D-REVIEW-001  |
+| simplify      | D-SIMPLIFY   | D-SIMPLIFY-001|
+| orchestrate   | D-ORCH       | D-ORCH-001    |
+
+Note: The `implement` phase uses the abbreviated prefix `D-IMPL`, not `D-IMPLEMENT`.
+
+Descriptions:
 - D-CLARIFY-NNN  — Decisions from the clarifier phase (user Q&A)
 - D-PLAN-NNN     — Decisions from the planning phase (architecture, technology)
 - D-IMPL-NNN     — Decisions from the implementation phase (data structures, algorithms)
@@ -55,6 +69,16 @@ Include multiple `- decision:` entries in a single block when several decisions 
     alternatives: "15 minutes (too short), 1 hour (too long)"
     context: "Asked about session duration"
 DECISIONS -->
+
+ID NUMBERING ON RETRIES:
+
+If an agent is re-launched (e.g., after a verification failure), it MUST NOT reuse IDs from its
+previous run. Before emitting decisions, check the orchestrator's prompt for any prior decision IDs
+from this phase. Start numbering after the highest existing ID. For example, if the previous run
+produced D-CLARIFY-001 through D-CLARIFY-003, the retry must start at D-CLARIFY-004.
+
+The orchestrator assists by including existing IDs in the retry prompt (e.g., "Previous decisions
+D-CLARIFY-001 through D-CLARIFY-003 are already captured. Start new IDs at D-CLARIFY-004.").
 
 WHEN TO OMIT THE BLOCK:
 

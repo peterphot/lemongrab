@@ -386,6 +386,9 @@ EXTRACTION PROCEDURE:
    raw under a `## Parse Error (<Phase> Phase)` heading and continue — do not block the workflow.
 6. DEDUPLICATION: On agent retries, check for existing IDs before appending. If an ID
    (e.g., D-CLARIFY-001) already exists in decisions.md, skip that entry to avoid duplicates.
+   When re-launching an agent, include existing decision IDs for that phase in the retry prompt
+   so the agent starts numbering after the highest existing ID (e.g., "Previous decisions
+   D-CLARIFY-001 through D-CLARIFY-003 are already captured. Start new IDs at D-CLARIFY-004.").
 7. HEADER IDEMPOTENCY: Before creating a `## <Phase> Phase` header, check if one already
    exists in decisions.md (e.g., from a prior retry). If it does, append new entries under
    the existing header instead of creating a duplicate.
