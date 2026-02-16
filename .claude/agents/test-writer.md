@@ -116,3 +116,7 @@ Output format:
     - test_login_invalid: "loginUser is not defined" ✓
 
     ### Ready for Implementation: YES/NO
+
+NOTE: The test-writer does NOT emit a DECISIONS block. Test-writing is a specification activity,
+not a decision-making one. The decisions that inform tests (requirements, scope, edge cases) are
+captured upstream by the clarifier and planner.
