@@ -180,24 +180,53 @@ Lemongrab spawns multiple agents in a single message for parallel tasks.
 
 ---
 
+## Decision Logging (throughout BUILD)
+
+During each agent invocation, the orchestrator extracts `<!-- DECISIONS -->` blocks and appends
+them to `docs/state/decisions.md`. After each phase transition, state is updated in
+`docs/state/current-phase.json`.
+
+Example decision entries captured during BUILD:
+
+```markdown
+## Implement Phase
+_Captured: 2024-01-15T12:30:00Z_
+
+### D-IMPL-001: Synchronous file reading
+- **Who decided**: claude
+- **What**: Used fs.readFileSync instead of async
+- **Why**: Config is loaded once at startup, simplicity preferred
+- **Alternatives**: async fs.readFile with await, streaming parser
+- **Context**: Implementer chose sync approach for startup-only config loading
+```
+
 ## Phase 4: DOCUMENT (documenter agent)
 
-After all tasks complete, the documenter records decisions:
+After all tasks complete, the documenter consolidates decisions from `docs/state/decisions.md`
+and reviewer reports from `docs/state/reviewer-reports/`:
 
 ```markdown
 # Decision Log: config-parser
 
-## Key Decisions
+## Clarify Phase
+_Captured: 2024-01-15T10:45:00Z_
 
-### Decision 1: Synchronous file reading
-**Choice:** Used fs.readFileSync instead of async
-**Why:** Config is loaded once at startup, simplicity preferred
-**Trade-off:** Blocks event loop briefly at startup
+### D-CLARIFY-001: JSON-only support
+- **Who decided**: user
+- **What**: Only support JSON format initially
+- **Why**: Covers 90% of use cases, can extend later
+- **Alternatives**: YAML, TOML, multi-format support
+- **Context**: Asked user which config formats to support
 
-### Decision 2: JSON-only support
-**Choice:** Only support JSON format initially
-**Why:** Covers 90% of use cases, can extend later
-**Trade-off:** Users with YAML configs need to convert
+## Implement Phase
+_Captured: 2024-01-15T12:30:00Z_
+
+### D-IMPL-001: Synchronous file reading
+- **Who decided**: claude
+- **What**: Used fs.readFileSync instead of async
+- **Why**: Config is loaded once at startup, simplicity preferred
+- **Alternatives**: async fs.readFile with await, streaming parser
+- **Context**: Implementer chose sync approach for startup-only config loading
 
 ## How to Recreate
 1. Create src/config/index.js
@@ -214,13 +243,19 @@ After all tasks complete, the documenter records decisions:
 
 ## State Files
 
-Lemongrab maintains state for resilience:
+Lemongrab maintains state for resilience and resume capability:
 
 ```
 docs/state/
 ├── current-phase.json    → Tracks current workflow position
-└── task-status.json      → Tracks per-task completion and checkpoints
+├── task-status.json      → Tracks per-task completion, checkpoints, and ticket mapping
+├── blockers.json         → Any issues needing resolution
+├── decisions.md          → Append-only decision log (extracted from agent outputs)
+└── reviewer-reports/     → Reviewer findings per task (persisted for documenter)
 ```
+
+On resume, lemongrab reads `current-phase.json` and uses the resume decision table to
+skip to the correct workflow step (e.g., PLAN_COMPLETE skips to plan approval).
 
 **current-phase.json:**
 ```json

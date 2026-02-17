@@ -94,10 +94,7 @@ WORKFLOW: PRD (From Notion)
    - Ensures all acceptance criteria are testable
    - Never assume - always ask when something is unclear
    - Output: docs/requirements/<feature>.md (validated)
-3. ASK: "This PRD contains X user stories. Should I create Linear tickets, local tickets, or proceed without tickets?"
-4. If tickets requested: Launch ticket-manager to create work items. Store mapping in task-status.json.
-   Ongoing status updates are handled automatically by YOUR PROCESS touchpoints.
-5. Continue with PLAN phase
+3. Continue with PLAN phase (ticket tracking is handled by YOUR PROCESS TOUCHPOINT 1, same as STANDARD workflow)
 
 WORKFLOW: RFC (From Notion)
 
@@ -113,16 +110,19 @@ WORKFLOW: RFC (From Notion)
    - Never assume implementation details - always ask
    - Output: docs/requirements/<feature>.md (validated)
 3. Continue with PLAN phase (RFC informs technical decisions)
+   Note: Ticket tracking is handled by YOUR PROCESS TOUCHPOINT 1 (same as STANDARD and BOOTSTRAP workflows).
 
 WORKFLOW: BOOTSTRAP (New Project)
 
 1. ASK: "What type of project?" (web app, CLI, API, library, etc.)
-2. ASK: "What tech stack?" (language, framework, database)
-3. Create project structure based on answers
-4. Initialize git repository
-5. Create basic configuration files
-6. ASK: "What's the first feature to implement?"
-7. Transition to STANDARD workflow
+2. ASK: "What tech stack?" (language, framework, database, testing framework)
+3. Launch planner agent to design project structure based on tech stack answers
+   - Planner outputs: directory layout, config files, dependency list, dev tooling
+4. Create project structure from planner's design
+5. Initialize git repository
+6. Create configuration files and install dependencies
+7. ASK: "What's the first feature to implement?"
+8. Transition to STANDARD workflow starting at CLARIFY phase
 
 STATE MANAGEMENT:
 
@@ -136,6 +136,25 @@ Update state files after each phase transition:
 - docs/state/blockers.json - Any issues needing resolution
 - docs/state/reviewer-reports/ - Reviewer findings per task (persisted for documenter)
 - docs/state/decisions.md - Append-only decision log (captured from agent outputs)
+
+RESUME PROCEDURE:
+
+When resuming from docs/state/current-phase.json, use this decision table:
+
+| State in current-phase.json | Resume Point |
+|-------------------------------|--------------|
+| CLARIFY_COMPLETE | Skip to step 3 (Plan exploration) |
+| PLAN_COMPLETE | Skip to step 4a (Plan approval) |
+| BUILD phase, task TXXX in_progress | Re-run from that task's test step |
+| BUILD phase, task TXXX complete | Advance to the next task in the plan |
+| DOCUMENT_IN_PROGRESS | Re-launch documenter agent |
+| DOCUMENT_COMPLETE | Skip to step 8 (Completion summary) |
+
+For BUILD phase resumes:
+- Read task-status.json to find the last completed task and the current task
+- Check if tests exist for the current task (if so, skip test-writer)
+- Check reviewer-reports/ for existing reviews (if approved, skip reviewer)
+- Restore tickets.mapping from task-status.json for ticket tracking continuity
 
 On initialization, ensure all runtime output directories exist:
 mkdir -p docs/analysis/ docs/decisions/ docs/plans/ docs/requirements/ docs/state/reviewer-reports/ docs/state/archive/ docs/tickets/backlog/ docs/tickets/active/ docs/tickets/completed/
@@ -254,11 +273,15 @@ YOUR PROCESS (Standard):
    - LOG OWN DECISION: Append a D-ORCH-002 entry for orchestration pattern selection
      (STANDARD/PARALLEL/COUNCIL) with reasoning.
    - Update state: phase = "PLAN_COMPLETE"
+4a. PLAN APPROVAL - Present the plan to the user for confirmation:
+   - Display the task list from the plan (task IDs, types, descriptions, dependencies)
+   - ASK: "Here is the plan with X tasks. Shall I proceed, or would you like changes?"
+   - If user requests changes: re-launch planner with user feedback, return to step 4
+   - If user approves: continue to step 5
 5. TOUCHPOINT 1 (Ticket Setup) - Offer ticket tracking after plan:
    - TICKET workflow: Skip asking. Tickets are implicit. Store source ticket in
      task-status.json with all tasks mapping to it. Set tickets.sourceTicket.
-   - PRD workflow: Already asked at step 3 of PRD workflow. Store the mapping
-     from ticket-manager's CREATE response.
+   - PRD workflow: Same as STANDARD — ASK about tickets after plan is ready.
    - STANDARD, RFC, BOOTSTRAP workflows: ASK: "Plan has X tasks. Track with
      Linear tickets, local tickets, or no tickets?"
      If yes: Launch ticket-manager in CREATE mode. Store mapping in task-status.json.
@@ -272,6 +295,10 @@ YOUR PROCESS (Standard):
    - PARALLEL EXECUTION: If multiple [P] tasks exist with no dependencies between them,
      launch their test-writers simultaneously using parallel Task tool calls.
      Ticket-manager UPDATE STATUS calls can be launched in parallel alongside test-writers.
+   - If it's a Setup task: execute it directly (create directories, install dependencies,
+     generate config files, etc.) without test-writer or reviewer. Create a git checkpoint,
+     mark as complete, and move to next task. LOG: Append a D-ORCH entry for skipping TDD
+     on this setup task.
    - If it's a Test task: launch test-writer agent
      (No decision extraction — test-writer does not emit decisions by design; see test-writer.md)
    - If it's an Implement task: launch implementer agent
@@ -285,6 +312,10 @@ YOUR PROCESS (Standard):
    - DECISION EXTRACTION: Extract `<!-- DECISIONS -->` block from simplifier output (if present)
      and append to docs/state/decisions.md under "## Simplify Phase".
    - If reviewer flags issues: address before continuing
+   - CIRCUIT BREAKER: Track review attempts per task. After 2 NEEDS_FIXES or TDD_VIOLATION
+     cycles for the same task, stop and ASK the user: "Task [TXXX] has been rejected twice
+     by the reviewer. How would you like to proceed?" Options: (a) Skip this task,
+     (b) Debug together, (c) Modify requirements, (d) Override reviewer and continue.
    - Verify tests pass before moving to next task
    - Create git checkpoint: git commit -m "checkpoint: [TXXX] <description>"
    - Update task-status.json with checkpoint hash

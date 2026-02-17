@@ -145,10 +145,11 @@ So that [benefit]
 - [ ] Null input → [expected behavior]
 - [ ] Duplicate request → [expected behavior]
 
-## Out of Scope
+## In Scope / Out of Scope
 
-- [Thing we're explicitly NOT doing]
-- [Feature deferred to future]
+- In scope: [Item that IS part of this feature]
+- NOT doing: [Thing we're explicitly NOT doing]
+- Deferred: [Feature deferred to future]
 
 ## Open Questions
 
