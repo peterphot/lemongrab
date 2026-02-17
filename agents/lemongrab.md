@@ -143,11 +143,14 @@ When resuming from docs/state/current-phase.json, use this decision table:
 
 | State in current-phase.json | Resume Point |
 |-------------------------------|--------------|
+| CLARIFY_IN_PROGRESS | Re-launch clarifier from scratch (stateless) |
 | CLARIFY_COMPLETE | Resume at PLAN phase (codebase exploration) |
+| PLAN_IN_PROGRESS | Re-launch planner with existing exploration context |
 | PLAN_COMPLETE | Resume at PLAN APPROVAL (present plan to user) |
 | BUILD phase, task TXXX in_progress (Setup) | Re-execute the Setup task directly |
 | BUILD phase, task TXXX in_progress (Test/Implement) | Re-run from that task's test step |
 | BUILD phase, task TXXX complete | Advance to the next task in the plan |
+| BUILD_COMPLETE (all tasks done) | Resume at DOCUMENT phase |
 | DOCUMENT_IN_PROGRESS | Re-launch documenter agent |
 | DOCUMENT_COMPLETE | Resume at COMPLETION SUMMARY |
 
@@ -276,12 +279,12 @@ YOUR PROCESS (Standard):
    - LOG OWN DECISION: Append a D-ORCH-002 entry for orchestration pattern selection
      (STANDARD/PARALLEL/COUNCIL) with reasoning.
    - Update state: phase = "PLAN_COMPLETE"
-4a. PLAN APPROVAL - Present the plan to the user for confirmation:
+5. PLAN APPROVAL - Present the plan to the user for confirmation:
    - Display the task list from the plan (task IDs, types, descriptions, dependencies)
    - ASK: "Here is the plan with X tasks. Shall I proceed, or would you like changes?"
    - If user requests changes: re-launch planner with user feedback, return to step 4
-   - If user approves: continue to step 5
-5. TOUCHPOINT 1 (Ticket Setup) - Offer ticket tracking after plan:
+   - If user approves: continue to step 6
+6. TOUCHPOINT 1 (Ticket Setup) - Offer ticket tracking after plan:
    - TICKET workflow: Skip asking. Tickets are implicit. Store source ticket in
      task-status.json with all tasks mapping to it. Set tickets.sourceTicket.
    - PRD workflow: Same as STANDARD — ASK about tickets after plan is ready.
@@ -290,7 +293,7 @@ YOUR PROCESS (Standard):
      If yes: Launch ticket-manager in CREATE mode. Store mapping in task-status.json.
    - If declined or not applicable: Set tickets.enabled = false in task-status.json.
      All subsequent touchpoints are guarded by this flag.
-6. For each task in order (respecting dependencies):
+7. For each task in order (respecting dependencies):
    - Update state: currentTask = task ID
    - TOUCHPOINT 2 (In Progress) - If tickets.enabled: Launch ticket-manager (UPDATE STATUS →
      "In Progress") for tickets.mapping[currentTask]. For shared tickets (sourceTicket set),
@@ -326,7 +329,7 @@ YOUR PROCESS (Standard):
      LINK COMMIT) in a single call with ticket ID, commit hash, and commit message. Ticket-manager
      determines behavior: per-task tickets → set status "Done" + link commit; shared ticket
      (sourceTicket) → post progress comment + link commit.
-7. TOUCHPOINT 4 (DOCUMENT) - Document decisions and update project docs:
+8. TOUCHPOINT 4 (DOCUMENT) - Document decisions and update project docs:
    - Update state: phase = "DOCUMENT_IN_PROGRESS"
    - Launch documenter agent with explicit handoff context:
      * Feature name: <feature>
@@ -341,13 +344,13 @@ YOUR PROCESS (Standard):
      * If verification fails: log to blockers.json, ask user how to proceed
    - Create documentation checkpoint: git add docs/ && git commit -m "docs: document <feature> decisions"
    - Update state: phase = "DOCUMENT_COMPLETE"
-8. TOUCHPOINT 5 (Completion Summary) - If tickets.enabled: Launch ticket-manager (COMPLETION
+9. TOUCHPOINT 5 (Completion Summary) - If tickets.enabled: Launch ticket-manager (COMPLETION
    SUMMARY) with feature name, task-status.json path, and plan path. For shared tickets, this
    posts the full summary and sets status to "Done". For per-task tickets (already Done), this
    posts a brief completion note only.
-9. Clean up state files: move docs/state/decisions.md to docs/state/archive/<feature>-decisions.md
-   (or delete it). This prevents ID collisions if the next feature reuses IDs like D-CLARIFY-001.
-10. Report completion to user
+10. Clean up state files: move docs/state/decisions.md to docs/state/archive/<feature>-decisions.md
+    (or delete it). This prevents ID collisions if the next feature reuses IDs like D-CLARIFY-001.
+11. Report completion to user
 
 TICKET STATE IN task-status.json:
 

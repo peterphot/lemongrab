@@ -32,7 +32,7 @@ This skill helps extract actionable requirements from external documents like PR
 | User Stories | Functional requirements |
 | Acceptance Criteria | Test scenarios |
 | Success Metrics | Validation criteria |
-| Out of Scope | Boundaries |
+| In Scope / Out of Scope | Boundaries |
 | Open Questions | Blockers to resolve |
 
 **Extraction Template:**

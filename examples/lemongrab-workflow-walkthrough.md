@@ -190,7 +190,7 @@ Example decision entries captured during BUILD:
 
 ```markdown
 ## Implement Phase
-_Captured: 2024-01-15T12:30:00Z_
+_Captured: 2026-01-15T12:30:00Z_
 
 ### D-IMPL-001: Synchronous file reading
 - **Who decided**: claude
@@ -209,7 +209,7 @@ and reviewer reports from `docs/state/reviewer-reports/`:
 # Decision Log: config-parser
 
 ## Clarify Phase
-_Captured: 2024-01-15T10:45:00Z_
+_Captured: 2026-01-15T10:45:00Z_
 
 ### D-CLARIFY-001: JSON-only support
 - **Who decided**: user
@@ -219,7 +219,7 @@ _Captured: 2024-01-15T10:45:00Z_
 - **Context**: Asked user which config formats to support
 
 ## Implement Phase
-_Captured: 2024-01-15T12:30:00Z_
+_Captured: 2026-01-15T12:30:00Z_
 
 ### D-IMPL-001: Synchronous file reading
 - **Who decided**: claude
