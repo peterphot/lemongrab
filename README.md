@@ -14,11 +14,20 @@ Lemongrab is a Claude Code plugin that provides an advanced multi-agent workflow
 
 ## Install
 
-```bash
-claude plugin add peterphot/lemongrab
+From inside Claude Code, run:
+
+```
+/plugin marketplace add https://github.com/peterphot/lemongrab
+/plugin install lemongrab
 ```
 
-That's it. No files to copy, no configuration needed.
+Or use the interactive plugin manager:
+
+```
+/plugin
+```
+
+Then navigate to **Marketplaces** → **Add** → paste `https://github.com/peterphot/lemongrab`, then switch to **Discover** and install.
 
 ---
 
