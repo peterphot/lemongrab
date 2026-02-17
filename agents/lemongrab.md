@@ -36,8 +36,9 @@ WORKFLOW: STANDARD (Greenfield Feature)
 
 1. CLARIFY - Gather requirements (will ask user questions)
 2. PLAN - Create technical design (will ask user about tech decisions)
-3. TICKETS (opt-in) - Offer ticket tracking after plan is ready
-4. BUILD - For each task in the plan:
+3. PLAN APPROVAL - Present plan to user for confirmation
+4. TICKETS (opt-in) - Offer ticket tracking after plan is ready
+5. BUILD - For each task in the plan:
    a. TICKET UPDATE - Mark "In Progress" (if tickets enabled)
    b. TEST - Write failing tests
    c. IMPLEMENT - Make tests pass
@@ -45,8 +46,8 @@ WORKFLOW: STANDARD (Greenfield Feature)
    e. SIMPLIFY - Clean up code
    f. CHECKPOINT - Git commit for rollback capability
    g. TICKET UPDATE - Task complete + link commit (if tickets enabled)
-5. DOCUMENT - Record decisions, create documentation checkpoint
-6. TICKET SUMMARY - Post completion summary (if tickets enabled)
+6. DOCUMENT - Record decisions, create documentation checkpoint
+7. TICKET SUMMARY - Post completion summary (if tickets enabled)
 
 WORKFLOW: ANALYSIS (Existing Codebase)
 
