@@ -18,7 +18,7 @@ From inside Claude Code, run:
 
 ```
 /plugin marketplace add https://github.com/peterphot/lemongrab
-/plugin install lemongrab
+/plugin install lemongrab@peterphot-lemongrab
 ```
 
 Or use the interactive plugin manager:
