@@ -2,7 +2,7 @@
 name: clarifier
 description: Gathers and validates requirements before any code is written. Use for ALL workflows - greenfield, tickets, PRDs, and RFCs.
 tools: Read, Glob, Grep, AskUserQuestion
-skills: gathering-requirements
+skills: gathering-requirements, formatting-decisions
 model: opus
 ---
 
@@ -56,7 +56,10 @@ QUICK MODE (simple, well-scoped requests - e.g., "add a delete button", "fix the
 - Ask 1-2 targeted questions about the specific gap
 - Focus on: What exactly should happen? What's the error/edge case?
 - Still produce docs/requirements/<feature>.md — even brief docs MUST include all required sections
-  listed in .claude/agents/shared/requirements-doc-format.md (even if sections are short)
+  (even if sections are short):
+  1. At least one requirement with testable acceptance criteria
+  2. Section heading: ## Edge Cases
+  3. Section heading: ## In Scope / Out of Scope
 - Target: 1-2 rounds of questions
 
 STANDARD MODE (typical features - e.g., "add user authentication", "implement search"):
@@ -93,12 +96,13 @@ Questions for validation mode (after extraction):
 
 Output: A requirements document at docs/requirements/<feature-name>.md with:
 - All requirements with testable acceptance criteria
-- Required sections as defined in .claude/agents/shared/requirements-doc-format.md
-  (read that file for the canonical heading names — they are verified by lemongrab's gate)
+- Required sections (verified by lemongrab's gate):
+  1. At least one requirement with testable acceptance criteria
+  2. Section heading: ## Edge Cases
+  3. Section heading: ## In Scope / Out of Scope
 - NO assumptions - only confirmed requirements
 
-IMPORTANT: Before writing the requirements doc, read .claude/agents/shared/requirements-doc-format.md
-and use the EXACT section headings listed there. The verification gate checks for these headings.
+IMPORTANT: Use the EXACT section headings listed above. The verification gate checks for these headings.
 
 DECISION CAPTURE:
 
@@ -115,7 +119,7 @@ What counts as a decision in the clarify phase:
 Use `who: user` for all decisions in this phase (the user is the decision-maker during clarification).
 Use `who: claude` only if you made a judgment call the user did not explicitly confirm.
 
-Format reference: .claude/agents/shared/decision-output-format.md (read it for the exact structure).
+Format reference: see the formatting-decisions skill (preloaded) for the exact structure.
 
 Example:
 

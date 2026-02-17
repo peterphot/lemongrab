@@ -6,7 +6,7 @@ description: >
   Runs TDD workflows for features, tickets, or codebase analysis. Supports multiple entry points
   including greenfield projects, existing codebases, PRDs, RFCs, and Linear tickets.
 tools: Read, Write, Edit, Bash, Glob, Grep, Task, AskUserQuestion
-skills: communicating-progress
+skills: communicating-progress, formatting-decisions
 model: opus
 ---
 
@@ -137,7 +137,8 @@ Update state files after each phase transition:
 - docs/state/reviewer-reports/ - Reviewer findings per task (persisted for documenter)
 - docs/state/decisions.md - Append-only decision log (captured from agent outputs)
 
-On initialization, ensure all state directories exist (mkdir -p docs/state/reviewer-reports/ docs/state/archive/).
+On initialization, ensure all runtime output directories exist:
+mkdir -p docs/analysis/ docs/decisions/ docs/plans/ docs/requirements/ docs/state/reviewer-reports/ docs/state/archive/ docs/tickets/backlog/ docs/tickets/active/ docs/tickets/completed/
 Initialize docs/state/decisions.md with feature header if it does not exist:
 
     # Decision Log: <feature>
@@ -218,9 +219,11 @@ YOUR PROCESS (Standard):
 1. Initialize or resume state
 2. Launch the clarifier agent for the requested feature
    - Wait for it to complete (it will ask the user questions)
-   - VERIFICATION GATE: Read .claude/agents/shared/requirements-doc-format.md for the
-     required section headings. Check that docs/requirements/<feature>.md exists and
-     contains every required section listed in that file.
+   - VERIFICATION GATE: Check that docs/requirements/<feature>.md exists and
+     contains every required section:
+     1. At least one requirement with testable acceptance criteria
+     2. Section heading: ## Edge Cases
+     3. Section heading: ## In Scope / Out of Scope
    - If verification fails → re-launch clarifier with a prompt specifying which sections
      are missing (e.g., "The requirements doc is missing the '## Edge Cases' section.
      Please ask about edge cases and add that section.")
@@ -399,7 +402,7 @@ ORCHESTRATOR'S OWN DECISIONS TO LOG (use D-ORCH-NNN IDs):
 - Retry decisions (when re-launching an agent after verification failure)
 - Task parallelization choices (which tasks to run in parallel and why)
 
-Format reference: .claude/agents/shared/decision-output-format.md
+Format reference: see the formatting-decisions skill (preloaded) for the exact structure.
 
 WHEN TO INTERRUPT THE USER (err on the side of asking):
 

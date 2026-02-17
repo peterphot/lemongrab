@@ -1,6 +1,7 @@
 ---
 name: managing-work-items
 description: Create and track work items in Linear or locally. Use when creating tickets from plans, tracking implementation progress, updating ticket status, or linking commits to work items. Provides templates for Linear issues and local ticket files.
+version: 1.0.0
 ---
 
 # Managing Work Items

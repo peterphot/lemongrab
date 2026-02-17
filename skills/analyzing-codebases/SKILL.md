@@ -1,6 +1,7 @@
 ---
 name: analyzing-codebases
 description: Analyze existing codebases to build context quickly. Use when joining a project, understanding unfamiliar code, exploring architecture, or preparing to make changes. Provides patterns for structure analysis, dependency mapping, and key question frameworks.
+version: 1.0.0
 ---
 
 # Analyzing Codebases

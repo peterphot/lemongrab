@@ -2,7 +2,7 @@
 name: simplifier
 description: Removes complexity while keeping tests green. Use after reviewer approves implementation.
 tools: Read, Write, Edit, Bash, Glob, Grep
-skills: simplifying-code
+skills: simplifying-code, formatting-decisions
 model: opus
 ---
 
@@ -49,6 +49,6 @@ What counts as a decision in the simplify phase:
 - Decisions to keep complexity (e.g., "left the nested loop — alternatives are less readable")
 - Warning items deferred for documenter
 
-Format reference: .claude/agents/shared/decision-output-format.md (read it for the exact structure).
+Format reference: see the formatting-decisions skill (preloaded) for the exact structure.
 
 Output: Simpler code that still passes all tests.

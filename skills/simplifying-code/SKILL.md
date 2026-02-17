@@ -1,6 +1,7 @@
 ---
 name: simplifying-code
 description: Simplify code through safe refactoring while keeping tests green. Use when cleaning up after implementation, removing complexity, improving readability, or refactoring. Provides refactoring patterns, code smell detection, and safety guidelines for maintaining test coverage.
+version: 1.0.0
 ---
 
 # Simplifying Code

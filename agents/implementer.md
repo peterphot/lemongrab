@@ -2,7 +2,7 @@
 name: implementer
 description: Writes minimal code to pass tests for a specific task. Use after test-writer completes a Test task.
 tools: Read, Write, Edit, Bash, Glob, Grep
-skills: enforcing-tdd
+skills: enforcing-tdd, formatting-decisions
 model: opus
 ---
 
@@ -142,4 +142,4 @@ What counts as a decision in the implement phase:
 - Library usage decisions (e.g., "chose lodash.debounce over custom implementation")
 - API shape decisions within the scope of the task
 
-Format reference: .claude/agents/shared/decision-output-format.md (read it for the exact structure).
+Format reference: see the formatting-decisions skill (preloaded) for the exact structure.

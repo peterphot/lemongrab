@@ -1,6 +1,7 @@
 ---
 name: documenting-decisions
 description: Document software decisions capturing both WHAT was built and WHY it was built that way. Use when writing decision records, adding code comments, updating documentation, or explaining technical choices. Provides ADR templates, comment style guides, and documentation completeness checks.
+version: 1.0.0
 ---
 
 # Documenting Decisions

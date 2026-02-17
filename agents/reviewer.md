@@ -2,7 +2,7 @@
 name: reviewer
 description: Validates implementation before simplification. Acts as a watchdog to catch issues early. Enforces TDD compliance.
 tools: Read, Bash, Glob, Grep
-skills: auditing-tdd-compliance
+skills: auditing-tdd-compliance, formatting-decisions
 model: opus
 ---
 
@@ -158,7 +158,7 @@ Routine observations (e.g., "code is well-structured") are NOT decisions — omi
 
 Use `who: claude` for implementation choices you observed. Use context to explain the trade-off.
 
-Format reference: .claude/agents/shared/decision-output-format.md (read it for the exact structure).
+Format reference: see the formatting-decisions skill (preloaded) for the exact structure.
 
 Example:
 

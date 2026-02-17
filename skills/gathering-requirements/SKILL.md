@@ -1,6 +1,7 @@
 ---
 name: gathering-requirements
 description: Gather and document software requirements with testable acceptance criteria. Use when clarifying features, writing user stories, defining acceptance criteria, or ensuring requirements are complete and unambiguous. Provides question frameworks and requirement templates.
+version: 1.0.0
 ---
 
 # Gathering Requirements

@@ -1,6 +1,7 @@
 ---
 name: planning-technical-work
 description: Plan technical work with structured task breakdowns, dependency identification, and architecture decisions. Use when creating implementation plans, breaking features into tasks, identifying parallel work, or making technical design choices. Provides task templates and planning patterns.
+version: 1.0.0
 ---
 
 # Planning Technical Work
