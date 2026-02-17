@@ -322,37 +322,41 @@ git reset --hard <commit-hash>
 ```
 lemongrab/
 ├── .claude-plugin/
-│   └── plugin.json              # Plugin metadata
-├── agents/                      # 10 agent definitions
-│   ├── lemongrab.md             # Workflow orchestrator
-│   ├── analyzer.md              # Context builder
-│   ├── clarifier.md             # Requirements gatherer
-│   ├── planner.md               # Technical architect
-│   ├── test-writer.md           # TDD test writer
-│   ├── implementer.md           # Minimal code writer
-│   ├── reviewer.md              # TDD compliance auditor
-│   ├── simplifier.md            # Code simplifier
-│   ├── documenter.md            # Technical writer
-│   └── ticket-manager.md        # Work item tracker
-├── commands/                    # 5 slash commands
-│   ├── tdd.md
-│   ├── analyze.md
-│   ├── ticket.md
-│   ├── bootstrap.md
-│   └── resume.md
-├── skills/                      # 11 skill definitions
-│   ├── analyzing-codebases/
-│   ├── auditing-tdd-compliance/
-│   ├── communicating-progress/
-│   ├── documenting-decisions/
-│   ├── enforcing-tdd/
-│   ├── formatting-decisions/
-│   ├── gathering-requirements/
-│   ├── integrating-external-sources/
-│   ├── managing-work-items/
-│   ├── planning-technical-work/
-│   └── simplifying-code/
-├── examples/                    # Usage examples
+│   └── marketplace.json         # Marketplace definition
+├── plugins/
+│   └── lemongrab/
+│       ├── .claude-plugin/
+│       │   └── plugin.json      # Plugin metadata
+│       ├── agents/              # 10 agent definitions
+│       │   ├── lemongrab.md
+│       │   ├── analyzer.md
+│       │   ├── clarifier.md
+│       │   ├── planner.md
+│       │   ├── test-writer.md
+│       │   ├── implementer.md
+│       │   ├── reviewer.md
+│       │   ├── simplifier.md
+│       │   ├── documenter.md
+│       │   └── ticket-manager.md
+│       ├── commands/            # 5 slash commands
+│       │   ├── tdd.md
+│       │   ├── analyze.md
+│       │   ├── ticket.md
+│       │   ├── bootstrap.md
+│       │   └── resume.md
+│       ├── skills/              # 11 skill definitions
+│       │   ├── analyzing-codebases/
+│       │   ├── auditing-tdd-compliance/
+│       │   ├── communicating-progress/
+│       │   ├── documenting-decisions/
+│       │   ├── enforcing-tdd/
+│       │   ├── formatting-decisions/
+│       │   ├── gathering-requirements/
+│       │   ├── integrating-external-sources/
+│       │   ├── managing-work-items/
+│       │   ├── planning-technical-work/
+│       │   └── simplifying-code/
+│       └── examples/            # Usage examples
 ├── .gitignore
 └── README.md
 ```
