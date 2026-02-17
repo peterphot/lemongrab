@@ -8,7 +8,7 @@
 
 **A TDD Multi-Agent Workflow Plugin for Claude Code**
 
-Lemongrab is a Claude Code plugin that provides an advanced multi-agent workflow featuring test-driven development, parallel execution, code review, and automatic rollback capabilities. Install it in any project to get 10 specialized agents, 10 skills, and 5 slash commands.
+Lemongrab is a Claude Code plugin that provides an advanced multi-agent workflow featuring test-driven development, parallel execution, code review, and automatic rollback capabilities. Install it in any project to get 10 specialized agents, 11 skills, and 5 slash commands.
 
 ---
 
@@ -112,8 +112,8 @@ Use the lemongrab agent to implement from RFC <notion-url>
 │  └────────┬────────┘   └────────┬────────┘   └────────┬────────┘           │
 │           │                     │                     │                     │
 │           ▼                     ▼                     ▼                     │
-│  "implement from PRD   "implement from RFC   /bootstrap <type>             │
-│   <notion-url>"         <notion-url>"                                       │
+│  "implement from PRD    "implement from RFC    /bootstrap <type>            │
+│   <notion-url>"          <notion-url>"                                      │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -249,6 +249,7 @@ Skills provide reusable domain knowledge that agents leverage automatically:
 | `communicating-progress` | Status reports, blockers, handoffs | lemongrab |
 | `analyzing-codebases` | Structure analysis, pattern detection | analyzer |
 | `integrating-external-sources` | PRD/RFC/ticket extraction patterns | analyzer |
+| `formatting-decisions` | Decision block format, phase prefixes, attribution | clarifier, planner, implementer, reviewer, simplifier, lemongrab |
 | `managing-work-items` | Linear & local ticket management | ticket-manager |
 
 ---
@@ -323,22 +324,20 @@ lemongrab/
 │   ├── reviewer.md              # TDD compliance auditor
 │   ├── simplifier.md            # Code simplifier
 │   ├── documenter.md            # Technical writer
-│   ├── ticket-manager.md        # Work item tracker
-│   └── shared/                  # Shared reference docs
-│       ├── decision-output-format.md
-│       └── requirements-doc-format.md
+│   └── ticket-manager.md        # Work item tracker
 ├── commands/                    # 5 slash commands
 │   ├── tdd.md
 │   ├── analyze.md
 │   ├── ticket.md
 │   ├── bootstrap.md
 │   └── resume.md
-├── skills/                      # 10 skill definitions
+├── skills/                      # 11 skill definitions
 │   ├── analyzing-codebases/
 │   ├── auditing-tdd-compliance/
 │   ├── communicating-progress/
 │   ├── documenting-decisions/
 │   ├── enforcing-tdd/
+│   ├── formatting-decisions/
 │   ├── gathering-requirements/
 │   ├── integrating-external-sources/
 │   ├── managing-work-items/

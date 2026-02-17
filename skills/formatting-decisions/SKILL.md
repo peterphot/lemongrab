@@ -1,3 +1,11 @@
+---
+name: formatting-decisions
+description: Format decision capture blocks for agent output. Use when logging architectural choices, user decisions, or implementation trade-offs. Provides the canonical decision block structure, phase prefix mappings, attribution rules, and ID numbering conventions.
+version: 1.0.0
+---
+
+# Formatting Decisions
+
 DECISION OUTPUT FORMAT FOR AGENT RESPONSES:
 
 Agents capture decisions by appending a structured block as the LAST thing in their text output.
@@ -93,5 +101,3 @@ WHEN TO OMIT THE BLOCK:
 TIMESTAMP FORMAT:
 
 All timestamps use ISO 8601: `YYYY-MM-DDTHH:MM:SSZ` (e.g., `2026-02-14T06:21:12Z`).
-
-Both agents and the orchestrator MUST read this file as the single source of truth for the format.
