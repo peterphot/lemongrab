@@ -143,16 +143,19 @@ When resuming from docs/state/current-phase.json, use this decision table:
 
 | State in current-phase.json | Resume Point |
 |-------------------------------|--------------|
-| CLARIFY_COMPLETE | Skip to step 3 (Plan exploration) |
-| PLAN_COMPLETE | Skip to step 4a (Plan approval) |
-| BUILD phase, task TXXX in_progress | Re-run from that task's test step |
+| CLARIFY_COMPLETE | Resume at PLAN phase (codebase exploration) |
+| PLAN_COMPLETE | Resume at PLAN APPROVAL (present plan to user) |
+| BUILD phase, task TXXX in_progress (Setup) | Re-execute the Setup task directly |
+| BUILD phase, task TXXX in_progress (Test/Implement) | Re-run from that task's test step |
 | BUILD phase, task TXXX complete | Advance to the next task in the plan |
 | DOCUMENT_IN_PROGRESS | Re-launch documenter agent |
-| DOCUMENT_COMPLETE | Skip to step 8 (Completion summary) |
+| DOCUMENT_COMPLETE | Resume at COMPLETION SUMMARY |
 
 For BUILD phase resumes:
 - Read task-status.json to find the last completed task and the current task
-- Check if tests exist for the current task (if so, skip test-writer)
+- Check the task type (Setup, Test, or Implement):
+  - Setup task: re-execute directly (no TDD cycle)
+  - Test/Implement task: check if tests exist (if so, skip test-writer)
 - Check reviewer-reports/ for existing reviews (if approved, skip reviewer)
 - Restore tickets.mapping from task-status.json for ticket tracking continuity
 
