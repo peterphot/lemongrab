@@ -117,7 +117,7 @@ git commit -m "feat(auth): add login endpoint
 
 Implements LIN-123
 
-Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>"
+Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 ## Local Ticket Management
@@ -309,7 +309,7 @@ type(scope): description
 Implements: [TXXX] or [LIN-123]
 Closes: [TXXX] or [LIN-123]  # if completing ticket
 
-Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+Co-Authored-By: Claude <noreply@anthropic.com>
 ```
 
 ### Update Ticket on Commit

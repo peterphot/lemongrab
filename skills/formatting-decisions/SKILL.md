@@ -20,7 +20,7 @@ FORMAT:
 <!-- DECISIONS
 - decision:
     id: D-{PHASE}-{NNN}
-    phase: clarify | plan | implement | review | simplify | orchestrate
+    phase: clarify | plan | implement | review | simplify | analyze | orchestrate
     who: user | claude
     what: "Short title"
     why: "Reasoning"
@@ -39,6 +39,7 @@ The `phase` field value maps to an ID prefix as follows:
 | implement     | D-IMPL       | D-IMPL-001    |
 | review        | D-REVIEW     | D-REVIEW-001  |
 | simplify      | D-SIMPLIFY   | D-SIMPLIFY-001|
+| analyze       | D-ANALYZE    | D-ANALYZE-001 |
 | orchestrate   | D-ORCH       | D-ORCH-001    |
 
 Note: The `implement` phase uses the abbreviated prefix `D-IMPL`, not `D-IMPLEMENT`.
@@ -49,6 +50,7 @@ Descriptions:
 - D-IMPL-NNN     — Decisions from the implementation phase (data structures, algorithms)
 - D-REVIEW-NNN   — Decisions observed during review (trade-offs, INFO items)
 - D-SIMPLIFY-NNN — Decisions from simplification (refactoring approach)
+- D-ANALYZE-NNN  — Decisions from the analysis phase (source priority, interpretation, scope)
 - D-ORCH-NNN     — Decisions made by the orchestrator (scale, pattern, retry, parallelization)
 
 WHO ATTRIBUTION RULES:

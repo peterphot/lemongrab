@@ -32,7 +32,7 @@ This skill helps extract actionable requirements from external documents like PR
 | User Stories | Functional requirements |
 | Acceptance Criteria | Test scenarios |
 | Success Metrics | Validation criteria |
-| Out of Scope | Boundaries |
+| In Scope / Out of Scope | Boundaries |
 | Open Questions | Blockers to resolve |
 
 **Extraction Template:**
@@ -55,9 +55,10 @@ This skill helps extract actionable requirements from external documents like PR
 - [ ] [criterion from PRD]
 - [ ] [criterion from PRD]
 
-### Out of Scope (Explicit)
-- [item]
-- [item]
+### In Scope / Out of Scope
+- In scope: [item that IS part of this feature]
+- NOT doing: [item]
+- Deferred: [item deferred to future]
 
 ### Questions/Gaps
 - [ ] [Missing information]
@@ -266,9 +267,10 @@ Flag these common gaps:
 - [constraint from sources]
 - [constraint from sources]
 
-### Out of Scope
-- [explicitly excluded]
-- [explicitly excluded]
+### In Scope / Out of Scope
+- In scope: [explicitly included]
+- NOT doing: [explicitly excluded]
+- Deferred: [deferred to future]
 
 ## Questions for Stakeholders
 - [ ] [question]: Blocks [FR1, FR2]

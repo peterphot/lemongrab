@@ -76,13 +76,14 @@
 - Session timeout: 30 minutes → test at 29, 30, 31 minutes
 - Empty inputs: email, password → test each empty
 
-## Out of Scope
+## In Scope / Out of Scope
 
-- Password reset functionality
-- Multi-factor authentication
-- Social login (OAuth)
-- Remember me functionality
-- Account lockout after failed attempts
+- In scope: Email/password login, logout, session expiry
+- NOT doing: Password reset functionality
+- NOT doing: Multi-factor authentication
+- NOT doing: Social login (OAuth)
+- Deferred: Remember me functionality
+- Deferred: Account lockout after failed attempts
 
 ## Technical Notes
 

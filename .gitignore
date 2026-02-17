@@ -1,2 +1,5 @@
 # Runtime output directories (created by agents at runtime)
 docs/
+
+# Machine-specific Claude Code settings
+.claude/settings.local.json
