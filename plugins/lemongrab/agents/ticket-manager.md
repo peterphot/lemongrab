@@ -12,9 +12,11 @@ MODES OF OPERATION:
 
 1. CREATE FROM PLAN - Create tickets from a technical plan
 2. UPDATE STATUS - Update ticket status as work progresses
-3. TASK COMPLETE + LINK COMMIT - Mark task done and associate commit with ticket (combined)
+3. TASK COMPLETE + LINK COMMIT - Post progress comment and associate commit with ticket (combined)
 4. SYNC STATUS - Sync local and Linear status
-5. COMPLETION SUMMARY - Post a summary when all work is done
+5. COMPLETION SUMMARY - Post a summary with PR link when all work is done
+6. CREATE BRANCH - Create a feature branch for ticket work
+7. CREATE PR - Create a pull request and move tickets to "In Review"
 
 MODE: CREATE FROM PLAN
 
@@ -62,60 +64,64 @@ Update ticket status as work progresses:
 
 MODE: TASK COMPLETE + LINK COMMIT
 
-Mark a task done and associate its commit with the ticket. This combined mode
+Post a progress comment and associate the commit with the ticket. This combined mode
 replaces separate "update status" + "link commit" calls at task end.
 
+NOTE: This mode no longer sets any tickets to "Done". "Done" status is handled by
+PR merge (via Linear's GitHub integration or manually after merge).
+
 1. If LINEAR:
-   - For per-task tickets: update status to "Done" + post commit comment
-   - For shared ticket (sourceTicket set): post progress comment + commit link
+   - For ALL tickets (per-task and shared): post progress comment + commit link only
    mcp__plugin_forge_linear__create_comment
      issueId: "<issue ID>"
      body: "Task [TXXX] complete: <title>. X of Y tasks done.\nCommit `<hash>`: <message>"
 
-   mcp__plugin_forge_linear__update_issue  (per-task tickets only)
-     id: "<issue ID>"
-     state: "Done"
+   - Do NOT update status to "Done" — that happens when the PR is merged.
 
 2. If LOCAL:
-   - Update status checkbox in ticket file
    - Add commit hash to ticket's Commits section
-   - For per-task: move to completed/; for shared: keep in active/
+   - Update progress notes in ticket file
+   - Keep ticket in active/ (do not move to completed/ — that happens after PR merge)
 
 MODE: COMPLETION SUMMARY
 
-Post a final summary when all tasks are complete:
+Post a final summary with PR link when all tasks are complete. Does NOT set any
+tickets to "Done" — that happens automatically when the PR is merged.
 
-1. Read docs/state/task-status.json for task completion data
+1. Read docs/state/task-status.json for task completion data (including tickets.pr.url)
 2. Read the plan (docs/plans/<feature>.md) for context
 3. Read git log for commit history
-   - If sourceTicket is set: post the full feature summary to that single ticket
-   - If multiple per-task tickets (no sourceTicket): post a brief completion note to each
-     ticket referencing the overall feature, not the full summary. Example:
-     "Task [TXXX] completed as part of <feature>. See docs/decisions/<feature>.md for full summary."
-     Do NOT change status — per-task tickets were already set to "Done" during TASK COMPLETE.
+4. Build the completion summary using the template below, including the PR URL
 
-4. If LINEAR:
+5. If LINEAR:
    - Shared ticket (sourceTicket set):
      mcp__plugin_forge_linear__create_comment
        issueId: "<source ticket ID>"
-       body: "<completion summary from template below>"
+       body: "<completion summary with PR link>"
 
-     mcp__plugin_forge_linear__update_issue
-       id: "<source ticket ID>"
-       state: "Done"
+     Do NOT update status to "Done" — PR merge handles this via Linear's GitHub integration.
 
-   - Per-task tickets (no sourceTicket): post brief note only, no status change
+   - Per-task tickets (no sourceTicket): post brief note with PR link
      mcp__plugin_forge_linear__create_comment
        issueId: "<each ticket ID>"
-       body: "Completed as part of <feature>. See docs/decisions/<feature>.md for full summary."
+       body: "Completed as part of <feature>. PR created: <pr_url>. Merge the PR to complete this work."
 
-5. If LOCAL:
-   - Shared ticket: append completion summary, update status to Completed, move to completed/
-   - Per-task tickets: append brief note only (already in completed/)
+     Do NOT update status to "Done" — PR merge handles this.
+
+6. If LOCAL:
+   - Shared ticket: append completion summary with PR link. Do NOT move to completed/
+     (that happens after PR merge).
+   - Per-task tickets: append brief note with PR link only.
+
+7. Always include in summary: "PR created: <url>. Merge the PR to complete this work."
 
 COMPLETION SUMMARY TEMPLATE:
 
     ## Completion Summary
+
+    ### Pull Request
+    PR created: <pr_url>
+    Merge the PR to complete this work.
 
     ### Tasks Completed
     - [T001] <title> ✓
@@ -143,7 +149,9 @@ SHARED TICKET AWARENESS (TICKET workflow):
 
 When all tasks map to the same source ticket (i.e., tickets.sourceTicket is set):
 - Individual task completions → post PROGRESS COMMENTS, not status changes
-- Only COMPLETION SUMMARY sets the ticket to "Done"
+- CREATE PR moves the ticket to "In Review"
+- COMPLETION SUMMARY posts the summary with PR link but does NOT set "Done"
+- "Done" happens automatically when the PR is merged (via Linear's GitHub integration)
 - Progress comment format:
   "Task [TXXX] complete: <title>. X of Y tasks done."
 
@@ -220,6 +228,70 @@ Ticket operations are best-effort and must never block the build workflow.
 - If a Linear API call fails: log the error and return a failure report to the orchestrator.
 - Do NOT retry automatically - let the orchestrator decide whether to retry or skip.
 - Include the failed operation details so it can be retried on resume.
+
+MODE: CREATE BRANCH
+
+Create a feature branch for ticket work:
+
+1. Verify we're on the base branch (main) and it's up to date:
+   git checkout main && git pull origin main
+2. Determine branch name:
+   - TICKET workflow: feat/<ticket-id>-<slug> (e.g., feat/LIN-123-auth-flow)
+   - STANDARD/PRD/RFC: feat/<feature-slug> (e.g., feat/user-authentication)
+   - Slug: lowercase, hyphens only, max 50 chars total for branch name
+3. Create and switch to the feature branch:
+   git checkout -b <branch-name>
+4. Return branch name to orchestrator for storage in task-status.json
+
+MODE: CREATE PR
+
+Create a pull request when all ticket work is complete:
+
+1. Ensure all changes are committed on the feature branch
+2. Push branch to remote:
+   git push -u origin <branch-name>
+3. Build PR title:
+   - TICKET workflow: "<ticket-id>: <title>" (e.g., "LIN-123: Add auth flow")
+   - STANDARD: "feat: <feature-name>"
+4. Build PR body using template below
+5. Create PR:
+   gh pr create --base main --head <branch-name> \
+     --title "<PR title>" \
+     --body "<PR body>"
+6. Update all associated tickets to "In Review":
+   - LINEAR: mcp__plugin_forge_linear__update_issue with state = "In Review"
+   - LOCAL: Update status checkbox to "In Review", keep in active/
+7. Post PR link as comment on each ticket:
+   - LINEAR: mcp__plugin_forge_linear__create_comment with PR URL
+   - LOCAL: Add PR URL to ticket file
+8. Return PR URL and number to orchestrator
+
+PR BODY TEMPLATE:
+
+    ## Summary
+    <1-3 bullet points from completion summary>
+
+    ## Tickets
+    <List of ticket IDs with links — enables Linear auto-close on merge>
+    - Closes LIN-123
+    - Closes LIN-124
+
+    ## Changes
+    <Files changed summary from git diff --stat>
+
+    ## Test Plan
+    - All tests passing: X tests
+    - [Key verification steps]
+
+    🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+LINEAR AUTO-CLOSE ON MERGE:
+
+Include `Closes LIN-XXX` in the PR body for each associated ticket. When the repo has
+Linear's GitHub integration enabled, merging the PR automatically transitions issues to "Done".
+
+If the Linear-GitHub integration is not available, the completion summary should note:
+"Tickets need manual status update to 'Done' after merging the PR."
 
 STATE AWARENESS:
 
