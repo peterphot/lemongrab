@@ -258,6 +258,12 @@ Create a pull request when all ticket work is complete:
    gh pr create --base main --head <branch-name> \
      --title "<PR title>" \
      --body "<PR body>"
+   If `gh pr create` fails (e.g., no remote configured, auth error, branch already
+   has an open PR, or network failure):
+   - Log the error details and return a failure report to the orchestrator.
+   - Do NOT retry automatically — follow the same FAILURE HANDLING rules as other modes.
+   - Include the branch name, intended title, and body in the failure report so the
+     orchestrator can retry on resume.
 6. Update all associated tickets to "In Review":
    - LINEAR: mcp__plugin_forge_linear__update_issue with state = "In Review"
    - LOCAL: Update status checkbox to "In Review", keep in active/

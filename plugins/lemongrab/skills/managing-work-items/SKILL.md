@@ -521,6 +521,14 @@ When the plan has [P] parallel tasks, use git worktrees to isolate each task's w
 - No branch switching needed — agents work simultaneously
 - Clean merge back to feature branch when done
 
+### .gitignore Setup
+
+Before creating worktrees, ensure `.worktrees/` is in `.gitignore`:
+```bash
+# Add .worktrees/ to .gitignore if not already present
+grep -qxF '.worktrees/' .gitignore 2>/dev/null || echo '.worktrees/' >> .gitignore
+```
+
 ### Creating Worktrees
 
 ```bash
