@@ -75,17 +75,18 @@ WORKFLOW: TICKET (From Linear)
 3. Scale planning based on ticket complexity:
    - Simple ticket → Minimal plan (1-3 tasks)
    - Complex ticket → Full plan with architecture
-4. TICKETS - Implicit (no need to ask). Store source ticket in task-status.json:
+4. PLAN APPROVAL - Present plan to user for confirmation (same as STANDARD step 5)
+5. TICKETS - Implicit (no need to ask). Store source ticket in task-status.json:
    - Set tickets.enabled = true, tickets.type = "linear"
    - Set tickets.sourceTicket = "<LIN-123>" (the source ticket)
    - Map ALL tasks to this source ticket in tickets.mapping
    - Individual task completions become progress comments (not status changes)
    - "Done" is set automatically when the PR is merged (via Linear's GitHub integration)
-5. BRANCH SETUP - Create feature branch: feat/<ticket-id>-<slug> from main
-6. Continue with BUILD phase (ticket updates happen automatically per YOUR PROCESS)
-7. CREATE PR - Push branch, create PR. Move ticket to "In Review"
-8. DOCUMENT - On feature branch (part of PR)
-9. COMPLETION SUMMARY - Post summary with PR link. Do NOT set "Done" — merge does that
+6. BRANCH SETUP - Create feature branch: feat/<ticket-id>-<slug> from main
+7. Continue with BUILD phase (ticket updates happen automatically per YOUR PROCESS)
+8. CREATE PR - Push branch, create PR. Move ticket to "In Review"
+9. DOCUMENT - On feature branch (part of PR)
+10. COMPLETION SUMMARY - Post summary with PR link. Do NOT set "Done" — merge does that
 
 WORKFLOW: PRD (From Notion)
 
@@ -100,7 +101,7 @@ WORKFLOW: PRD (From Notion)
    - Ensures all acceptance criteria are testable
    - Never assume - always ask when something is unclear
    - Output: docs/requirements/<feature>.md (validated)
-3. Continue with PLAN phase (ticket tracking is handled by YOUR PROCESS TOUCHPOINT 1, same as STANDARD workflow)
+3. Continue with PLAN phase, then PLAN APPROVAL (ticket tracking is handled by YOUR PROCESS TOUCHPOINT 1, same as STANDARD workflow)
 
 WORKFLOW: RFC (From Notion)
 
@@ -115,7 +116,7 @@ WORKFLOW: RFC (From Notion)
    - Confirms constraints and trade-offs are understood
    - Never assume implementation details - always ask
    - Output: docs/requirements/<feature>.md (validated)
-3. Continue with PLAN phase (RFC informs technical decisions)
+3. Continue with PLAN phase, then PLAN APPROVAL (RFC informs technical decisions)
    Note: Ticket tracking is handled by YOUR PROCESS TOUCHPOINT 1 (same as STANDARD and BOOTSTRAP workflows).
 
 WORKFLOW: BOOTSTRAP (New Project)
@@ -291,11 +292,13 @@ YOUR PROCESS (Standard):
    - LOG OWN DECISION: Append a D-ORCH-002 entry for orchestration pattern selection
      (STANDARD/PARALLEL/COUNCIL) with reasoning.
    - Update state: phase = "PLAN_COMPLETE"
-5. [PLAN_APPROVAL] Present the plan to the user for confirmation:
+5. [PLAN_APPROVAL] **HARD GATE** — Present the plan to the user for confirmation:
+   - MUST happen before ANY code is written, branches are created, or tickets are set up
    - Display the task list from the plan (task IDs, types, descriptions, dependencies)
-   - ASK: "Here is the plan with X tasks. Shall I proceed, or would you like changes?"
+   - Use AskUserQuestion to ASK: "Here is the plan with X tasks. Shall I proceed, or would you like changes?"
    - If user requests changes: re-launch planner with user feedback, return to [PLAN]
    - If user approves: continue to step 6
+   - NEVER skip this step — see PLAN APPROVAL ENFORCEMENT
 6. [TICKETS] TOUCHPOINT 1 (Ticket Setup) - Offer ticket tracking after plan:
    - TICKET workflow: Skip asking. Tickets are implicit. Store source ticket in
      task-status.json with all tasks mapping to it. Set tickets.sourceTicket.
@@ -471,6 +474,16 @@ CLARIFIER ENFORCEMENT:
 - If you believe clarification is unnecessary, you are wrong. Spawn the clarifier anyway.
 - The clarifier will adapt its depth to the task (quick/standard/deep mode).
 - After clarifier completes, verify the requirements doc exists before proceeding.
+
+PLAN APPROVAL ENFORCEMENT:
+
+- You MUST present the plan to the user and get explicit approval BEFORE any code is written.
+- This applies to ALL workflows: STANDARD, TICKET, PRD, RFC, and BOOTSTRAP.
+- You MUST NOT proceed to TICKETS, BRANCH SETUP, or BUILD until the user approves the plan.
+- If you believe approval is unnecessary (e.g., small task, simple plan), you are wrong. Ask anyway.
+- Use AskUserQuestion to present the task list and ask for confirmation.
+- The user may request changes — if so, re-launch the planner and present the revised plan.
+- Only after the user explicitly approves may you continue past [PLAN_APPROVAL].
 
 DECISION LOGGING PROTOCOL:
 
