@@ -38,7 +38,8 @@ WORKFLOW: STANDARD (Greenfield Feature)
 2. PLAN - Create technical design (will ask user about tech decisions)
 3. PLAN APPROVAL - Present plan to user for confirmation
 4. TICKETS (opt-in) - Offer ticket tracking after plan is ready
-5. BUILD - For each task in the plan:
+5. BRANCH SETUP - Create feature branch from main
+6. BUILD - For each task in the plan:
    a. TICKET UPDATE - Mark "In Progress" (if tickets enabled)
    b. TEST - Write failing tests
    c. IMPLEMENT - Make tests pass
@@ -46,8 +47,9 @@ WORKFLOW: STANDARD (Greenfield Feature)
    e. SIMPLIFY - Clean up code
    f. CHECKPOINT - Git commit for rollback capability
    g. TICKET UPDATE - Task complete + link commit (if tickets enabled)
-6. DOCUMENT - Record decisions, create documentation checkpoint
-7. TICKET SUMMARY - Post completion summary (if tickets enabled)
+7. CREATE PR - Push branch, create pull request, move tickets to "In Review"
+8. DOCUMENT - Record decisions, create documentation checkpoint (on feature branch, part of PR)
+9. TICKET SUMMARY - Post completion summary with PR link (if tickets enabled)
 
 WORKFLOW: ANALYSIS (Existing Codebase)
 
@@ -78,9 +80,12 @@ WORKFLOW: TICKET (From Linear)
    - Set tickets.sourceTicket = "<LIN-123>" (the source ticket)
    - Map ALL tasks to this source ticket in tickets.mapping
    - Individual task completions become progress comments (not status changes)
-   - Only the COMPLETION SUMMARY sets the ticket to "Done"
-5. Continue with BUILD phase (ticket updates happen automatically per YOUR PROCESS)
-6. COMPLETION SUMMARY via ticket-manager posts summary and sets status to "Done"
+   - "Done" is set automatically when the PR is merged (via Linear's GitHub integration)
+5. BRANCH SETUP - Create feature branch: feat/<ticket-id>-<slug> from main
+6. Continue with BUILD phase (ticket updates happen automatically per YOUR PROCESS)
+7. CREATE PR - Push branch, create PR. Move ticket to "In Review"
+8. DOCUMENT - On feature branch (part of PR)
+9. COMPLETION SUMMARY - Post summary with PR link. Do NOT set "Done" — merge does that
 
 WORKFLOW: PRD (From Notion)
 
@@ -148,20 +153,26 @@ When resuming from docs/state/current-phase.json, use this decision table:
 | CLARIFY_COMPLETE | Resume at PLAN phase (codebase exploration) |
 | PLAN_IN_PROGRESS | Re-launch planner with existing exploration context |
 | PLAN_COMPLETE | Resume at PLAN APPROVAL (present plan to user) |
+| BRANCH_CREATED | Resume at BUILD phase (branch already exists, verify with `git branch --list`) |
 | BUILD phase, task TXXX in_progress (Setup) | Re-execute the Setup task directly |
 | BUILD phase, task TXXX in_progress (Test/Implement) | Re-run from that task's test step |
 | BUILD phase, task TXXX complete | Advance to the next task in the plan |
-| BUILD_COMPLETE (all tasks done) | Resume at DOCUMENT phase |
+| BUILD_COMPLETE (all tasks done) | Resume at CREATE PR step |
+| PR_CREATED | Resume at DOCUMENT phase (PR already created, verify with `gh pr view`) |
 | DOCUMENT_IN_PROGRESS | Re-launch documenter agent |
 | DOCUMENT_COMPLETE | Resume at COMPLETION SUMMARY |
 
 For BUILD phase resumes:
+- Verify feature branch still exists: `git branch --list <branch-name>`
+- If branch exists, checkout: `git checkout <branch-name>`
+- If branch is missing, re-create from baseBranch in task-status.json
 - Read task-status.json to find the last completed task and the current task
 - Check the task type (Setup, Test, or Implement):
   - Setup task: re-execute directly (no TDD cycle)
   - Test/Implement task: check if tests exist (if so, skip test-writer)
 - Check reviewer-reports/ for existing reviews (if approved, skip reviewer)
 - Restore tickets.mapping from task-status.json for ticket tracking continuity
+- Restore worktree state from tickets.worktrees if parallel tasks were in progress
 
 On initialization, ensure all runtime output directories exist:
 mkdir -p docs/analysis/ docs/decisions/ docs/plans/ docs/requirements/ docs/state/reviewer-reports/ docs/state/archive/ docs/tickets/backlog/ docs/tickets/active/ docs/tickets/completed/
@@ -242,8 +253,8 @@ LARGE (10+ tasks):
 
 YOUR PROCESS (Standard):
 
-1. Initialize or resume state
-2. Launch the clarifier agent for the requested feature
+1. [INIT] Initialize or resume state
+2. [CLARIFY] Launch the clarifier agent for the requested feature
    - Wait for it to complete (it will ask the user questions)
    - VERIFICATION GATE: Check that docs/requirements/<feature>.md exists and
      contains every required section:
@@ -260,7 +271,7 @@ YOUR PROCESS (Standard):
    - LOG OWN DECISION: Append a D-ORCH-001 entry for scale assessment (SMALL/MEDIUM/LARGE)
      with reasoning based on the requirements scope.
    - Update state: phase = "CLARIFY_COMPLETE"
-3. Launch the native Plan subagent (subagent_type: "Plan") to explore the codebase
+3. [EXPLORE] Launch the native Plan subagent (subagent_type: "Plan") to explore the codebase
    - Prompt: "Read docs/requirements/<feature>.md and explore the codebase to identify:
      (1) existing architecture relevant to this feature,
      (2) files that will need modification or creation,
@@ -268,7 +279,7 @@ YOUR PROCESS (Standard):
      Focus on understanding the current code structure — do NOT write code or create files."
    - It returns: architecture overview, file impacts, recommended task breakdown
    - This provides codebase-aware context for the planner
-4. Launch the planner agent with the Plan subagent's exploration context
+4. [PLAN] Launch the planner agent with the Plan subagent's exploration context
    - Pass the exploration findings alongside the requirements doc
    - For complex features, optionally use COUNCIL PATTERN:
      - Spawn 2-3 planners with different approaches
@@ -280,12 +291,12 @@ YOUR PROCESS (Standard):
    - LOG OWN DECISION: Append a D-ORCH-002 entry for orchestration pattern selection
      (STANDARD/PARALLEL/COUNCIL) with reasoning.
    - Update state: phase = "PLAN_COMPLETE"
-5. PLAN APPROVAL - Present the plan to the user for confirmation:
+5. [PLAN_APPROVAL] Present the plan to the user for confirmation:
    - Display the task list from the plan (task IDs, types, descriptions, dependencies)
    - ASK: "Here is the plan with X tasks. Shall I proceed, or would you like changes?"
-   - If user requests changes: re-launch planner with user feedback, return to step 4
+   - If user requests changes: re-launch planner with user feedback, return to [PLAN]
    - If user approves: continue to step 6
-6. TOUCHPOINT 1 (Ticket Setup) - Offer ticket tracking after plan:
+6. [TICKETS] TOUCHPOINT 1 (Ticket Setup) - Offer ticket tracking after plan:
    - TICKET workflow: Skip asking. Tickets are implicit. Store source ticket in
      task-status.json with all tasks mapping to it. Set tickets.sourceTicket.
    - PRD workflow: Same as STANDARD — ASK about tickets after plan is ready.
@@ -294,7 +305,16 @@ YOUR PROCESS (Standard):
      If yes: Launch ticket-manager in CREATE mode. Store mapping in task-status.json.
    - If declined or not applicable: Set tickets.enabled = false in task-status.json.
      All subsequent touchpoints are guarded by this flag.
-7. For each task in order (respecting dependencies):
+7. [BRANCH_SETUP] Create feature branch for this work:
+   - Determine branch name:
+     a. TICKET workflow: feat/<source-ticket-id>-<slug> (e.g., feat/LIN-123-auth-flow)
+     b. STANDARD/PRD/RFC: feat/<feature-slug> (e.g., feat/user-authentication)
+   - Launch ticket-manager in CREATE BRANCH mode with:
+     * Branch name
+     * Base branch (main)
+   - Store in task-status.json: tickets.branch, tickets.baseBranch
+   - If tickets NOT enabled: still create branch (branch hygiene applies regardless)
+8. [BUILD] For each task in order (respecting dependencies):
    - Update state: currentTask = task ID
    - TOUCHPOINT 2 (In Progress) - If tickets.enabled: Launch ticket-manager (UPDATE STATUS →
      "In Progress") for tickets.mapping[currentTask]. For shared tickets (sourceTicket set),
@@ -328,10 +348,20 @@ YOUR PROCESS (Standard):
    - Update task-status.json with checkpoint hash
    - TOUCHPOINT 3 (Task Complete) - If tickets.enabled: Launch ticket-manager (TASK COMPLETE +
      LINK COMMIT) in a single call with ticket ID, commit hash, and commit message. Ticket-manager
-     determines behavior: per-task tickets → set status "Done" + link commit; shared ticket
-     (sourceTicket) → post progress comment + link commit.
-8. TOUCHPOINT 4 (DOCUMENT) - Document decisions and update project docs:
+     posts a progress comment + link commit only. No status change to "Done" — that happens
+     when the PR is merged.
+9. [CREATE_PR] After all tasks pass:
+   - Launch ticket-manager in CREATE PR mode with:
+     * Feature branch name (from task-status.json tickets.branch)
+     * Base branch (main)
+     * Feature name, task summary, ticket IDs
+   - ticket-manager creates PR via `gh pr create`
+   - ticket-manager moves ALL associated tickets to "In Review"
+   - Store PR URL in task-status.json: tickets.pr.url, tickets.pr.number
+   - Update state: phase = "PR_CREATED"
+10. [DOCUMENT] Document decisions and update project docs (on feature branch, part of PR):
    - Update state: phase = "DOCUMENT_IN_PROGRESS"
+   - Documentation happens on the feature branch so it becomes part of the PR
    - Launch documenter agent with explicit handoff context:
      * Feature name: <feature>
      * Requirements doc: docs/requirements/<feature>.md
@@ -345,13 +375,14 @@ YOUR PROCESS (Standard):
      * If verification fails: log to blockers.json, ask user how to proceed
    - Create documentation checkpoint: git add docs/ && git commit -m "docs: document <feature> decisions"
    - Update state: phase = "DOCUMENT_COMPLETE"
-9. TOUCHPOINT 5 (Completion Summary) - If tickets.enabled: Launch ticket-manager (COMPLETION
-   SUMMARY) with feature name, task-status.json path, and plan path. For shared tickets, this
-   posts the full summary and sets status to "Done". For per-task tickets (already Done), this
-   posts a brief completion note only.
-10. Clean up state files: move docs/state/decisions.md to docs/state/archive/<feature>-decisions.md
+11. [COMPLETION] If tickets.enabled: Launch ticket-manager (COMPLETION
+   SUMMARY) with feature name, task-status.json path, plan path, and PR URL. Ticket-manager
+   posts the completion summary with PR link. Does NOT set any tickets to "Done" — that happens
+   automatically when the PR is merged (via Linear's GitHub integration or manually).
+   Summary includes: "PR created: <url>. Merge the PR to complete this work."
+12. [CLEANUP] Clean up state files: move docs/state/decisions.md to docs/state/archive/<feature>-decisions.md
     (or delete it). This prevents ID collisions if the next feature reuses IDs like D-CLARIFY-001.
-11. Report completion to user
+13. [REPORT] Report completion to user
 
 TICKET STATE IN task-status.json:
 
@@ -363,6 +394,13 @@ The task-status.json file includes a top-level tickets section:
         "enabled": true,
         "type": "linear",
         "team": "Engineering",
+        "branch": "feat/LIN-123-auth-flow",
+        "baseBranch": "main",
+        "worktrees": {},
+        "pr": {
+          "url": null,
+          "number": null
+        },
         "sourceTicket": null,
         "mapping": {
           "T001": { "ticketId": "<uuid or path>", "identifier": "<LIN-456 or T001>" },
@@ -374,6 +412,11 @@ The task-status.json file includes a top-level tickets section:
 
 - tickets.enabled: Guards all touchpoints. If false, skip all ticket operations.
 - tickets.type: Either "linear" or "local" (determines which tools to use).
+- tickets.branch: Feature branch name. Set during BRANCH SETUP. Used for PR creation.
+- tickets.baseBranch: Base branch (typically "main"). Used for PR creation.
+- tickets.worktrees: Maps task IDs to worktree paths and branches for parallel work.
+- tickets.pr.url: PR URL after creation. null until CREATE PR step.
+- tickets.pr.number: PR number after creation. null until CREATE PR step.
 - tickets.sourceTicket: Set in TICKET workflow. When present, all tasks map to
   this ticket and individual completions are progress comments. null otherwise.
 - tickets.mapping: Persists ticket IDs for resume-safety. On resume, the
@@ -393,6 +436,33 @@ Task 1: test-writer for [T004] [P] feature A
 Task 2: test-writer for [T005] [P] feature B
 Task 3: test-writer for [T006] [P] feature C
 (all in same message)
+```
+
+PARALLEL TASKS WITH GIT WORKTREES:
+
+When the plan has [P] parallel tasks AND tickets are enabled, use git worktrees
+to isolate parallel work:
+
+0. Ensure `.worktrees/` is in `.gitignore` (create or append if not present).
+1. Create a git worktree for each parallel task:
+   git worktree add .worktrees/<task-id>/ -b <feature-branch>-<task-id>
+   Where <feature-branch> is the current feature branch name.
+2. Pass worktree path to each parallel agent as working directory context.
+3. Agents do their work (test, implement, review, simplify) in the worktree.
+4. After all parallel tasks complete:
+   a. Merge each worktree branch back into the feature branch:
+      git checkout <feature-branch>
+      git merge <feature-branch>-<task-id>
+   b. Resolve any conflicts (ask user if needed)
+   c. Remove worktrees: git worktree remove .worktrees/<task-id>/
+5. Continue sequential work on the feature branch.
+
+Store worktree state in task-status.json under tickets.worktrees:
+```json
+{
+  "T004": { "path": ".worktrees/T004", "branch": "feat/auth-flow-T004" },
+  "T005": { "path": ".worktrees/T005", "branch": "feat/auth-flow-T005" }
+}
 ```
 
 CLARIFIER ENFORCEMENT:
