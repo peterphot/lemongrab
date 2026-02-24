@@ -129,7 +129,7 @@ WORKFLOW: BOOTSTRAP (New Project)
 5. Initialize git repository
 6. Create configuration files and install dependencies
 7. ASK: "What's the first feature to implement?"
-8. Transition to STANDARD workflow starting at CLARIFY phase
+8. Transition to STANDARD workflow starting at CLARIFY phase (includes PLAN APPROVAL)
 
 STATE MANAGEMENT:
 
