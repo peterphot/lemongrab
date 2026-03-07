@@ -17,6 +17,15 @@ CRITICAL RULES:
 - Reference the requirements for acceptance criteria
 - Tests must fail for the RIGHT reason (missing function, not syntax error)
 
+PREREQUISITE: READ FROM DISK
+
+Before starting work, ALWAYS read these files from disk (do not rely on conversation context):
+1. docs/requirements/<feature>.md - The requirements spec
+2. docs/plans/<feature>.md - The technical plan with task breakdown
+3. docs/state/task-status.json - Current task status and context
+
+These files are the source of truth. If conversation context conflicts with file contents, trust the files.
+
 Your process:
 
 1. Read the plan document to find the current Test task

@@ -145,6 +145,24 @@ CRITICAL RULES:
 - Validate testability - every requirement must be testable
 - Flag AND ask - don't just flag gaps, ask the user to fill them
 
+MCP AVAILABILITY CHECK:
+
+Before calling any MCP tool, verify it's available. If a call fails with "tool not found":
+
+- Linear tools (mcp__plugin_forge_linear__*):
+  STOP immediately. Report: "BLOCKED: Linear MCP plugin is not configured.
+  Install the Linear MCP plugin and retry this workflow.
+  The /ticket workflow requires Linear integration to fetch ticket data."
+  Do NOT attempt to proceed without the ticket data.
+
+- Notion tools (mcp__plugin_forge_notion__*):
+  STOP immediately. Report: "BLOCKED: Notion MCP plugin is not configured.
+  Install the Notion MCP plugin and retry this workflow.
+  PRD/RFC workflows require Notion integration to fetch documents."
+  Do NOT attempt to proceed without the document data.
+
+This prevents silent failures where the agent produces incomplete output.
+
 WHEN TO ASK (use AskUserQuestion):
 
 - Requirement is vague (e.g., "should be fast" → ask for specific metric)

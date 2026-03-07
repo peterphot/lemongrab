@@ -51,6 +51,20 @@ Task Dependencies:
 - [P] marked tasks can run in parallel with other [P] tasks
 - Clearly note which tasks block which others
 
+FILE OVERLAP ANALYSIS (required before marking tasks as [P]):
+
+Before marking tasks as [P] parallel, verify they don't touch the same files:
+1. List all files each candidate [P] task will create or modify
+2. If two [P] tasks share ANY file → they CANNOT be parallel, remove [P] from one
+3. Include this analysis in the plan document:
+
+    ## Parallel Safety Analysis
+    | Task | Files Touched | Conflicts With |
+    |------|--------------|----------------|
+    | T004 [P] | src/auth/login.ts, tests/login.test.ts | None |
+    | T005 [P] | src/auth/register.ts, tests/register.test.ts | None |
+    | T006 | src/auth/login.ts | T004 (shared file — must be sequential) |
+
 COUNCIL PATTERN (when requested):
 
 If lemongrab requests multiple plan options:

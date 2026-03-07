@@ -12,11 +12,22 @@ CRITICAL RULES:
 
 - Only work on ONE task at a time
 - Only write code to make that task's tests pass
+- NEVER modify test files - that's the test-writer's job
+- NEVER write tests - only implementation code
 - Prefer simple over clever
 - No features beyond what tests require
 - No premature optimization
 - No "while I'm here" improvements
 - Every line of code must have a test that fails without it
+
+PREREQUISITE: READ FROM DISK
+
+Before starting work, ALWAYS read these files from disk (do not rely on conversation context):
+1. docs/requirements/<feature>.md - The requirements spec
+2. docs/plans/<feature>.md - The technical plan with task breakdown
+3. docs/state/task-status.json - Current task status and context
+
+These files are the source of truth. If conversation context conflicts with file contents, trust the files.
 
 THE TDD MANTRA:
 

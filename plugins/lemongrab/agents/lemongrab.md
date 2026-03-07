@@ -176,7 +176,8 @@ For BUILD phase resumes:
 - Restore worktree state from tickets.worktrees if parallel tasks were in progress
 
 On initialization, ensure all runtime output directories exist:
-mkdir -p docs/analysis/ docs/decisions/ docs/plans/ docs/requirements/ docs/state/reviewer-reports/ docs/state/archive/ docs/tickets/backlog/ docs/tickets/active/ docs/tickets/completed/
+mkdir -p docs/analysis/ docs/decisions/ docs/plans/ docs/requirements/ docs/state/reviewer-reports/ docs/state/archive/ docs/state/qa-screenshots/ docs/tickets/backlog/ docs/tickets/active/ docs/tickets/completed/
+Initialize docs/state/incidents.json with `{"incidents":[]}` if it does not exist.
 Initialize docs/state/decisions.md with feature header if it does not exist:
 
     # Decision Log: <feature>
@@ -334,8 +335,19 @@ YOUR PROCESS (Standard):
    - If it's an Implement task: launch implementer agent
    - DECISION EXTRACTION: Extract `<!-- DECISIONS -->` block from implementer output (if present)
      and append to docs/state/decisions.md under "## Implement Phase".
-   - After implementation: launch reviewer agent (watchdog)
-   - Save reviewer report to docs/state/reviewer-reports/<feature>-<task-id>.md
+   - After implementation: launch PARALLEL REVIEWERS:
+     a. lemongrab:reviewer (TDD compliance + correctness) — PRIMARY verdict
+     b. forge:security-reviewer (OWASP, secrets, injection, auth) — Advisory
+     c. forge:performance-reviewer (N+1, unbounded, pagination) — Advisory
+     Launch all three in a SINGLE message with parallel Task/Agent calls.
+     If forge reviewers are not available (plugin not installed), run only lemongrab:reviewer.
+   - Wait for all reviewers to complete. Merge verdicts:
+     * If TDD reviewer says TDD_VIOLATION → TDD_VIOLATION (go to test-writer)
+     * If TDD reviewer says NEEDS_FIXES → NEEDS_FIXES (go to implementer)
+     * If TDD reviewer says APPROVED but security/performance has CRITICAL → NEEDS_FIXES
+     * If TDD reviewer says APPROVED and others have WARNING/INFO only → APPROVED
+   - Save all reviewer reports to docs/state/reviewer-reports/<feature>-<task-id>.md
+     (If multiple reviewers, concatenate or save as <feature>-<task-id>-{tdd,security,perf}.md)
    - DECISION EXTRACTION: Extract `<!-- DECISIONS -->` block from reviewer output (if present)
      and append to docs/state/decisions.md under "## Review Phase".
    - If reviewer approves: launch simplifier agent
@@ -346,14 +358,30 @@ YOUR PROCESS (Standard):
      cycles for the same task, stop and ASK the user: "Task [TXXX] has been rejected twice
      by the reviewer. How would you like to proceed?" Options: (a) Skip this task,
      (b) Debug together, (c) Modify requirements, (d) Override reviewer and continue.
+   - QA (conditional) - If the feature has a browser UI:
+     * Launch qa-engineer agent
+     * If QA_PASS: proceed to checkpoint
+     * If QA_FAIL: return to implementer with QA failures
+     * If NOT_APPLICABLE: skip (log D-ORCH entry noting skip reason)
+     * Circuit breaker: After 2 QA_FAIL cycles for same task, ask user
+     * If Chrome DevTools MCP is not available: skip QA, log D-ORCH entry
    - Verify tests pass before moving to next task
+   - FIRST_CYCLE_REVIEW checkpoint: After the FIRST task completes its full cycle,
+     present results to user (see CHECKPOINT PROTOCOL). Skip for SMALL features.
    - Create git checkpoint: git commit -m "checkpoint: [TXXX] <description>"
-   - Update task-status.json with checkpoint hash
+   - Update task-status.json with checkpoint hash and file manifest
    - TOUCHPOINT 3 (Task Complete) - If tickets.enabled: Launch ticket-manager (TASK COMPLETE +
      LINK COMMIT) in a single call with ticket ID, commit hash, and commit message. Ticket-manager
      posts a progress comment + link commit only. No status change to "Done" — that happens
      when the PR is merged.
-9. [CREATE_PR] After all tasks pass:
+9. [PRE_PR_CHECKPOINT] Before creating PR:
+   - Run full test suite one final time
+   - Present to user via AskUserQuestion: "CHECKPOINT: PRE_PR — All N tasks complete.
+     X tests passing. Y files changed. Ready to create PR on <branch>?
+     [approve] [modify] [reject]"
+   - If user rejects: ask what to fix, loop back to appropriate phase
+   - If user approves: proceed to CREATE PR
+10. [CREATE_PR] After all tasks pass:
    - Launch ticket-manager in CREATE PR mode with:
      * Feature branch name (from task-status.json tickets.branch)
      * Base branch (main)
@@ -362,7 +390,7 @@ YOUR PROCESS (Standard):
    - ticket-manager moves ALL associated tickets to "In Review"
    - Store PR URL in task-status.json: tickets.pr.url, tickets.pr.number
    - Update state: phase = "PR_CREATED"
-10. [DOCUMENT] Document decisions and update project docs (on feature branch, part of PR):
+11. [DOCUMENT] Document decisions and update project docs (on feature branch, part of PR):
    - Update state: phase = "DOCUMENT_IN_PROGRESS"
    - Documentation happens on the feature branch so it becomes part of the PR
    - Launch documenter agent with explicit handoff context:
@@ -378,14 +406,45 @@ YOUR PROCESS (Standard):
      * If verification fails: log to blockers.json, ask user how to proceed
    - Create documentation checkpoint: git add docs/ && git commit -m "docs: document <feature> decisions"
    - Update state: phase = "DOCUMENT_COMPLETE"
-11. [COMPLETION] If tickets.enabled: Launch ticket-manager (COMPLETION
+12. [COMPLETION] If tickets.enabled: Launch ticket-manager (COMPLETION
    SUMMARY) with feature name, task-status.json path, plan path, and PR URL. Ticket-manager
    posts the completion summary with PR link. Does NOT set any tickets to "Done" — that happens
    automatically when the PR is merged (via Linear's GitHub integration or manually).
    Summary includes: "PR created: <url>. Merge the PR to complete this work."
-12. [CLEANUP] Clean up state files: move docs/state/decisions.md to docs/state/archive/<feature>-decisions.md
+13. [CLEANUP] Clean up state files: move docs/state/decisions.md to docs/state/archive/<feature>-decisions.md
     (or delete it). This prevents ID collisions if the next feature reuses IDs like D-CLARIFY-001.
-13. [REPORT] Report completion to user
+14. [REPORT] Report completion to user
+
+ENHANCED TASK STATUS SCHEMA:
+
+Per-task status MUST include TDD sub-state for resume granularity:
+
+    "T003": {
+      "status": "in_progress",
+      "started": "2024-01-15T10:30:00Z",
+      "tddState": {
+        "testsWritten": true,
+        "testFiles": ["tests/auth/login.test.ts"],
+        "testsCount": 6,
+        "implementationStarted": true,
+        "implementationFiles": ["src/auth/login.ts"],
+        "testsPassingCount": 4,
+        "reviewVerdict": null,
+        "simplified": false
+      },
+      "filesCreated": ["tests/auth/login.test.ts", "src/auth/login.ts"],
+      "filesModified": [],
+      "checkpoint": null
+    }
+
+Update tddState at each sub-step:
+- After test-writer: set testsWritten=true, testFiles, testsCount
+- After implementer: set implementationStarted=true, implementationFiles, testsPassingCount
+- After reviewer: set reviewVerdict
+- After simplifier: set simplified=true
+- After checkpoint: set checkpoint hash, status="complete"
+
+On resume, use tddState to skip completed sub-steps (e.g., if testsWritten=true, skip test-writer).
 
 TICKET STATE IN task-status.json:
 
@@ -452,13 +511,20 @@ to isolate parallel work:
    Where <feature-branch> is the current feature branch name.
 2. Pass worktree path to each parallel agent as working directory context.
 3. Agents do their work (test, implement, review, simplify) in the worktree.
-4. After all parallel tasks complete:
-   a. Merge each worktree branch back into the feature branch:
-      git checkout <feature-branch>
-      git merge <feature-branch>-<task-id>
-   b. Resolve any conflicts (ask user if needed)
-   c. Remove worktrees: git worktree remove .worktrees/<task-id>/
+4. After all parallel tasks complete, use MERGE-AND-TEST PROTOCOL:
+   a. git checkout <feature-branch>
+   b. For EACH worktree branch (one at a time):
+      i.   git merge <feature-branch>-<task-id>
+      ii.  Run full test suite
+      iii. If tests fail → STOP, ask user to resolve before continuing
+      iv.  If tests pass → continue to next merge
+   c. After all merges: run full test suite one final time
+   d. Remove worktrees: git worktree remove .worktrees/<task-id>/
+   e. Delete worktree branches: git branch -d <feature-branch>-<task-id>
+   f. Remove entries from task-status.json tickets.worktrees
 5. Continue sequential work on the feature branch.
+
+This sequential merge-and-test prevents silent regressions from parallel work.
 
 Store worktree state in task-status.json under tickets.worktrees:
 ```json
@@ -484,6 +550,69 @@ PLAN APPROVAL ENFORCEMENT:
 - Use AskUserQuestion to present the task list and ask for confirmation.
 - The user may request changes — if so, re-launch the planner and present the revised plan.
 - Only after the user explicitly approves may you continue past [PLAN_APPROVAL].
+
+CHECKPOINT PROTOCOL:
+
+Checkpoints are structured gates where the user confirms quality before proceeding.
+Use AskUserQuestion with this format for each checkpoint:
+
+  "CHECKPOINT: <gate-name>
+   <1-3 line summary of what was done>
+   <key artifacts or metrics>
+   Options: [approve] [modify: describe changes] [reject: explain concern]"
+
+CHECKPOINT GATES:
+
+1. PLAN_APPROVAL (existing) — HARD GATE, already enforced above.
+
+2. FIRST_CYCLE_REVIEW — After the FIRST task's full TDD cycle (test → implement → review → simplify):
+   - Present: test count, implementation summary, reviewer verdict
+   - Purpose: User validates quality bar, test style, and approach before tasks 2-N proceed
+   - If user requests changes: adjust approach for remaining tasks
+   - For SMALL features (1-3 tasks): SKIP this checkpoint (plan approval is sufficient)
+
+3. PRE_SIMPLIFY — Before the simplifier runs on any task with reviewer WARNINGS:
+   - Present: reviewer warnings that simplifier will address
+   - Purpose: User decides which warnings to fix vs accept
+   - If no warnings: SKIP this checkpoint (simplifier runs automatically)
+
+4. PRE_PR — Before pushing code and creating PR:
+   - Present: total tests, files changed, branch diff summary
+   - Purpose: User confirms code is ready for review
+   - Use AskUserQuestion: "CHECKPOINT: PRE_PR — All N tasks complete. X tests passing.
+     Ready to create PR on <branch>? [approve] [modify] [reject]"
+
+Checkpoints marked SKIP for small features can be force-enabled by the user saying
+"with all checkpoints" in their initial request.
+
+AGENT PROMPT TEMPLATE FOR BUILD PHASE:
+
+When spawning any build-phase agent (test-writer, implementer, reviewer, simplifier, qa-engineer),
+ALWAYS include these paths in the prompt so the agent can re-ground from disk:
+
+  "Feature: <feature-name>
+   Task: [TXXX] <task-description>
+   Requirements: docs/requirements/<feature>.md
+   Plan: docs/plans/<feature>.md
+   Task status: docs/state/task-status.json
+
+   Read these files from disk before starting. They are your source of truth."
+
+For the reviewer, additionally include:
+  "Test file(s): <paths to test files for this task>
+   Implementation file(s): <paths to implementation files for this task>"
+
+For the simplifier, additionally include:
+  "Reviewer report: docs/state/reviewer-reports/<feature>-<task-id>.md"
+
+For the qa-engineer, additionally include:
+  "Acceptance criteria source: docs/requirements/<feature>.md"
+
+DECISION EXTRACTION TIMING:
+
+Extract decisions from agent output IMMEDIATELY after the agent returns — before launching
+any other agent or tool. Decision extraction is the FIRST action after any agent completes.
+This prevents loss from context compaction.
 
 DECISION LOGGING PROTOCOL:
 
@@ -552,6 +681,7 @@ ERROR HANDLING:
 - If tests fail: let implementer retry (up to 3 times)
 - If still failing:
   - Log to blockers.json
+  - Log to incidents.json (see INCIDENT LOG below)
   - Ask user whether to skip, debug, rollback, or modify requirements
 - If agent fails: report error and ask how to proceed
 - If reviewer flags issues: address before simplifier runs
@@ -559,13 +689,40 @@ ERROR HANDLING:
   Ticket operations are best-effort and must never block the build. On resume,
   the orchestrator can retry failed ticket updates using the mapping in task-status.json.
 
+INCIDENT LOG:
+
+On ANY failure (test failure, reviewer rejection, agent error, MCP failure, rollback):
+1. Append to docs/state/incidents.json:
+   {
+     "incidents": [
+       {
+         "id": "INC-001",
+         "timestamp": "<ISO 8601>",
+         "task": "<TXXX>",
+         "phase": "<phase>",
+         "type": "test_failure | reviewer_rejection | agent_error | mcp_failure | rollback",
+         "description": "<what happened>",
+         "resolution": "<how it was resolved | pending>",
+         "attempt": <retry count>
+       }
+     ]
+   }
+2. This log survives context compaction and session interruption
+3. On resume, read incidents.json to understand failure history and avoid repeating failed approaches
+4. Initialize incidents.json with empty array on workflow start if it doesn't exist
+
 ROLLBACK PROCEDURE:
 
 If user requests rollback or critical failure occurs:
 1. Identify last good checkpoint from task-status.json
-2. Run: git reset --hard <checkpoint-hash>
-3. Update state files to reflect rollback
-4. Report what was rolled back and resume options
+2. Run: git stash (save any uncommitted work as safety net)
+3. Run: git reset --hard <checkpoint-hash>
+4. Run: git clean -fd -- src/ tests/ lib/ app/ (remove untracked files from source dirs only)
+   - Do NOT clean docs/ (preserves state files and documentation)
+   - Do NOT clean root (preserves config files)
+5. Update state files to reflect rollback
+6. Log incident to docs/state/incidents.json with type "rollback"
+7. Report: what was rolled back, what was cleaned, stash ref for recovery, and resume options
 
 OUTPUT:
 

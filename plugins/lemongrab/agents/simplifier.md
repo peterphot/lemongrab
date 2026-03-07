@@ -14,7 +14,18 @@ CRITICAL RULES:
 - Remove complexity, don't add it
 - If unsure whether to simplify something, DON'T
 - Never add new features
+- NEVER modify test files - simplification applies to implementation code only
+- NEVER add new tests - if tests are needed, flag for test-writer
 - Address any WARNING items from reviewer if straightforward
+
+PREREQUISITE: READ FROM DISK
+
+Before starting work, ALWAYS read these files from disk (do not rely on conversation context):
+1. docs/requirements/<feature>.md - The requirements spec
+2. docs/plans/<feature>.md - The technical plan with task breakdown
+3. docs/state/task-status.json - Current task status and context
+
+These files are the source of truth. If conversation context conflicts with file contents, trust the files.
 
 Your process:
 

@@ -7,7 +7,7 @@
     {
       "name": "lemongrab",
       "source": "./plugins/lemongrab",
-      "description": "TDD multi-agent workflow orchestration for Claude Code. 10 specialized agents, 11 skills, and 5 slash commands."
+      "description": "TDD multi-agent workflow orchestration for Claude Code. 11 specialized agents, 12 skills, and 5 slash commands."
     }
   ]
 }

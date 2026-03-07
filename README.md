@@ -8,7 +8,7 @@
 
 **A TDD Multi-Agent Workflow Plugin for Claude Code**
 
-Lemongrab is a Claude Code plugin that provides an advanced multi-agent workflow featuring test-driven development, parallel execution, code review, and automatic rollback capabilities. Install it in any project to get 10 specialized agents, 11 skills, and 5 slash commands.
+Lemongrab is a Claude Code plugin that provides an advanced multi-agent workflow featuring test-driven development, parallel execution, code review, and automatic rollback capabilities. Install it in any project to get 11 specialized agents, 12 skills, and 5 slash commands.
 
 ---
 
@@ -183,8 +183,9 @@ Use the lemongrab agent to implement from RFC <notion-url>
 │  │                                                               │  │
 │  │     TEST WRITER  → Write tests (RED phase)                    │  │
 │  │     IMPLEMENTER  → Make tests pass (GREEN phase)              │  │
-│  │     REVIEWER     → Validate TDD compliance (WATCHDOG)         │  │
+│  │     REVIEWERS    → TDD + Security + Performance (parallel)    │  │
 │  │     SIMPLIFIER   → Clean up (REFACTOR phase)                  │  │
+│  │     QA ENGINEER  → E2E browser tests (if UI exists)           │  │
 │  │     GIT CHECKPOINT → Commit for rollback                      │  │
 │  └───────────────────────────────────────────────────────────────┘  │
 │                                   │                                 │
@@ -239,6 +240,7 @@ Reviewer agent catches issues between implementation and simplification.
 | **Reviewer** | Validates and audits TDD compliance | After implementation |
 | **Simplifier** | Removes complexity | After review approves |
 | **Documenter** | Records the "what" and "why" | After code is complete |
+| **QA Engineer** | E2E browser testing | After review, before commit (if UI exists) |
 | **Ticket Manager** | Creates/tracks work items | When ticket tracking enabled |
 
 ---
@@ -259,6 +261,7 @@ Skills provide reusable domain knowledge that agents leverage automatically:
 | `analyzing-codebases` | Structure analysis, pattern detection | analyzer |
 | `integrating-external-sources` | PRD/RFC/ticket extraction patterns | analyzer |
 | `formatting-decisions` | Decision block format, phase prefixes, attribution | clarifier, planner, implementer, reviewer, simplifier, lemongrab |
+| `security-awareness` | OWASP lite checklist, secrets detection | reviewer |
 | `managing-work-items` | Linear & local ticket management | ticket-manager |
 
 ---
@@ -327,7 +330,7 @@ lemongrab/
 │   └── lemongrab/
 │       ├── .claude-plugin/
 │       │   └── plugin.json      # Plugin metadata
-│       ├── agents/              # 10 agent definitions
+│       ├── agents/              # 11 agent definitions
 │       │   ├── lemongrab.md
 │       │   ├── analyzer.md
 │       │   ├── clarifier.md
@@ -337,6 +340,7 @@ lemongrab/
 │       │   ├── reviewer.md
 │       │   ├── simplifier.md
 │       │   ├── documenter.md
+│       │   ├── qa-engineer.md
 │       │   └── ticket-manager.md
 │       ├── commands/            # 5 slash commands
 │       │   ├── tdd.md
@@ -344,7 +348,7 @@ lemongrab/
 │       │   ├── ticket.md
 │       │   ├── bootstrap.md
 │       │   └── resume.md
-│       ├── skills/              # 11 skill definitions
+│       ├── skills/              # 12 skill definitions
 │       │   ├── analyzing-codebases/
 │       │   ├── auditing-tdd-compliance/
 │       │   ├── communicating-progress/
@@ -355,11 +359,51 @@ lemongrab/
 │       │   ├── integrating-external-sources/
 │       │   ├── managing-work-items/
 │       │   ├── planning-technical-work/
+│       │   ├── security-awareness/
 │       │   └── simplifying-code/
 │       └── examples/            # Usage examples
 ├── .gitignore
 └── README.md
 ```
+
+---
+
+## Recommended Hooks
+
+Add these to your project's `.claude/hooks.json` for a better experience:
+
+```json
+{
+  "hooks": {
+    "PostEdit": [
+      {
+        "description": "Auto-format changed files",
+        "command": "if command -v prettier &>/dev/null; then prettier --write \"$CLAUDE_FILE_PATH\" 2>/dev/null; elif command -v black &>/dev/null; then black \"$CLAUDE_FILE_PATH\" 2>/dev/null; fi",
+        "when": "always"
+      }
+    ],
+    "PreCommit": [
+      {
+        "description": "Run test subset before commit",
+        "command": "if [ -f package.json ]; then npm test 2>&1 | tail -20; elif [ -f pyproject.toml ] || [ -f setup.py ]; then python -m pytest --tb=short -q 2>&1 | tail -20; fi",
+        "when": "always"
+      }
+    ],
+    "PostSessionStart": [
+      {
+        "description": "Verify MCP connections for ticket/PRD/RFC workflows",
+        "command": "echo 'Session started. If using /ticket or PRD/RFC workflows, verify MCP connections are active.'",
+        "when": "always"
+      }
+    ]
+  }
+}
+```
+
+These hooks provide:
+- **PostEdit**: Auto-format with prettier/black after file edits
+- **PreCommit**: Run tests before allowing commits (catches regressions early)
+- **PostSessionStart**: Reminder to verify MCP connections for workflows that need them
 
 ---
 

@@ -217,10 +217,22 @@ For creating multiple tickets efficiently:
 
 CRITICAL RULES:
 
+- NEVER modify source code, test files, or implementation files
+- Only modify docs/tickets/, docs/state/, and perform git operations
 - Always link to source (plan, PRD, RFC)
 - Maintain bidirectional links (ticket ↔ code)
 - Update status promptly
 - Include meaningful descriptions
+
+MCP AVAILABILITY CHECK:
+
+If tickets.type is "linear" and any mcp__plugin_forge_linear__* call fails with "tool not found":
+  - Report failure to orchestrator: "Linear MCP plugin is not available. Options:
+    (a) Switch to local ticket tracking
+    (b) Install Linear MCP plugin and retry
+    (c) Disable ticket tracking for this workflow"
+  - Use AskUserQuestion to let the user choose
+  - Do NOT retry the failed call automatically
 
 FAILURE HANDLING:
 

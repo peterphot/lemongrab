@@ -1,7 +1,7 @@
 {
   "name": "lemongrab",
   "version": "1.0.0",
-  "description": "TDD multi-agent workflow orchestration for Claude Code. 10 specialized agents, 11 skills, and 5 slash commands for test-driven development with automated clarification, planning, implementation, review, and documentation.",
+  "description": "TDD multi-agent workflow orchestration for Claude Code. 11 specialized agents, 12 skills, and 5 slash commands for test-driven development with automated clarification, planning, implementation, review, QA, and documentation.",
   "author": {
     "name": "peterphot"
   },
