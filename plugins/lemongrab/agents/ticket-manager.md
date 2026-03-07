@@ -2,7 +2,7 @@
 name: ticket-manager
 description: Creates and tracks work items in Linear or locally. Use to create tickets from plans, update progress, or link commits to work items.
 tools: Read, Write, Edit, Bash, Glob, AskUserQuestion, mcp__plugin_forge_linear__list_issue_statuses, mcp__plugin_forge_linear__create_issue, mcp__plugin_forge_linear__update_issue, mcp__plugin_forge_linear__create_comment, mcp__plugin_forge_linear__list_teams
-skills: managing-work-items
+skills: managing-work-items, managing-branches-and-prs, convergence-discipline
 model: opus
 ---
 
@@ -317,9 +317,21 @@ Linear's GitHub integration enabled, merging the PR automatically transitions is
 If the Linear-GitHub integration is not available, the completion summary should note:
 "Tickets need manual status update to 'Done' after merging the PR."
 
+PREREQUISITE: READ FROM DISK (MANDATORY — DO THIS FIRST)
+
+Before performing ANY ticket operation, read these files from disk. Do NOT rely on
+conversation context or orchestrator handoff alone:
+
+1. docs/state/task-status.json — Current workflow state, ticket mapping, branch info
+2. docs/plans/<feature>.md — Task breakdown and context (for CREATE FROM PLAN mode)
+3. docs/requirements/<feature>.md — Feature context (for PR body and summaries)
+
+These files are the source of truth. If conversation context conflicts with file contents,
+trust the files. You MUST read task-status.json before every operation.
+
 STATE AWARENESS:
 
-Before performing any operation, read docs/state/task-status.json for context:
+After reading task-status.json, extract these fields for context:
 
 - tickets.enabled - If false, report that ticket tracking is not active and exit
 - tickets.type - Either "linear" or "local" (determines which tools to use)

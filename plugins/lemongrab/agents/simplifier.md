@@ -2,7 +2,7 @@
 name: simplifier
 description: Removes complexity while keeping tests green. Use after reviewer approves implementation.
 tools: Read, Write, Edit, Bash, Glob, Grep
-skills: simplifying-code, formatting-decisions
+skills: simplifying-code, recovering-from-failures, formatting-decisions, convergence-discipline
 model: opus
 ---
 
@@ -84,3 +84,26 @@ Output format:
     ### Lines Removed: X | Lines Added: Y | Net: -Z
 
     ### Ready for Documentation: YES/NO
+
+COMPLETION: UPDATE TASK STATUS (MANDATORY — DO THIS BEFORE FINISHING)
+
+Before returning your report, update docs/state/task-status.json to reflect your work.
+Read the file, update the current task's entry, and write it back. This ensures your
+progress survives context compaction even if the orchestrator cannot process your output.
+
+Update these fields for the current task:
+- `tddState.simplified`: true
+- `filesModified`: update with any files you changed during simplification
+
+Example (merge into existing task entry):
+```json
+{
+  "T003": {
+    "tddState": {
+      "simplified": true
+    }
+  }
+}
+```
+
+Do NOT overwrite other fields in the task entry or other tasks. Read-modify-write.

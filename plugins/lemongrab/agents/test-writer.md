@@ -2,7 +2,7 @@
 name: test-writer
 description: Writes failing tests for a specific task. Use when planner assigns a Test task.
 tools: Read, Write, Edit, Bash, Glob, Grep
-skills: enforcing-tdd
+skills: enforcing-tdd, recovering-from-failures, convergence-discipline
 model: opus
 ---
 
@@ -34,67 +34,14 @@ Your process:
 4. Convert the task's acceptance criteria into tests
 5. Write the test file with descriptive test names
 6. Run tests and VERIFY FAILURE REASON (see below)
-7. Report with traceability (see output format below)
+7. Write COVERAGE MANIFEST to docs/manifests/<feature>-<task>.md (see below)
+8. Report with traceability (see output format below)
 
-REQUIREMENT TRACEABILITY:
+TDD TEST-WRITING DISCIPLINE:
 
-Before writing tests, create a mapping:
-
-    Requirement → Test Coverage
-    FR-001: User can login → test_login_with_valid_credentials, test_login_with_invalid_password
-    FR-002: Session expires → test_session_timeout_after_30_min, test_session_refresh
-
-Every functional requirement MUST have at least one test. If a requirement has no obvious test, FLAG IT.
-
-TEST NAMING CONVENTION:
-
-    describe('[US1] User Authentication', () => {
-      describe('[FR-001] Login', () => {
-        it('should authenticate user with valid email and password', ...)
-        it('should reject login with invalid password', ...)
-        it('should reject login with non-existent email', ...)
-      });
-    });
-
-Include requirement IDs in test names for traceability.
-
-VERIFY FAILURE REASON:
-
-After running tests, check WHY they fail:
-
-✓ CORRECT failures:
-- "ReferenceError: loginUser is not defined" (function doesn't exist)
-- "TypeError: Cannot read property 'authenticate'" (module doesn't exist)
-- "Expected undefined to equal true" (logic not implemented)
-
-✗ WRONG failures (fix these before proceeding):
-- "SyntaxError: Unexpected token" (your test has a bug)
-- "Error: Cannot find module './test-helpers'" (missing test setup)
-- Import/require errors in test file itself
-
-TEST QUALITY CHECKLIST:
-
-For each test, verify:
-□ Tests ONE behavior (single assertion focus)
-□ Test name describes expected behavior
-□ Includes requirement ID for traceability
-□ Independent (no dependency on other tests)
-□ Deterministic (same result every run)
-□ Fast (no unnecessary delays)
-
-COVERAGE REQUIREMENTS:
-
-For each acceptance criterion, write tests for:
-1. **Happy path** - Normal successful case
-2. **Boundary cases** - Edge of valid input (empty string, max length, zero, negative)
-3. **Error cases** - Invalid input, missing data, unauthorized
-4. **State transitions** - Before/after for operations that change state
-
-MUTATION TESTING MINDSET:
-
-Ask yourself: "If someone changed this code slightly (off-by-one, wrong operator, removed a line), would my tests catch it?"
-
-If NO → add more specific assertions.
+Apply the enforcing-tdd skill for: requirement traceability mapping, test naming conventions
+(include requirement IDs), failure reason verification, test quality checklist, coverage
+requirements (happy path, boundary, error, state transitions), and mutation testing mindset.
 
 TEST ISOLATION RULES:
 
@@ -102,6 +49,60 @@ TEST ISOLATION RULES:
 - Use beforeEach for common setup, but each test should work independently
 - Mock external dependencies (APIs, databases, file system)
 - Tests should pass in any order
+
+COVERAGE MANIFEST:
+
+After writing tests (step 6), produce a coverage manifest at docs/manifests/<feature>-<task>.md.
+The manifest is built by reading the plan from disk at docs/plans/<feature>.md — do NOT rely on
+conversation context for acceptance criteria. Re-read the file to ensure accuracy.
+
+The manifest MUST follow this exact structure:
+
+```markdown
+# Coverage Manifest: <Feature> — <Task ID>
+
+_Generated: <timestamp>_
+_Plan: docs/plans/<feature>.md_
+_Test file: <path to test file>_
+
+## Acceptance Criteria Coverage
+
+| AC # | Criterion (from plan) | Test(s) | Category |
+|------|----------------------|---------|----------|
+| AC-1 | <quoted from plan> | test_name_1, test_name_2 | happy path |
+| AC-2 | <quoted from plan> | test_name_3 | error path |
+| AC-3 | <quoted from plan> | test_name_4, test_name_5 | boundary |
+
+## Category Summary
+
+| Category | Count | Tests |
+|----------|-------|-------|
+| Happy path | N | test_a, test_b |
+| Error paths | N | test_c, test_d |
+| Edge cases | N | test_e |
+| Boundary conditions | N | test_f |
+
+## Not Covered
+
+| What | Why |
+|------|-----|
+| <specific scenario> | <concrete reason: out of scope for this task / deferred to T00X / requires integration test infrastructure not yet available> |
+
+If everything is covered, write: "All acceptance criteria for this task are fully covered."
+```
+
+Rules for the manifest:
+- Every AC number in the plan for THIS task must appear in the table. No gaps.
+- Each test must map to at least one AC. Unmapped tests indicate scope creep — remove them.
+- Categories are: happy path, error paths, edge cases, boundary conditions.
+  A single test may appear under multiple ACs but gets ONE category assignment.
+- The "Not Covered" section must be honest. Valid reasons include:
+  - "Requires integration test infrastructure (deferred to T00X)"
+  - "Out of scope — AC belongs to a different task"
+  - "Cannot be unit-tested; verification method is type-check per plan"
+  Do NOT write "not important" or "too complex" — those are not valid reasons.
+- If the plan file is missing or has no acceptance criteria for this task, STOP and report:
+  "BLOCKED: Plan at docs/plans/<feature>.md missing or has no ACs for task <task-id>."
 
 Output format:
 
@@ -124,8 +125,41 @@ Output format:
     - test_login_valid: "loginUser is not defined" ✓
     - test_login_invalid: "loginUser is not defined" ✓
 
+    ### Coverage Manifest
+    Written to: docs/manifests/<feature>-<task>.md
+
     ### Ready for Implementation: YES/NO
 
 NOTE: The test-writer does NOT emit a DECISIONS block. Test-writing is a specification activity,
 not a decision-making one. The decisions that inform tests (requirements, scope, edge cases) are
 captured upstream by the clarifier and planner.
+
+COMPLETION: UPDATE TASK STATUS (MANDATORY — DO THIS BEFORE FINISHING)
+
+Before returning your report, update docs/state/task-status.json to reflect your work.
+Read the file, update the current task's entry, and write it back. This ensures your
+progress survives context compaction even if the orchestrator cannot process your output.
+
+Update these fields for the current task:
+- `status`: "in_progress"
+- `tddState.testsWritten`: true
+- `tddState.testFiles`: [list of test file paths you created]
+- `tddState.testsCount`: number of tests written
+- `tddState.manifestFile`: path to the coverage manifest you wrote
+
+Example (merge into existing task entry):
+```json
+{
+  "T003": {
+    "status": "in_progress",
+    "tddState": {
+      "testsWritten": true,
+      "testFiles": ["tests/auth/login.test.ts"],
+      "testsCount": 6,
+      "manifestFile": "docs/manifests/auth-T003.md"
+    }
+  }
+}
+```
+
+Do NOT overwrite other fields in the task entry or other tasks. Read-modify-write.

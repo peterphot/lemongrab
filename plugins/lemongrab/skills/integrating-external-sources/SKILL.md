@@ -144,32 +144,16 @@ This skill helps extract actionable requirements from external documents like PR
 
 ### From Notion (PRDs, RFCs)
 
-```
-# Search for document
-mcp__plugin_forge_notion__notion-search
-  query: "feature name PRD"
-
-# Fetch specific document
-mcp__plugin_forge_notion__notion-fetch
-  id: "[page URL or ID]"
-```
+Use the Notion MCP tools to:
+1. **Search** for the document by title/keyword
+2. **Fetch** the full document content by page URL or ID
 
 ### From Linear (Tickets)
 
-```
-# Get ticket details
-mcp__plugin_forge_linear__get_issue
-  id: "[ticket ID like LIN-123]"
-
-# Get comments for context
-mcp__plugin_forge_linear__list_comments
-  issueId: "[ticket ID]"
-
-# Search for related tickets
-mcp__plugin_forge_linear__list_issues
-  query: "feature name"
-  team: "[team name]"
-```
+Use the Linear MCP tools to:
+1. **Get issue** details by ticket ID (e.g., LIN-123)
+2. **List comments** on the issue for clarifications
+3. **Search related issues** by keyword and team
 
 ## Extraction Workflow
 

@@ -257,6 +257,43 @@ Client → Controller → Service → Repository → Database
 - [ ] Test tasks before implement tasks
 - [ ] Critical path identified
 
+## Parallel Task Safety
+
+When marking tasks `[P]` for parallel execution, enforce these rules to prevent conflicts:
+
+### File Overlap Rule
+
+No two `[P]` tasks may have overlapping SCOPE files. Before marking tasks parallel, check:
+
+```
+Task A SCOPE: [CREATE src/auth/login.ts, MODIFY src/auth/index.ts]
+Task B SCOPE: [CREATE src/auth/register.ts, MODIFY src/auth/index.ts]
+                                                    ^^^^^^^^^^^^^^
+CONFLICT: Both modify src/auth/index.ts → cannot run in parallel
+```
+
+**Fix**: Either sequence the tasks, or extract the shared file change into a prerequisite task.
+
+### Shared Interface Rule
+
+If parallel tasks will both consume a shared interface (type, function signature, API contract):
+1. Define the interface in a prerequisite setup task
+2. Both parallel tasks import from it — neither modifies it
+3. Mark the setup task as a dependency for both `[P]` tasks
+
+### Merge Safety
+
+When parallel tasks complete, they merge back to the feature branch. Plan for this:
+- Each `[P]` task should touch distinct files where possible
+- If merge conflicts are likely, sequence instead of parallelize
+- The orchestrator uses git worktrees — conflicts surface at merge time
+
+### When NOT to Parallelize
+
+- Tasks that share mutable state (same database table, same config file)
+- Tasks where one might invalidate the other's test assumptions
+- Tasks with fewer than 3 files each (overhead of worktrees not worth it)
+
 ## Anti-Patterns
 
 ### Too Granular

@@ -156,6 +156,41 @@ So that [benefit]
 - [Question needing stakeholder input]
 ```
 
+## Non-Functional Requirements Checklist
+
+Probe for these categories — they are often missing from initial requests:
+
+| Category | Questions to Ask |
+|---|---|
+| Performance | What response time is acceptable? Expected data volume? Concurrent users? |
+| Scalability | Will load grow over time? What's the ceiling? |
+| Security | Who can access this? What data is sensitive? Compliance requirements? |
+| Reliability | What happens if this fails? Is retry/fallback needed? Uptime target? |
+| Observability | How will you know it's working? Logging? Metrics? Alerts? |
+| Data | Migration needed? Backwards compatibility? Data retention policy? |
+| Concurrency | Can two users do this simultaneously? Race conditions possible? |
+| Internationalization | Multi-language? Multi-timezone? Currency/locale? |
+
+For each applicable category, convert to a testable FR:
+
+```
+NFR: "Must be fast" → FR: "API responds in <200ms at p95 with 100 concurrent users"
+NFR: "Must be reliable" → FR: "Retries failed writes up to 3 times with exponential backoff"
+```
+
+## Integration Constraints Checklist
+
+When the feature touches existing systems, probe for:
+
+| Constraint | Questions |
+|---|---|
+| Existing APIs | Which endpoints does this call? What auth? Rate limits? |
+| Database schemas | Which tables? Can schema change or must it be additive? |
+| Auth systems | Does this use existing auth? New permissions needed? |
+| External services | Third-party APIs? SLAs? Fallback if unavailable? |
+| Deployment | Environment variables needed? Feature flags? Rollback plan? |
+| Backwards compatibility | Will this break existing clients? Migration path? |
+
 ## Completeness Checklist
 
 Before finalizing requirements:

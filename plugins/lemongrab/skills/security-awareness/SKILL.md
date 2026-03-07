@@ -27,6 +27,7 @@ For every code change, check each category:
 - [ ] User input validated before shell commands (command injection)
 - [ ] Parameterized queries used (not string concatenation)
 - [ ] No use of `eval()`, `exec()`, or equivalent with user input
+- [ ] No template literal injection in queries or commands
 
 | Pattern | Risk | Fix |
 |---------|------|-----|
@@ -44,6 +45,7 @@ For every code change, check each category:
 - [ ] No auth bypass in error paths or fallback logic
 - [ ] Rate limiting on login/auth endpoints
 - [ ] Token expiry enforced
+- [ ] No privilege escalation paths (user accessing admin resources)
 
 | Pattern | Risk | Fix |
 |---------|------|-----|
@@ -95,6 +97,12 @@ For every code change, check each category:
 | `res.redirect(req.query.next)` | Open redirect | Validate against allowlist |
 | `JSON.parse(untrustedInput)` without catch | DoS crash | Wrap in try/catch |
 | No file size limit | DoS via large upload | Set max size in config |
+
+### Dependency Risk
+
+- [ ] No known-vulnerable packages introduced (check package.json changes)
+- [ ] No wildcard or unpinned dependency versions added
+- [ ] No unnecessary new dependencies with broad permissions
 
 ## Severity Guidelines
 

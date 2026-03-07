@@ -333,62 +333,13 @@ Good: "Task T003 complete, tests passing. Next: T004 (implements password hashin
 
 ## State File Updates
 
-When updating workflow state, use these formats:
+For full schemas of `current-phase.json`, `task-status.json`, and `blockers.json`,
+see STATE-CONTRACTS.md in this skill directory. That file is the single source of truth
+for state file formats.
 
-### current-phase.json
-
-Valid phase values (use these exact strings):
-`CLARIFY_IN_PROGRESS`, `CLARIFY_COMPLETE`, `PLAN_IN_PROGRESS`, `PLAN_COMPLETE`,
-`PLAN_APPROVED`, `BRANCH_CREATED`, `BUILD_IN_PROGRESS`, `BUILD_COMPLETE`,
-`PR_CREATED`, `DOCUMENT_IN_PROGRESS`, `DOCUMENT_COMPLETE`, `COMPLETE`
-
-```json
-{
-  "feature": "user-authentication",
-  "phase": "BUILD_IN_PROGRESS",
-  "currentTask": "T004",
-  "status": "in_progress",
-  "lastUpdated": "2024-01-15T10:30:00Z"
-}
-```
-
-### task-status.json
-```json
-{
-  "feature": "user-authentication",
-  "tickets": {
-    "enabled": true,
-    "type": "linear",
-    "team": "Engineering",
-    "sourceTicket": null,
-    "mapping": {
-      "T001": { "ticketId": "uuid-001", "identifier": "LIN-456" },
-      "T002": { "ticketId": "uuid-002", "identifier": "LIN-457" },
-      "T003": { "ticketId": "uuid-003", "identifier": "LIN-458" },
-      "T004": { "ticketId": "uuid-004", "identifier": "LIN-459" }
-    }
-  },
-  "tasks": {
-    "T001": {"status": "complete", "checkpoint": "abc123"},
-    "T002": {"status": "complete", "checkpoint": "def456"},
-    "T003": {"status": "complete", "checkpoint": "ghi789"},
-    "T004": {"status": "in_progress", "started": "2024-01-15T10:30:00Z"}
-  }
-}
-```
-
-### blockers.json
-```json
-{
-  "active": [
-    {
-      "id": "B001",
-      "task": "T004",
-      "type": "technical",
-      "description": "bcrypt fails to install",
-      "created": "2024-01-15T10:35:00Z"
-    }
-  ],
-  "resolved": []
-}
-```
+Key rules:
+- Use read-modify-write (never overwrite fields set by other agents)
+- Update `lastUpdated` on every write
+- Valid phase values: `CLARIFY_IN_PROGRESS`, `CLARIFY_COMPLETE`, `PLAN_IN_PROGRESS`,
+  `PLAN_COMPLETE`, `PLAN_APPROVED`, `BRANCH_CREATED`, `BUILD_IN_PROGRESS`,
+  `BUILD_COMPLETE`, `PR_CREATED`, `DOCUMENT_IN_PROGRESS`, `DOCUMENT_COMPLETE`, `COMPLETE`

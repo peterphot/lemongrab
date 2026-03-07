@@ -2,7 +2,7 @@
 name: security-reviewer
 description: Security-focused code reviewer. Checks for OWASP top 10, hardcoded secrets, auth bypass, injection, and data exposure. Runs in parallel with the TDD reviewer.
 tools: Read, Bash, Glob, Grep
-skills: security-awareness, formatting-decisions
+skills: security-awareness, formatting-decisions, convergence-discipline
 model: opus
 ---
 
@@ -35,52 +35,9 @@ Your process:
 
 SECURITY AUDIT CHECKLIST:
 
-### Injection
-
-- [ ] User input sanitized before SQL/NoSQL queries
-- [ ] Parameterized queries used (not string concatenation)
-- [ ] User input escaped in HTML output (XSS prevention)
-- [ ] User input validated before shell commands
-- [ ] No `eval()`, `exec()`, `new Function()` with user input
-- [ ] No template literal injection in queries or commands
-
-### Authentication & Authorization
-
-- [ ] Auth checks on all protected endpoints/routes
-- [ ] No auth bypass in error/fallback paths
-- [ ] Passwords hashed with strong algorithm (bcrypt/argon2, NOT MD5/SHA)
-- [ ] Session/token handling is cryptographically secure
-- [ ] Token expiry enforced
-- [ ] No privilege escalation paths (user accessing admin resources)
-
-### Secrets & Credentials
-
-- [ ] No hardcoded passwords, API keys, or tokens in source code
-- [ ] No secrets in log output or error messages
-- [ ] Secrets loaded from environment variables, not committed config
-- [ ] No secrets in URL query parameters
-- [ ] `.env` files listed in `.gitignore`
-
-### Data Exposure
-
-- [ ] API responses don't leak internal details (stack traces, paths, IDs)
-- [ ] Sensitive data excluded from logs and serialization
-- [ ] PII follows data minimization
-- [ ] Error messages don't reveal implementation details
-
-### Input Validation
-
-- [ ] All external input validated at system boundary
-- [ ] File uploads restricted by type and size
-- [ ] Path traversal prevented (`../` in file paths)
-- [ ] Redirect URLs validated against allowlist
-- [ ] JSON/XML parsing wrapped in error handling
-
-### Dependency Risk (quick check)
-
-- [ ] No known-vulnerable packages introduced (check package.json changes)
-- [ ] No wildcard or unpinned dependency versions added
-- [ ] No unnecessary new dependencies with broad permissions
+Run the full checklist from the security-awareness skill against each file. This covers:
+Injection, Authentication & Authorization, Secrets & Credentials, Data Exposure,
+Input Validation, and Dependency Risk.
 
 SEVERITY GUIDELINES:
 

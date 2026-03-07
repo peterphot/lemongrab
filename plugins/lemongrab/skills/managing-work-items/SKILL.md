@@ -36,20 +36,9 @@ This skill helps create and track work items either in Linear (via MCP) or local
 
 ### Creating Issues
 
-**Fetch team context first:**
-```
-mcp__plugin_forge_linear__list_issue_statuses
-  team: "[team name]"
-```
-
-**Create issue:**
-```
-mcp__plugin_forge_linear__create_issue
-  title: "Add user authentication flow"
-  team: "[team name]"
-  description: "[markdown description]"
-  labels: ["feature", "auth"]
-```
+Use the Linear MCP tools to:
+1. **Fetch team context** — list issue statuses for the team
+2. **Create issue** — provide title, team, markdown description, and labels
 
 ### Issue Description Template
 
@@ -94,19 +83,9 @@ mcp__plugin_forge_linear__create_issue
 
 ### Updating Issues
 
-**Update status:**
-```
-mcp__plugin_forge_linear__update_issue
-  id: "[issue ID]"
-  state: "In Progress"
-```
-
-**Add comment:**
-```
-mcp__plugin_forge_linear__create_comment
-  issueId: "[issue ID]"
-  body: "Completed authentication service. Moving to tests."
-```
+Use the Linear MCP tools to:
+- **Update status**: Set the issue state (e.g., "In Progress")
+- **Add comment**: Post progress updates to the issue
 
 ### Linking to Commits
 
@@ -212,11 +191,9 @@ Given a plan with tasks:
 **Create Linear tickets:**
 ```
 For each task in plan:
-1. mcp__plugin_forge_linear__create_issue
+1. Use Linear MCP to create issue with:
      title: "[TXXX] [Task description]"
-     team: "[team]"
-     description: "[generated from plan context]"
-     labels: ["phase-1"] or ["phase-2"]
+     team, description (from plan context), labels (phase-1/phase-2)
 
 2. Set dependencies using blockedBy/blocks:
    T003 blockedBy: [T001, T002]
@@ -236,11 +213,7 @@ For each task in plan:
 ### Status Updates
 
 **Linear:**
-```
-mcp__plugin_forge_linear__update_issue
-  id: "[issue ID]"
-  state: "In Progress"  # or "Done", "In Review"
-```
+Use the Linear MCP to update the issue state (e.g., "In Progress", "In Review").
 
 **Local:**
 Update status checkbox in ticket file:
@@ -254,11 +227,7 @@ Update status checkbox in ticket file:
 ### Progress Comments
 
 **Linear:**
-```
-mcp__plugin_forge_linear__create_comment
-  issueId: "[issue ID]"
-  body: "## Progress Update\n\n- Completed: [x]\n- Remaining: [y]\n- Blockers: [none|description]"
-```
+Use the Linear MCP to post a comment with progress update (completed items, remaining, blockers).
 
 **Local:**
 Add to ticket file:
@@ -319,20 +288,10 @@ When each task has its own ticket:
 
 ### Posting the Summary
 
-**Linear (shared ticket):** Post summary with PR link, do NOT set "Done".
-```
-mcp__plugin_forge_linear__create_comment
-  issueId: "[source ticket ID]"
-  body: "[completion summary with PR link]"
-```
-"Done" is set automatically when the PR is merged (via Linear's GitHub integration).
+**Linear (shared ticket):** Use Linear MCP to post completion summary with PR link as a comment on the source ticket. Do NOT set "Done" — that happens automatically when the PR is merged.
 
-**Linear (per-task tickets):** Post brief note with PR link, no status change.
-```
-mcp__plugin_forge_linear__create_comment
-  issueId: "[each ticket ID]"
-  body: "Completed as part of <feature>. PR: <url>. Merge the PR to complete this work."
-```
+**Linear (per-task tickets):** Use Linear MCP to post brief note with PR link on each ticket. No status change.
+Format: "Completed as part of <feature>. PR: <url>. Merge the PR to complete this work."
 
 **Local (shared ticket):**
 Append summary with PR link to ticket file. Do NOT move to completed/ — that happens after PR merge.
@@ -360,11 +319,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 **After commit, update ticket:**
 
 Linear:
-```
-mcp__plugin_forge_linear__create_comment
-  issueId: "[issue ID]"
-  body: "Commit `abc123`: [commit message]"
-```
+Use Linear MCP to post a comment with the commit hash and message.
 
 Local:
 Add to ticket's Commits section:

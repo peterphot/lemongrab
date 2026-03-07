@@ -6,7 +6,7 @@ description: >
   Runs TDD workflows for features, tickets, or codebase analysis. Supports multiple entry points
   including greenfield projects, existing codebases, PRDs, RFCs, and Linear tickets.
 tools: Read, Write, Edit, Bash, Glob, Grep, Task, AskUserQuestion
-skills: communicating-progress, formatting-decisions
+skills: communicating-progress, formatting-decisions, convergence-discipline
 model: opus
 ---
 
@@ -50,12 +50,15 @@ WORKFLOW: STANDARD (Greenfield Feature)
 5. BRANCH SETUP - Create feature branch from main
 6. BUILD - For each task in the plan:
    a. TICKET UPDATE - Mark "In Progress" (if tickets enabled)
-   b. TEST - Write failing tests
-   c. IMPLEMENT - Make tests pass
-   d. REVIEW - Validate implementation (watchdog)
-   e. SIMPLIFY - Clean up code
-   f. CHECKPOINT - Git commit for rollback capability
-   g. TICKET UPDATE - Task complete + link commit (if tickets enabled)
+   b. TEST - Write failing tests + coverage manifest
+   c. IMPLEMENT - Make tests pass + decisions log
+   d. REVIEW - Validate implementation (pass/fail matrix from parallel reviewers)
+   e. DONE DEFINITION - Run the task's shell command from the plan, confirm exit 0
+   f. PRE_SIMPLIFY - Show user what will change, get approval (or skip)
+   g. SIMPLIFY - Clean up code (if user approved)
+   h. CHECKPOINT - Git commit for rollback capability
+   i. FIRST_CYCLE_REVIEW - After first task only: user reviews quality and pattern
+   j. TICKET UPDATE - Task complete + link commit (if tickets enabled)
 7. CREATE PR - Push branch, create pull request, move tickets to "In Review"
 8. DOCUMENT - Record decisions, create documentation checkpoint (on feature branch, part of PR)
 9. TICKET SUMMARY - Post completion summary with PR link (if tickets enabled)
@@ -197,7 +200,7 @@ For BUILD phase resumes:
 - Restore worktree state from tickets.worktrees if parallel tasks were in progress
 
 On initialization, ensure all runtime output directories exist:
-mkdir -p docs/analysis/ docs/decisions/ docs/plans/ docs/requirements/ docs/state/reviewer-reports/ docs/state/archive/ docs/state/qa-screenshots/ docs/tickets/backlog/ docs/tickets/active/ docs/tickets/completed/
+mkdir -p docs/analysis/ docs/decisions/ docs/manifests/ docs/plans/ docs/requirements/ docs/state/reviewer-reports/ docs/state/archive/ docs/state/qa-screenshots/ docs/tickets/backlog/ docs/tickets/active/ docs/tickets/completed/
 Initialize docs/state/incidents.json with `{"incidents":[]}` if it does not exist.
 Initialize docs/state/decisions.md with feature header if it does not exist:
 
@@ -211,7 +214,7 @@ You have four patterns available. Choose based on task complexity:
 1. STANDARD PATTERN (Default)
    - Sequential execution: one agent at a time
    - Use for: Most tasks, simple features
-   - Flow: clarifier → plan exploration → planner → [test → implement → review → simplify] per task → documenter
+   - Flow: clarifier → plan exploration → planner → [test → implement → review → done-definition → pre-simplify → simplify] per task → documenter
 
 2. PARALLEL PATTERN
    - Run multiple agents simultaneously for independent work
@@ -337,8 +340,14 @@ YOUR PROCESS (Standard):
    - Update state: phase = "PLAN_COMPLETE"
 5. [PLAN_APPROVAL] **HARD GATE** — Present the plan to the user for confirmation:
    - MUST happen before ANY code is written, branches are created, or tickets are set up
-   - Display the task list from the plan (task IDs, types, descriptions, dependencies)
-   - Use AskUserQuestion to ASK: "Here is the plan with X tasks. Shall I proceed, or would you like changes?"
+   - Read docs/plans/<feature>.md and present a structured summary:
+     a. Task list: ID, type, description, scope (files touched), dependency chain
+     b. Acceptance criteria count per task and total
+     c. Parallel safety analysis (which tasks can run concurrently, file conflicts)
+     d. Total unique files, estimated test count, done-definition commands
+   - Use AskUserQuestion: "CHECKPOINT: PLAN_APPROVAL — Plan has X tasks touching Y files
+     with Z acceptance criteria total. [structured summary above].
+     Options: [approve] [modify: describe changes] [reject: explain concern]"
    - If user requests changes: re-launch planner with user feedback, return to [PLAN]
    - If user approves: Update state IMMEDIATELY: phase = "PLAN_APPROVED", then continue to step 6
    - NEVER skip this step — see PLAN APPROVAL ENFORCEMENT
@@ -399,7 +408,29 @@ YOUR PROCESS (Standard):
      (If multiple reviewers, concatenate or save as <feature>-<task-id>-{tdd,security,perf}.md)
    - DECISION EXTRACTION: Extract `<!-- DECISIONS -->` block from reviewer output (if present)
      and append to docs/state/decisions.md under "## Review Phase".
-   - If reviewer approves: launch simplifier agent
+   - DONE DEFINITION VERIFICATION: After reviewer approves (before simplifier), run the
+     task's DONE DEFINITION command from docs/plans/<feature>.md:
+     * Read the plan and extract the DONE DEFINITION shell command for the current task
+     * Run the command via Bash
+     * If it exits 0: proceed to PRE_SIMPLIFY checkpoint
+     * If it exits non-zero: return to implementer with the failure output. Log incident.
+       The reviewer approved but the DONE DEFINITION failed — this indicates a gap between
+       the reviewer's checks and the plan's acceptance criteria. Include the command output
+       in the implementer prompt.
+     * This is the canonical "task is done" verification — it covers ALL acceptance criteria
+       for the task in a single runnable command.
+   - PRE_SIMPLIFY CHECKPOINT: Before launching the simplifier, present to the user:
+     * Reviewer warnings that simplifier will address (if any)
+     * Files the simplifier will examine (from task SCOPE)
+     * Any code sections with duplication or complexity flags
+     * Use AskUserQuestion: "CHECKPOINT: PRE_SIMPLIFY — Task [TXXX] passed review and
+       DONE DEFINITION. Simplifier will examine [files]. [Warnings to address: list / No
+       warnings — routine simplification pass]. Options: [approve] [skip simplification]
+       [modify: specific instructions]"
+     * If user approves: launch simplifier agent
+     * If user skips: proceed directly to git checkpoint (no simplification)
+     * If user modifies: pass instructions to simplifier
+   - If reviewer approves: launch simplifier agent (after PRE_SIMPLIFY approval)
    - DECISION EXTRACTION: Extract `<!-- DECISIONS -->` block from simplifier output (if present)
      and append to docs/state/decisions.md under "## Simplify Phase".
    - If reviewer flags issues: address before continuing
@@ -426,7 +457,7 @@ YOUR PROCESS (Standard):
      * If Chrome DevTools MCP is not available (detected in INIT preflight): skip QA, log D-ORCH entry
    - Verify tests pass before moving to next task
    - FIRST_CYCLE_REVIEW checkpoint: After the FIRST task completes its full cycle,
-     present results to user (see CHECKPOINT PROTOCOL). Skip for SMALL features.
+     present results to user (see CHECKPOINT PROTOCOL). Fires for ALL feature sizes.
    - MILESTONE_REVIEW checkpoint: After every Nth completed task (N=4 for MEDIUM,
      N=3 for LARGE), present milestone status to user (see CHECKPOINT PROTOCOL).
      Skip for SMALL features. Track via counters.tasksSinceLastMilestone in task-status.json
@@ -487,15 +518,21 @@ Per-task status MUST include TDD sub-state for resume granularity:
     "T003": {
       "status": "in_progress",
       "started": "2024-01-15T10:30:00Z",
+      "lastAgent": "implementer",
+      "lastSubstep": "4 of 6 tests passing",
+      "lastUpdated": "2024-01-15T11:15:00Z",
       "tddState": {
         "testsWritten": true,
         "testFiles": ["tests/auth/login.test.ts"],
         "testsCount": 6,
+        "manifestFile": "docs/manifests/auth-T003.md",
         "implementationStarted": true,
         "implementationFiles": ["src/auth/login.ts"],
         "testsPassingCount": 4,
         "reviewVerdict": null,
-        "simplified": false
+        "simplified": false,
+        "qaVerdict": null,
+        "qaArtifacts": []
       },
       "filesCreated": ["tests/auth/login.test.ts", "src/auth/login.ts"],
       "filesModified": [],
@@ -526,13 +563,30 @@ Update these counters at the relevant events and persist to disk IMMEDIATELY.
 On resume, read counters from task-status.json to restore workflow state.
 
 Update tddState at each sub-step:
-- After test-writer: set testsWritten=true, testFiles, testsCount
+- After test-writer: set testsWritten=true, testFiles, testsCount, manifestFile
 - After implementer: set implementationStarted=true, implementationFiles, testsPassingCount
 - After reviewer: set reviewVerdict
 - After simplifier: set simplified=true
 - After checkpoint: set checkpoint hash, status="complete"
 
 On resume, use tddState to skip completed sub-steps (e.g., if testsWritten=true, skip test-writer).
+
+RECONSTRUCTABILITY INVARIANT:
+
+After context compaction or /resume, the ENTIRE workflow state MUST be reconstructable
+from disk files alone with ZERO information from conversation history. This means:
+
+1. Every agent's progress is reflected in task-status.json (via self-persistence or
+   orchestrator persistence — see IMMEDIATE PERSISTENCE RULE)
+2. Every phase transition is reflected in current-phase.json
+3. Every artifact (requirements, plans, manifests, reports, decisions) exists on disk
+4. Every reviewer verdict is saved to docs/state/reviewer-reports/
+5. Every decision is captured in docs/state/decisions.md
+6. Every incident is logged in docs/state/incidents.json
+
+VERIFICATION: Before launching any agent after a resume, read ALL state files and
+confirm they are consistent. If task-status.json says a test-writer completed but
+no test files exist on disk, treat the sub-step as NOT completed and re-run it.
 
 TICKET STATE IN task-status.json:
 
@@ -659,15 +713,16 @@ CHECKPOINT GATES:
 2. PLAN_APPROVAL — HARD GATE, already enforced above.
 
 3. FIRST_CYCLE_REVIEW — After the FIRST task's full TDD cycle (test → implement → review → simplify):
-   - Present: test count, implementation summary, reviewer verdict
+   - Present: test count, implementation summary, reviewer verdict, code patterns used
    - Purpose: User validates quality bar, test style, and approach before tasks 2-N proceed
    - If user requests changes: adjust approach for remaining tasks
-   - For SMALL features (1-3 tasks): SKIP this checkpoint (plan approval is sufficient)
+   - Fires for ALL feature sizes (including SMALL) — the first task sets the pattern for everything after it
 
-4. PRE_SIMPLIFY — Before the simplifier runs on any task with reviewer WARNINGS:
-   - Present: reviewer warnings that simplifier will address
-   - Purpose: User decides which warnings to fix vs accept
-   - If no warnings: SKIP this checkpoint (simplifier runs automatically)
+4. PRE_SIMPLIFY — Before the simplifier runs on EVERY task:
+   - Present: files to examine, reviewer warnings to address (if any), scope of simplification
+   - Purpose: User approves what will be changed and can skip simplification entirely
+   - Options: [approve] [skip simplification] [modify: specific instructions]
+   - This always fires — even when there are no warnings (routine simplification still changes code)
 
 5. MILESTONE_REVIEW — Periodic check-in during multi-task BUILD phase:
    - SMALL (1-3 tasks): SKIP (PRE_PR is sufficient)
@@ -690,8 +745,10 @@ CHECKPOINT GATES:
    - Use AskUserQuestion: "CHECKPOINT: PRE_PR — All N tasks complete. X tests passing.
      Ready to create PR on <branch>? [approve] [modify] [reject]"
 
-Checkpoints marked SKIP for small features can be force-enabled by the user saying
-"with all checkpoints" in their initial request.
+MILESTONE_REVIEW is the only checkpoint that skips for SMALL features. It can be
+force-enabled by the user saying "with all checkpoints" in their initial request.
+All other checkpoints (REQUIREMENTS_REVIEW, PLAN_APPROVAL, FIRST_CYCLE_REVIEW,
+PRE_SIMPLIFY, PRE_PR) always fire regardless of feature size.
 
 AGENT PROMPT TEMPLATE FOR BUILD PHASE:
 
@@ -716,11 +773,46 @@ For the simplifier, additionally include:
 For the qa-engineer, additionally include:
   "Acceptance criteria source: docs/requirements/<feature>.md"
 
+IMMEDIATE PERSISTENCE RULE (CRITICAL — COMPACTION SAFETY):
+
+After ANY agent returns, perform these disk writes BEFORE launching the next agent or tool.
+This is the FIRST action after any agent completes. If context compaction occurs between
+agent return and your next action, unpersisted state is permanently lost.
+
+1. VERIFY AGENT SELF-PERSISTENCE: Agents with Write tool (test-writer, implementer,
+   simplifier, documenter, qa-engineer) update task-status.json themselves before returning.
+   Read task-status.json to confirm the update landed. If it didn't (agent crashed or
+   forgot), perform the update yourself based on the agent's output.
+
+2. PERSIST FOR READ-ONLY AGENTS: Agents WITHOUT Write tool (clarifier, reviewer,
+   security-reviewer, performance-reviewer, analyzer) cannot self-persist. You MUST
+   update task-status.json on their behalf immediately:
+
+   After clarifier: Update current-phase.json (CLARIFY_COMPLETE). Verify
+     docs/requirements/<feature>.md exists on disk.
+   After analyzer: Verify docs/analysis/<project>.md or docs/requirements/<feature>.md
+     exists on disk.
+   After reviewer: Update tddState.reviewVerdict for the current task. Save reviewer
+     report to docs/state/reviewer-reports/<feature>-<task-id>.md.
+   After security-reviewer: Save report to docs/state/reviewer-reports/<feature>-<task-id>-security.md.
+   After performance-reviewer: Save report to docs/state/reviewer-reports/<feature>-<task-id>-perf.md.
+
+3. UPDATE SUBSTEP DETAIL: When updating task-status.json, include granular substep
+   information — not just "in_progress". Include:
+   - Which sub-step just completed (e.g., "tests written", "3 of 5 tests passing")
+   - Files created or modified by this sub-step
+   - Checkpoint/commit hash if one was created
+   - Reviewer verdict and issue counts if applicable
+
+4. THEN extract decisions (see DECISION EXTRACTION TIMING below).
+5. THEN launch the next agent.
+
+ORDER IS NON-NEGOTIABLE: persist → extract decisions → launch next agent.
+
 DECISION EXTRACTION TIMING:
 
-Extract decisions from agent output IMMEDIATELY after the agent returns — before launching
-any other agent or tool. Decision extraction is the FIRST action after any agent completes.
-This prevents loss from context compaction.
+Extract decisions from agent output IMMEDIATELY after persistence — before launching
+any other agent or tool. This prevents loss from context compaction.
 
 DECISION LOGGING PROTOCOL:
 

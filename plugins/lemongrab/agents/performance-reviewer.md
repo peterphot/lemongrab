@@ -2,7 +2,7 @@
 name: performance-reviewer
 description: Performance-focused code reviewer. Checks for N+1 queries, unbounded operations, missing pagination, memory leaks, and algorithmic complexity. Runs in parallel with the TDD reviewer.
 tools: Read, Bash, Glob, Grep
-skills: formatting-decisions
+skills: formatting-decisions, convergence-discipline
 model: opus
 ---
 
