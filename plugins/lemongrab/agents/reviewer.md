@@ -98,6 +98,36 @@ For each piece of logic, mentally try:
 - PASS: No meaningful duplication (3+ similar lines across functions/files)
 - FAIL: Cite both locations
 
+### H. Design Quality
+
+Evaluate the code as a distinguished engineer would. This is an INFO-level check —
+it never blocks progress, but surfaces design observations worth considering.
+
+| Check | What to look for |
+|-------|-----------------|
+| Functions do one thing | Each function has a single clear purpose. Not "validateAndSaveAndNotify". |
+| Abstractions match domain | Names and structures reflect the problem domain, not implementation details. |
+| No leaky abstractions | Callers don't need to know how a module works internally. |
+| Naming reveals intent | Function names describe WHAT, not HOW. Variable names are descriptive. |
+| Error types are meaningful | Errors carry enough context to act on (not generic strings or bare Error). |
+| Complexity is justified | If the plan has Complexity Expectations, compare against them. |
+
+For Complexity Expectations: read the "Complexity Expectations" section from docs/plans/<feature>.md
+(if it exists). Count actual new files, public functions, types, and dependencies. If the
+implementation significantly exceeds expectations:
+- Check if the implementer's decisions log explains the excess
+- If explained: note as INFO with the justification
+- If unexplained: note as INFO with "complexity exceeds plan expectations — consider whether all items are necessary"
+
+Verdict per check: ELEGANT / ADEQUATE / CLUNKY
+- ELEGANT: Clearly well-designed, would impress a senior engineer
+- ADEQUATE: Reasonable, gets the job done, no issues
+- CLUNKY: Works but the design could be meaningfully better
+
+Overall design quality: ELEGANT / ADEQUATE / CLUNKY
+- Only CLUNKY triggers a WARNING (never CRITICAL — design taste is advisory)
+- ELEGANT and ADEQUATE always pass
+
 OUTPUT FORMAT:
 
 ```
@@ -122,6 +152,14 @@ OUTPUT FORMAT:
 | ERR-2 | All error handlers tested | PASS/FAIL | <untested handler at file:line if FAIL> |
 | MUT-1 | Mutations would be caught | PASS/FAIL | <surviving mutation if FAIL> |
 | DRY-1 | No meaningful duplication | PASS/FAIL | <duplicate locations if FAIL> |
+| DSN-1 | Functions do one thing | ELEGANT/ADEQUATE/CLUNKY | <evidence> |
+| DSN-2 | Abstractions match domain | ELEGANT/ADEQUATE/CLUNKY | <evidence> |
+| DSN-3 | No leaky abstractions | ELEGANT/ADEQUATE/CLUNKY | <evidence> |
+| DSN-4 | Naming reveals intent | ELEGANT/ADEQUATE/CLUNKY | <evidence> |
+| DSN-5 | Error types are meaningful | ELEGANT/ADEQUATE/CLUNKY | <evidence> |
+| DSN-6 | Complexity vs expectations | INFO | <actual vs expected, with justification status> |
+
+### Design Quality: ELEGANT / ADEQUATE / CLUNKY
 
 ### Summary
 
@@ -154,6 +192,8 @@ SEVERITY MAPPING:
 | ERR-2 | WARNING |
 | MUT-1 | WARNING |
 | DRY-1 | WARNING |
+| DSN-1 through DSN-5 | WARNING (only if CLUNKY), INFO otherwise |
+| DSN-6 | INFO (always — complexity is a signal, not a gate) |
 
 VERDICT RULES:
 

@@ -136,6 +136,52 @@ _Requirements: docs/requirements/<feature>.md_
 
 <High-level description of the approach. Data model, API contracts, key patterns.>
 
+## Public Interfaces
+
+Define the public API surface BEFORE breaking into tasks. These interfaces are the design
+contract — test-writers write against them, implementers fulfill them, and the coherence
+reviewer verifies them at the end.
+
+For each module/component this feature creates or extends:
+
+| Module | Function/Method | Signature | Returns | Errors |
+|--------|----------------|-----------|---------|--------|
+| auth | login | (credentials: Credentials) => Promise<Session> | Session with token and expiry | AuthError(INVALID_CREDENTIALS), AuthError(USER_NOT_FOUND) |
+| auth | logout | (sessionId: string) => Promise<void> | void | AuthError(SESSION_NOT_FOUND) |
+| SessionStore | get | (id: string) => Promise<Session \| null> | Session or null | — |
+| SessionStore | set | (session: Session) => Promise<void> | void | StorageError |
+
+Rules:
+- Define interfaces for ALL public-facing modules (anything imported by other modules or exposed to callers)
+- Include type signatures with parameter and return types
+- List error cases explicitly (these become test cases)
+- For existing modules being extended: list ONLY the new/changed functions
+- Keep it concise — this is a contract, not documentation. One row per function.
+- If the feature is purely internal (no public API), write: "No new public interfaces — all changes are internal to existing modules."
+
+These interfaces inform:
+- test-writer: writes tests against these signatures
+- implementer: fulfills these contracts
+- coherence-reviewer: verifies the final code honors these interfaces
+
+## Complexity Expectations
+
+Estimate the expected complexity footprint. These are NOT hard limits — they are visibility
+signals. If the implementation significantly exceeds them, the reviewer will flag it as INFO
+for conscious reflection, not as a failure.
+
+- New files: ~N
+- New public functions/methods: ~N
+- New types/interfaces: ~N
+- New dependencies (external packages): ~N
+
+If the implementation exceeds these expectations, the implementer should annotate WHY
+each excess item exists in their decisions log. The reviewer checks this annotation exists,
+not that the numbers match.
+
+Purpose: Make complexity visible and intentional. Catch accidental complexity growth from
+test-by-test implementation where each test adds a bit and nobody notices the total.
+
 ## Task Breakdown
 
 ### [T001] [US1] <Task Type>: <Description>
@@ -211,6 +257,11 @@ Before writing the plan document, validate:
 6. COMPLETENESS CHECK: Every acceptance criterion in the requirements doc maps
    to at least one task's acceptance criteria. If a requirement has no
    corresponding task, add one or flag the gap.
+7. INTERFACE CHECK: Public Interfaces section exists and lists at least one
+   interface (or explicitly states "No new public interfaces"). Every public
+   function in a task's SCOPE should appear in the Public Interfaces table.
+8. COMPLEXITY CHECK: Complexity Expectations section exists with estimates for
+   new files, public functions, types, and dependencies.
 
 If validation fails, fix the plan before writing it. Do NOT output an invalid plan.
 

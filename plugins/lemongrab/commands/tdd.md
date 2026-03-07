@@ -15,11 +15,20 @@ The lemongrab agent MUST follow this exact flow with user gates at each stage:
 3. Present the finalized requirements to the user (REQUIREMENTS_REVIEW checkpoint)
 4. User must explicitly approve before planning begins
 
+## PHASE 1.5: DESIGN (auto for MEDIUM+, skip for SMALL)
+
+1. Launch designer agent to explore 2-3 distinct approaches
+2. Present trade-offs to user, user selects approach
+3. Selected approach feeds into the planner
+4. SKIP for SMALL features (1-3 expected tasks) unless user asks for it
+
 ## PHASE 2: PLAN
 
 1. Explore codebase for context (Plan subagent)
 2. Launch planner agent to produce docs/plans/<feature>.md
-3. Present the plan to the user with this structured breakdown:
+3. Plan MUST include: Public Interfaces section (API contracts before task breakdown)
+   and Complexity Expectations section (visibility signals, not hard limits)
+4. Present the plan to the user with this structured breakdown:
    a. Full task list: ID, type, scope (exact files, max 3 per task), dependency chain
    b. Per-task acceptance criteria (numbered, mechanically verifiable)
    c. Per-task verification methods (unit-test, integration-test, type-check, etc.)
@@ -36,17 +45,23 @@ The lemongrab agent MUST follow this exact flow with user gates at each stage:
 For each task in the plan:
 
 1. **Test writer** — writes failing tests + coverage manifest at docs/manifests/<feature>-<task>.md
+   - For public-facing modules: write API ergonomics tests FIRST (usage examples that read like docs)
    - Every acceptance criterion from the plan must map to at least one test
+   - Tests should target the Public Interfaces defined in the plan
    - All tests must fail for the RIGHT reason (missing implementation, not syntax errors)
 
 2. **Implementer** — writes minimal code to pass tests + decisions log at docs/decisions/<feature>-<task>.md
+   - Prior art scan: read 2-3 similar files to absorb codebase conventions before writing
+   - Honor the Public Interfaces defined in the plan
    - Every line of code must be demanded by a failing test
    - Test file integrity check: verify implementer did not modify test files
 
 3. **Reviewer** — produces structured pass/fail matrix
    - Three parallel reviewers: TDD compliance, security, performance
    - Matrix covers: acceptance criteria, TDD compliance, scope discipline,
-     architecture alignment, error handling, mutation testing, duplication
+     architecture alignment, error handling, mutation testing, duplication,
+     design quality (ELEGANT/ADEQUATE/CLUNKY — advisory, not blocking)
+   - Complexity check: compares actual vs plan's Complexity Expectations (INFO level)
    - Verdict: APPROVED, NEEDS_FIXES, or TDD_VIOLATION
    - CRITICAL findings are escalated to user immediately
 
@@ -59,7 +74,9 @@ For each task in the plan:
    - User must approve before simplifier runs
    - User may skip simplification entirely
 
-6. **Simplifier** — removes complexity while keeping tests green (if user approved)
+6. **Simplifier** — removes complexity and improves design while keeping tests green (if user approved)
+   - Mechanical: dead code, inlining, early returns, DRY
+   - Design: concept compression, information hiding, symmetry, naming as design
 
 7. **Git checkpoint** — `git commit -m "checkpoint: [TXXX] <description>"`
 
@@ -68,6 +85,15 @@ For each task in the plan:
    - Purpose: user validates quality bar and approach before tasks 2-N proceed
    - This fires for ALL feature sizes (not skipped for small features)
    - If user requests changes: adjust approach for remaining tasks
+
+## PHASE 3.5: COHERENCE REVIEW (auto for MEDIUM+, skip for SMALL)
+
+1. **Coherence reviewer** — evaluates ALL implementation files as a unified whole
+   - Checks: API consistency, naming coherence, data flow clarity, abstraction quality,
+     cross-task symmetry, module boundaries, interface contract compliance
+   - Verdict: ELEGANT (ship it), ADEQUATE (ship it), NEEDS_REFINEMENT (offer fix)
+   - If NEEDS_REFINEMENT: user can approve refinement (simplifier runs on flagged files)
+     or skip and ship as-is
 
 ## PHASE 4: FINALIZE
 

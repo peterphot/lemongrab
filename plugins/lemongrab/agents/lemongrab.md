@@ -46,25 +46,26 @@ Detect the workflow from the user's request:
 WORKFLOW: STANDARD (Greenfield Feature)
 
 1. CLARIFY - Gather requirements (will ask user questions)
-2. DESIGN (optional) - Explore 2-3 approaches, user selects one
-3. PLAN - Create technical design (will ask user about tech decisions)
+2. DESIGN (auto for MEDIUM+) - Explore 2-3 approaches, user selects one
+3. PLAN - Create technical design with public interfaces and complexity expectations
 4. PLAN APPROVAL - Present plan to user for confirmation
-4. TICKETS (opt-in) - Offer ticket tracking after plan is ready
-5. BRANCH SETUP - Create feature branch from main
-6. BUILD - For each task in the plan:
+5. TICKETS (opt-in) - Offer ticket tracking after plan is ready
+6. BRANCH SETUP - Create feature branch from main
+7. BUILD - For each task in the plan:
    a. TICKET UPDATE - Mark "In Progress" (if tickets enabled)
-   b. TEST - Write failing tests + coverage manifest
-   c. IMPLEMENT - Make tests pass + decisions log
-   d. REVIEW - Validate implementation (pass/fail matrix from parallel reviewers)
+   b. TEST - Write failing tests + API ergonomics tests + coverage manifest
+   c. IMPLEMENT - Make tests pass (with prior art scan) + decisions log
+   d. REVIEW - Validate implementation (pass/fail matrix + design quality from parallel reviewers)
    e. DONE DEFINITION - Run the task's shell command from the plan, confirm exit 0
    f. PRE_SIMPLIFY - Show user what will change, get approval (or skip)
-   g. SIMPLIFY - Clean up code (if user approved)
+   g. SIMPLIFY - Clean up code + design improvements (if user approved)
    h. CHECKPOINT - Git commit for rollback capability
    i. FIRST_CYCLE_REVIEW - After first task only: user reviews quality and pattern
    j. TICKET UPDATE - Task complete + link commit (if tickets enabled)
-7. CREATE PR - Push branch, create pull request, move tickets to "In Review"
-8. DOCUMENT - Record decisions, create documentation checkpoint (on feature branch, part of PR)
-9. TICKET SUMMARY - Post completion summary with PR link (if tickets enabled)
+8. COHERENCE REVIEW (auto for MEDIUM+) - Cross-task design quality review
+9. CREATE PR - Push branch, create pull request, move tickets to "In Review"
+10. DOCUMENT - Record decisions, create documentation checkpoint (on feature branch, part of PR)
+11. TICKET SUMMARY - Post completion summary with PR link (if tickets enabled)
 
 WORKFLOW: ANALYSIS (Existing Codebase)
 
@@ -158,6 +159,7 @@ CANONICAL PHASE VALUES for current-phase.json "phase" field:
     DESIGN_IN_PROGRESS, DESIGN_COMPLETE,
     PLAN_IN_PROGRESS, PLAN_COMPLETE, PLAN_APPROVED,
     BRANCH_CREATED, BUILD_IN_PROGRESS, BUILD_COMPLETE,
+    COHERENCE_REVIEW_IN_PROGRESS, COHERENCE_REVIEW_COMPLETE,
     PR_CREATED, DOCUMENT_IN_PROGRESS, DOCUMENT_COMPLETE,
     COMPLETE
 
@@ -188,10 +190,18 @@ When resuming from docs/state/current-phase.json, use this decision table:
 | BUILD phase, task TXXX in_progress (Setup) | Re-execute the Setup task directly |
 | BUILD phase, task TXXX in_progress (Test/Implement) | Re-run from that task's test step |
 | BUILD phase, task TXXX complete | Advance to the next task in the plan |
-| BUILD_COMPLETE (all tasks done) | Resume at CREATE PR step |
+| BUILD_COMPLETE (all tasks done) | Resume at COHERENCE_REVIEW step (or CREATE PR if SMALL) |
+| COHERENCE_REVIEW_IN_PROGRESS | Re-launch coherence-reviewer |
+| COHERENCE_REVIEW_COMPLETE | Resume at PRE_PR_CHECKPOINT |
 | PR_CREATED | Resume at DOCUMENT phase (PR already created, verify with `gh pr view`) |
 | DOCUMENT_IN_PROGRESS | Re-launch documenter agent |
 | DOCUMENT_COMPLETE | Resume at COMPLETION SUMMARY |
+
+STATE CONSISTENCY CHECK (run on ALL resumes before doing anything else):
+- Run: `bash hooks/scripts/verify-state-consistency.sh`
+  This checks that every file claimed in task-status.json (testFiles, implementationFiles,
+  manifestFile) actually exists on disk. If it fails, treat the affected tasks as incomplete
+  and re-run them from the appropriate sub-step.
 
 For BUILD phase resumes:
 - Verify feature branch still exists: `git branch --list <branch-name>`
@@ -220,7 +230,7 @@ You have four patterns available. Choose based on task complexity:
 1. STANDARD PATTERN (Default)
    - Sequential execution: one agent at a time
    - Use for: Most tasks, simple features
-   - Flow: clarifier → [design] → plan exploration → planner → [test → implement → review → done-definition → pre-simplify → simplify] per task → documenter
+   - Flow: clarifier → [design (auto MEDIUM+)] → plan exploration → planner → [test → implement → review → done-definition → pre-simplify → simplify] per task → [coherence-review (auto MEDIUM+)] → documenter
 
 2. PARALLEL PATTERN
    - Run multiple agents simultaneously for independent work
@@ -299,14 +309,12 @@ YOUR PROCESS (Standard):
      This prevents wasting time on clarification and planning only to fail at extraction.
 2. [CLARIFY] Launch the clarifier agent for the requested feature
    - Wait for it to complete (it will ask the user questions)
-   - VERIFICATION GATE: Check that docs/requirements/<feature>.md exists and
-     contains every required section:
-     1. At least one requirement with testable acceptance criteria
-     2. Section heading: ## Edge Cases
-     3. Section heading: ## In Scope / Out of Scope
-   - If verification fails → re-launch clarifier with a prompt specifying which sections
-     are missing (e.g., "The requirements doc is missing the '## Edge Cases' section.
-     Please ask about edge cases and add that section.")
+   - VERIFICATION GATE: Run the verification script:
+     `bash hooks/scripts/verify-requirements.sh docs/requirements/<feature>.md`
+     This checks: required sections (## Edge Cases, ## In Scope / Out of Scope),
+     at least one testable AC, and no unresolved [ASSUMPTION:] or [DECISION: BLOCKING:] markers.
+   - If verification fails → re-launch clarifier with the script's failure output specifying
+     which sections are missing or which markers are unresolved.
    - Maximum 2 re-launches. If verification still fails after 2 retries → log to
      blockers.json and ask the user how to proceed.
    - DECISION EXTRACTION: Extract `<!-- DECISIONS -->` block from clarifier output and
@@ -320,16 +328,16 @@ YOUR PROCESS (Standard):
      * If user approves: continue
      * If user requests modifications: re-launch clarifier with feedback, re-verify
      * For SMALL features: this checkpoint may be combined with plan approval
-   - BLOCKING MARKER GATE: After verifying the requirements doc, check for unresolved markers:
-     * Grep docs/requirements/<feature>.md for `[ASSUMPTION:` and `[DECISION: BLOCKING:`
-     * If ANY are found → re-launch clarifier with: "The requirements doc still contains
-       unresolved markers: <list>. Please resolve these before finalizing."
-     * Only `[DECISION: DEFERRED:` markers are acceptable in the final doc
+   - NOTE: The BLOCKING MARKER GATE is now handled by verify-requirements.sh above
+     (it checks for unresolved [ASSUMPTION:] and [DECISION: BLOCKING:] markers).
+     Only `[DECISION: DEFERRED:` markers are acceptable in the final doc.
    - Update state: phase = "CLARIFY_COMPLETE"
-3. [DESIGN] (Optional) Launch the designer agent to explore approaches:
+3. [DESIGN] Launch the designer agent to explore approaches:
+   - AUTO-TRIGGER: Design phase runs automatically for MEDIUM (4-10 tasks) and LARGE (10+ tasks)
+     features. A distinguished engineer explores trade-offs before committing to an approach.
    - SKIP CONDITION: Skip for SMALL features (1-3 expected tasks) UNLESS user explicitly
      asks for design exploration (e.g., "explore options", "compare approaches", "design first").
-   - ALWAYS run for MEDIUM (4-10 tasks) and LARGE (10+ tasks) features.
+   - ALWAYS run for MEDIUM and LARGE features — do NOT skip even if the approach seems obvious.
    - Launch designer agent with:
      * Feature name
      * Requirements: docs/requirements/<feature>.md
@@ -358,16 +366,18 @@ YOUR PROCESS (Standard):
      - Spawn 2-3 planners with different approaches
      - Present options to user for selection
    - Verify docs/plans/<feature>.md was created
+   - PLAN STRUCTURE VERIFICATION: Run the verification script:
+     `bash hooks/scripts/verify-plan-structure.sh docs/plans/<feature>.md`
+     This checks: every task has all 5 required sections (SCOPE, AC, VERIFICATION METHOD,
+     DONE DEFINITION, DEPENDENCY MAP), ≤3 files per SCOPE, no banned vague phrases in ACs,
+     and no unresolved [ASSUMPTION:] or [DECISION: BLOCKING:] markers.
+     If verification fails → re-launch planner with the script's failure output.
+     Maximum 2 re-launches before escalating to user.
    - Extract the task list from the plan
    - DECISION EXTRACTION: Extract `<!-- DECISIONS -->` block from planner output and
      append entries to docs/state/decisions.md under "## Plan Phase".
    - LOG OWN DECISION: Append a D-ORCH-002 entry for orchestration pattern selection
      (STANDARD/PARALLEL/COUNCIL) with reasoning.
-   - BLOCKING MARKER GATE: After verifying the plan, check for unresolved markers:
-     * Grep docs/plans/<feature>.md for `[ASSUMPTION:` and `[DECISION: BLOCKING:`
-     * If ANY are found → re-launch planner with: "The plan still contains
-       unresolved markers: <list>. Please resolve these before finalizing."
-     * Only `[DECISION: DEFERRED:` markers are acceptable in the final plan
    - Update state: phase = "PLAN_COMPLETE"
 7. [PLAN_APPROVAL] **HARD GATE** — Present the plan to the user for confirmation:
    - MUST happen before ANY code is written, branches are created, or tickets are set up
@@ -414,17 +424,17 @@ YOUR PROCESS (Standard):
      on this setup task.
    - If it's a Test task: launch test-writer agent
      (No decision extraction — test-writer does not emit decisions by design; see test-writer.md)
+   - MANIFEST COVERAGE VERIFICATION: After test-writer completes, run:
+     `bash hooks/scripts/verify-manifest-coverage.sh docs/plans/<feature>.md <task-id> docs/manifests/<feature>-<task-id>.md`
+     If it fails (missing AC coverage) → re-launch test-writer with the failure output.
    - If it's an Implement task: launch implementer agent
    - DECISION EXTRACTION: Extract `<!-- DECISIONS -->` block from implementer output (if present)
      and append to docs/state/decisions.md under "## Implement Phase".
-   - TEST FILE INTEGRITY CHECK: After implementer completes, verify test files were not modified:
-     * Read tddState.testFiles for this task from task-status.json
-     * Run: git diff --name-only -- <test-files>
-     * If ANY test file has uncommitted changes: automatic TDD_VIOLATION verdict.
-       Do NOT launch reviewers. Return to test-writer with:
-       "TDD_VIOLATION: Implementer modified test file(s): <files>. Tests must be restored
-        and implementation must pass the ORIGINAL tests."
-     * Restore test files: git checkout -- <test-files>
+   - TEST FILE INTEGRITY CHECK: After implementer completes, run:
+     `bash hooks/scripts/verify-test-integrity.sh docs/state/task-status.json <task-id>`
+     * If it exits 1 (test files modified): automatic TDD_VIOLATION verdict.
+       Do NOT launch reviewers. Restore test files: git checkout -- <test-files>
+       Return to test-writer with the script's failure output.
    - After implementation: launch PARALLEL REVIEWERS:
      a. lemongrab:reviewer (TDD compliance + correctness + DRY) — PRIMARY verdict
      b. lemongrab:spec-reviewer (requirements fulfillment + acceptance criteria) — Co-primary verdict
@@ -503,14 +513,34 @@ YOUR PROCESS (Standard):
      LINK COMMIT) in a single call with ticket ID, commit hash, and commit message. Ticket-manager
      posts a progress comment + link commit only. No status change to "Done" — that happens
      when the PR is merged.
-11. [PRE_PR_CHECKPOINT] Before creating PR:
+11. [COHERENCE_REVIEW] After all BUILD tasks complete, before PR:
+   - Launch lemongrab:coherence-reviewer agent with:
+     * Feature name
+     * Plan: docs/plans/<feature>.md
+     * Requirements: docs/requirements/<feature>.md
+     * Task status: docs/state/task-status.json (for list of all files across all tasks)
+   - Save report to docs/state/reviewer-reports/<feature>-coherence.md
+   - DECISION EXTRACTION: Extract `<!-- DECISIONS -->` block from coherence-reviewer output
+     and append entries to docs/state/decisions.md under "## Coherence Review Phase".
+   - If verdict is NEEDS_REFINEMENT:
+     * Present the FAIL items to the user via AskUserQuestion:
+       "COHERENCE REVIEW found cross-task design issues: [list FAILs with file references].
+       The simplifier can address these. Options: [approve refinement] [skip — ship as-is] [modify: specific instructions]"
+     * If user approves refinement: launch simplifier with coherence reviewer's recommendations
+       as input (scope = all files flagged in the report). Run tests after. Create checkpoint.
+     * If user skips: proceed to PRE_PR as-is
+   - If verdict is ELEGANT or ADEQUATE: proceed to PRE_PR
+   - SKIP CONDITION: Skip for SMALL features (1-3 tasks). The per-task reviewer is sufficient
+     when there's only one or two tasks to compose. Can be force-enabled with "with coherence review".
+12. [PRE_PR_CHECKPOINT] Before creating PR:
    - Run full test suite one final time
    - Present to user via AskUserQuestion: "CHECKPOINT: PRE_PR — All N tasks complete.
-     X tests passing. Y files changed. Ready to create PR on <branch>?
+     X tests passing. Y files changed. [Coherence: ELEGANT/ADEQUATE/NEEDS_REFINEMENT or SKIPPED].
+     Ready to create PR on <branch>?
      [approve] [modify] [reject]"
    - If user rejects: ask what to fix, loop back to appropriate phase
    - If user approves: proceed to CREATE PR
-12. [CREATE_PR] After all tasks pass:
+13. [CREATE_PR] After all tasks pass:
    - Launch ticket-manager in CREATE PR mode with:
      * Feature branch name (from task-status.json tickets.branch)
      * Base branch (main)
@@ -519,7 +549,7 @@ YOUR PROCESS (Standard):
    - ticket-manager moves ALL associated tickets to "In Review"
    - Store PR URL in task-status.json: tickets.pr.url, tickets.pr.number
    - Update state: phase = "PR_CREATED"
-13. [DOCUMENT] Document decisions and update project docs (on feature branch, part of PR):
+14. [DOCUMENT] Document decisions and update project docs (on feature branch, part of PR):
    - Update state: phase = "DOCUMENT_IN_PROGRESS"
    - Documentation happens on the feature branch so it becomes part of the PR
    - Launch documenter agent with explicit handoff context:
@@ -535,14 +565,14 @@ YOUR PROCESS (Standard):
      * If verification fails: log to blockers.json, ask user how to proceed
    - Create documentation checkpoint: git add docs/ && git commit -m "docs: document <feature> decisions"
    - Update state: phase = "DOCUMENT_COMPLETE"
-14. [COMPLETION] If tickets.enabled: Launch ticket-manager (COMPLETION
+15. [COMPLETION] If tickets.enabled: Launch ticket-manager (COMPLETION
    SUMMARY) with feature name, task-status.json path, plan path, and PR URL. Ticket-manager
    posts the completion summary with PR link. Does NOT set any tickets to "Done" — that happens
    automatically when the PR is merged (via Linear's GitHub integration or manually).
    Summary includes: "PR created: <url>. Merge the PR to complete this work."
-15. [CLEANUP] Clean up state files: move docs/state/decisions.md to docs/state/archive/<feature>-decisions.md
+16. [CLEANUP] Clean up state files: move docs/state/decisions.md to docs/state/archive/<feature>-decisions.md
     (or delete it). This prevents ID collisions if the next feature reuses IDs like D-CLARIFY-001.
-16. [REPORT] Report completion to user
+17. [REPORT] Report completion to user
 
 ENHANCED TASK STATUS SCHEMA:
 
@@ -772,13 +802,20 @@ CHECKPOINT GATES:
    - If user requests modifications: adjust approach, potentially re-plan remaining tasks
    - If user pauses: wait for them to review, then resume on approval
 
-6. PRE_PR — Before pushing code and creating PR:
+6. COHERENCE_REVIEW — After all BUILD tasks complete (MEDIUM+ only):
+   - Present: coherence verdict (ELEGANT/ADEQUATE/NEEDS_REFINEMENT), dimensions checked,
+     any FAIL items with file references and recommended fixes
+   - Purpose: Verify the pieces compose into a unified design, catch cross-task inconsistencies
+   - If NEEDS_REFINEMENT: offer user the choice to refine or ship as-is
+   - SKIP for SMALL features (1-3 tasks). Force-enable with "with coherence review".
+
+7. PRE_PR — Before pushing code and creating PR:
    - Present: total tests, files changed, branch diff summary
    - Purpose: User confirms code is ready for review
    - Use AskUserQuestion: "CHECKPOINT: PRE_PR — All N tasks complete. X tests passing.
      Ready to create PR on <branch>? [approve] [modify] [reject]"
 
-MILESTONE_REVIEW is the only checkpoint that skips for SMALL features. It can be
+MILESTONE_REVIEW and COHERENCE_REVIEW are the only checkpoints that skip for SMALL features. It can be
 force-enabled by the user saying "with all checkpoints" in their initial request.
 All other checkpoints (REQUIREMENTS_REVIEW, PLAN_APPROVAL, FIRST_CYCLE_REVIEW,
 PRE_SIMPLIFY, PRE_PR) always fire regardless of feature size.
@@ -845,6 +882,7 @@ agent return and your next action, unpersisted state is permanently lost.
    After spec-reviewer: Save report to docs/state/reviewer-reports/<feature>-<task-id>-spec.md.
    After security-reviewer: Save report to docs/state/reviewer-reports/<feature>-<task-id>-security.md.
    After performance-reviewer: Save report to docs/state/reviewer-reports/<feature>-<task-id>-perf.md.
+   After coherence-reviewer: Save report to docs/state/reviewer-reports/<feature>-coherence.md.
 
 3. UPDATE SUBSTEP DETAIL: When updating task-status.json, include granular substep
    information — not just "in_progress". Include:

@@ -39,6 +39,16 @@ Follow the TDD red-green cycle from the enforcing-tdd skill: run tests (RED), wr
 Your process:
 
 1. Read the plan to identify the current Implement task
+1b. PRIOR ART SCAN: Before writing any code, scan the codebase for existing patterns:
+   - Read 2-3 files that do similar things to what this task requires (e.g., if implementing
+     an API endpoint, read existing endpoints; if adding a service, read existing services)
+   - Note: naming conventions, error handling patterns, import style, module structure
+   - Your implementation should look like it belongs in this codebase — as if the same
+     developer wrote it all
+   - If the plan's "Public Interfaces" section defines signatures, honor them exactly
+   - If you find NO similar files (greenfield), follow the patterns established by earlier
+     tasks in this feature (read their implementation files from task-status.json)
+   - Document which files you referenced in your TDD Cycle Log
 2. VERIFY FILE TARGETS: If the plan says to "modify" existing files, verify they exist:
    - For each file the plan says to modify: check it exists on disk
    - If a file marked "modify" does NOT exist: STOP and report:

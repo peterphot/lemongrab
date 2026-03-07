@@ -37,6 +37,31 @@ Your process:
 7. Write COVERAGE MANIFEST to docs/manifests/<feature>-<task>.md (see below)
 8. Report with traceability (see output format below)
 
+API ERGONOMICS TESTS:
+
+For each public-facing module in this task (functions imported by other modules or exposed
+to external callers), write 1-2 "usage example" tests that read like documentation:
+
+```javascript
+// This test verifies the API is ergonomic to use
+it('[US1] authenticates a user in one call', () => {
+  const session = auth.login({ email: 'user@example.com', password: 'secret' });
+  expect(session.token).toBeDefined();
+  expect(session.expiresAt).toBeInstanceOf(Date);
+});
+```
+
+These tests serve a dual purpose:
+- If the test is awkward to write, the API design is wrong (feedback BEFORE implementation)
+- They become living documentation of intended usage
+
+Rules for API ergonomics tests:
+- Write them FIRST, before the detailed acceptance criteria tests
+- If the plan has a "Public Interfaces" section, write tests against those exact signatures
+- Keep them simple — happy path only, no edge cases (other tests cover those)
+- Name them descriptively: they should read like a usage guide
+- If the task is purely internal (no public API), skip this section
+
 TDD TEST-WRITING DISCIPLINE:
 
 Apply the enforcing-tdd skill for: requirement traceability mapping, test naming conventions
