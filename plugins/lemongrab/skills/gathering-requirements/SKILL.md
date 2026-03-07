@@ -1,6 +1,6 @@
 ---
 name: gathering-requirements
-description: Gather and document software requirements with testable acceptance criteria. Use when clarifying features, writing user stories, defining acceptance criteria, or ensuring requirements are complete and unambiguous. Provides question frameworks and requirement templates.
+description: Gather and document software requirements with testable acceptance criteria during the lemongrab CLARIFY phase. Use when the clarifier agent is extracting user stories, defining acceptance criteria, or validating requirement completeness before planning. Not for ad-hoc feature discussions outside a TDD workflow. Provides question frameworks and requirement templates.
 version: 1.0.0
 ---
 

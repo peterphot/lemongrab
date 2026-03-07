@@ -1,6 +1,6 @@
 ---
 name: auditing-tdd-compliance
-description: Audit code for TDD compliance by detecting untested code paths, weak test coverage, and TDD violations. Use when reviewing implementations, validating test coverage, or checking that all code is demanded by tests. Provides mutation testing analysis and compliance verdicts.
+description: Audit code for TDD compliance during the lemongrab REVIEW phase after implementation is complete. Use when the reviewer agent is detecting untested code paths, validating test-to-code traceability, or issuing compliance verdicts. Distinct from enforcing-tdd which operates during the BUILD phase. Provides mutation testing analysis and compliance verdicts.
 version: 1.0.0
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: communicating-progress
-description: Communicate progress, status, and blockers clearly during multi-step workflows. Use when reporting task status, escalating blockers, handing off between agents, or summarizing work completed. Provides status templates, blocker formats, and handoff patterns.
+description: Communicate progress, status, and blockers during lemongrab TDD workflows. Use when reporting task completion within a TDD build phase, escalating blockers during implementation, or handing off between lemongrab agents. Not for general status updates outside TDD workflows. Provides status templates, blocker formats, and handoff patterns.
 version: 1.0.0
 ---
 

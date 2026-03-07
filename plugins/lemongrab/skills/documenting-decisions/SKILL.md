@@ -1,6 +1,6 @@
 ---
 name: documenting-decisions
-description: Document software decisions capturing both WHAT was built and WHY it was built that way. Use when writing decision records, adding code comments, updating documentation, or explaining technical choices. Provides ADR templates, comment style guides, and documentation completeness checks.
+description: Document software decisions as formal ADRs or decision logs within a lemongrab TDD workflow. Use when writing architecture decision records after implementation, creating handoff documentation between TDD phases, or capturing trade-offs in plan/review documents. Not for routine code comments or inline explanations. Provides ADR templates, comment style guides, and documentation completeness checks.
 version: 1.0.0
 ---
 

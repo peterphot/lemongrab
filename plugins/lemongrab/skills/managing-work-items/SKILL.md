@@ -1,7 +1,7 @@
 ---
 name: managing-work-items
-description: Create and track work items in Linear or locally. Use when creating tickets from plans, tracking implementation progress, updating ticket status, or linking commits to work items. Provides templates for Linear issues and local ticket files.
-version: 1.0.0
+description: Create and track work items in Linear or locally during lemongrab TDD workflows. Use when the ticket-manager agent is creating tickets from an approved plan, updating ticket status during implementation, posting completion summaries, or linking commits to work items. Not for branch, PR, or worktree operations (see managing-branches-and-prs). Provides templates for Linear issues and local ticket files.
+version: 1.1.0
 ---
 
 # Managing Work Items
@@ -14,10 +14,6 @@ This skill helps create and track work items either in Linear (via MCP) or local
 - Tracking progress during implementation
 - Updating ticket status as work completes
 - Linking commits to work items
-- Choosing between Linear and local tracking
-- Creating feature branches for isolated work
-- Creating pull requests for code review
-- Managing parallel work with git worktrees
 
 ## Core Principle
 
@@ -273,69 +269,7 @@ Add to ticket file:
 - [date]: Completed
 ```
 
-## Batch Operations
-
-### Create Multiple Tickets from Plan
-
-```markdown
-## Ticket Creation Checklist
-
-For plan: [feature-name]
-
-- [ ] T001: [title] → Created: [Linear ID or local path]
-- [ ] T002: [title] → Created: [Linear ID or local path]
-- [ ] T003: [title] → Created: [Linear ID or local path]
-
-Dependencies set:
-- [ ] T003 blocked by T001, T002
-- [ ] T004 blocked by T003
-```
-
-### Bulk Status Update
-
-After completing a phase:
-```
-1. List all tickets for phase
-2. Update each to "Completed"
-3. Move blocked tickets to "Ready"
-```
-
-## Commit-Ticket Linking
-
-### Commit Message Format
-
-```
-type(scope): description
-
-[Body explaining what and why]
-
-Implements: [TXXX] or [LIN-123]
-Closes: [TXXX] or [LIN-123]  # if completing ticket
-
-Co-Authored-By: Claude <noreply@anthropic.com>
-```
-
-### Update Ticket on Commit
-
-**After commit, update ticket:**
-
-Linear:
-```
-mcp__plugin_forge_linear__create_comment
-  issueId: "[issue ID]"
-  body: "Commit `abc123`: [commit message]"
-```
-
-Local:
-Add to ticket's Commits section:
-```markdown
-## Commits
-- `abc123` - feat(auth): add login endpoint
-```
-
-## Completion Summary
-
-When all tasks for a feature are complete, post a final summary to the ticket(s).
+## Completion Summaries
 
 ### Completion Summary Template
 
@@ -364,14 +298,6 @@ When all tasks for a feature are complete, post a final summary to the ticket(s)
 - Plan: docs/plans/<feature>.md
 - Decisions: docs/decisions/<feature>.md
 ```
-
-### Summary Content Guidance
-
-- **Tasks:** List all tasks with completion status from task-status.json
-- **Test results:** Run test suite and report pass/fail counts
-- **Files changed:** Aggregate from git log across all checkpoints
-- **Checkpoints:** List commit hashes and messages from task-status.json
-- **Documentation:** Link to all generated docs
 
 ### Shared Ticket (TICKET workflow)
 
@@ -414,183 +340,48 @@ Append summary with PR link to ticket file. Do NOT move to completed/ — that h
 **Local (per-task tickets):**
 Append brief note with PR link only. Keep in active/ until PR merge.
 
-## Branch Management
+## Commit-Ticket Linking
 
-Every feature gets its own branch. Branch hygiene applies regardless of whether tickets are enabled.
+### Commit Message Format
 
-### Branch Naming Conventions
+```
+type(scope): description
 
-| Workflow | Branch Name Pattern | Example |
-|----------|-------------------|---------|
-| TICKET | `feat/<ticket-id>-<slug>` | `feat/LIN-123-auth-flow` |
-| STANDARD | `feat/<feature-slug>` | `feat/user-authentication` |
-| PRD | `feat/<feature-slug>` | `feat/onboarding-wizard` |
-| RFC | `feat/<feature-slug>` | `feat/api-v2-migration` |
+[Body explaining what and why]
 
-Rules:
-- Slug: lowercase, hyphens only, no special characters
-- Max 50 chars total for branch name
-- Always branch from `main` (or configured base branch)
+Implements: [TXXX] or [LIN-123]
+Closes: [TXXX] or [LIN-123]  # if completing ticket
 
-### Branch Creation
-
-```bash
-# Ensure main is up to date
-git checkout main && git pull origin main
-
-# Create feature branch
-git checkout -b feat/LIN-123-auth-flow
+Co-Authored-By: Claude <noreply@anthropic.com>
 ```
 
-### Branch in task-status.json
+### Update Ticket on Commit
 
-```json
-{
-  "tickets": {
-    "branch": "feat/LIN-123-auth-flow",
-    "baseBranch": "main"
-  }
-}
+**After commit, update ticket:**
+
+Linear:
+```
+mcp__plugin_forge_linear__create_comment
+  issueId: "[issue ID]"
+  body: "Commit `abc123`: [commit message]"
 ```
 
-## PR Creation
-
-After all tasks pass, create a pull request for code review.
-
-### PR Title Format
-
-| Workflow | Format | Example |
-|----------|--------|---------|
-| TICKET | `<ticket-id>: <title>` | `LIN-123: Add auth flow` |
-| STANDARD | `feat: <feature-name>` | `feat: user authentication` |
-
-### PR Body Template
-
+Local:
+Add to ticket's Commits section:
 ```markdown
-## Summary
-- <1-3 bullet points from completion summary>
-
-## Tickets
-- Closes LIN-123
-- Closes LIN-124
-
-## Changes
-<output of git diff --stat main..HEAD>
-
-## Test Plan
-- All tests passing: X tests
-- [Key verification steps]
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
+## Commits
+- `abc123` - feat(auth): add login endpoint
 ```
-
-### Creating the PR
-
-```bash
-# Push branch
-git push -u origin feat/LIN-123-auth-flow
-
-# Create PR
-gh pr create --base main --head feat/LIN-123-auth-flow \
-  --title "LIN-123: Add auth flow" \
-  --body "<PR body>"
-```
-
-### Linear Auto-Close on Merge
-
-Include `Closes LIN-XXX` in the PR body for each associated ticket. When the repo has
-Linear's GitHub integration enabled, merging the PR automatically transitions issues to "Done".
-
-**Prerequisite:** The repository must have the Linear-GitHub integration enabled for auto-close
-to work. If it's not available, the completion summary should note:
-"Tickets need manual status update to 'Done' after merging the PR."
-
-### After PR Creation
-
-- Move all associated tickets to "In Review"
-- Post PR link as comment on each ticket
-- Store PR URL in task-status.json
-
-## Git Worktrees for Parallel Work
-
-When the plan has [P] parallel tasks, use git worktrees to isolate each task's work.
-
-### Why Worktrees
-
-- Each parallel task gets its own working directory
-- No branch switching needed — agents work simultaneously
-- Clean merge back to feature branch when done
-
-### .gitignore Setup
-
-Before creating worktrees, ensure `.worktrees/` is in `.gitignore`:
-```bash
-# Add .worktrees/ to .gitignore if not already present
-grep -qxF '.worktrees/' .gitignore 2>/dev/null || echo '.worktrees/' >> .gitignore
-```
-
-### Creating Worktrees
-
-```bash
-# From the feature branch, create a worktree for each parallel task
-git worktree add .worktrees/T004/ -b feat/auth-flow-T004
-git worktree add .worktrees/T005/ -b feat/auth-flow-T005
-```
-
-### Worktree State in task-status.json
-
-```json
-{
-  "tickets": {
-    "worktrees": {
-      "T004": { "path": ".worktrees/T004", "branch": "feat/auth-flow-T004" },
-      "T005": { "path": ".worktrees/T005", "branch": "feat/auth-flow-T005" }
-    }
-  }
-}
-```
-
-### Merging Worktree Branches
-
-After all parallel tasks complete:
-
-```bash
-# Switch to feature branch
-git checkout feat/LIN-123-auth-flow
-
-# Merge each worktree branch
-git merge feat/auth-flow-T004
-git merge feat/auth-flow-T005
-
-# Clean up worktrees
-git worktree remove .worktrees/T004/
-git worktree remove .worktrees/T005/
-
-# Delete worktree branches
-git branch -d feat/auth-flow-T004
-git branch -d feat/auth-flow-T005
-```
-
-If merge conflicts occur, ask the user how to resolve them.
-
-### Worktree Cleanup
-
-Always clean up worktrees after merging:
-1. Remove the worktree directory: `git worktree remove <path>`
-2. Delete the worktree branch: `git branch -d <branch>`
-3. Remove the entry from task-status.json tickets.worktrees
 
 ## Ticket Lifecycle
-
-The full ticket lifecycle with PR-based review:
 
 ```
 Backlog → In Progress → In Review → Done
   │           │             │          │
   │           │             │          └─ PR merged (auto via Linear-GitHub integration)
-  │           │             └─ PR created (ticket-manager CREATE PR mode)
-  │           └─ Task work begins (ticket-manager UPDATE STATUS mode)
-  └─ Ticket created (ticket-manager CREATE FROM PLAN mode)
+  │           │             └─ PR created (see managing-branches-and-prs)
+  │           └─ Task work begins (UPDATE STATUS mode)
+  └─ Ticket created (CREATE FROM PLAN mode)
 ```
 
 | Status | Triggered By | Action |
@@ -617,23 +408,9 @@ manually by the user after merge.
 - [ ] Dependencies set correctly
 - [ ] Labels/categories applied
 - [ ] Linked to source (PRD/RFC)
-- [ ] Feature branch created from main
 
 ### During Implementation
-- [ ] All work on feature branch (not main)
 - [ ] Status updated when starting
 - [ ] Progress logged
 - [ ] Blockers flagged
 - [ ] Commits reference ticket
-
-### After Build Completes
-- [ ] PR created with `Closes LIN-XXX` in body
-- [ ] All tickets moved to "In Review"
-- [ ] PR link posted as comment on each ticket
-- [ ] Completion summary posted with PR link
-
-### After PR Merge
-- [ ] Tickets auto-transitioned to "Done" (Linear-GitHub integration)
-- [ ] If no auto-close: manually update tickets to "Done"
-- [ ] Worktrees cleaned up (if parallel work was used)
-- [ ] Local tickets moved to completed/ (if local tracking)
