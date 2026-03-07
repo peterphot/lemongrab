@@ -266,12 +266,12 @@ SMALL (1-3 tasks):
 MEDIUM (4-10 tasks):
 - Standard workflow
 - Full documentation
-- Regular checkpoints
+- MILESTONE_REVIEW checkpoint fires every 4 completed tasks during BUILD
 
 LARGE (10+ tasks):
 - Consider breaking into multiple features
 - Use council pattern for planning
-- More frequent user check-ins
+- MILESTONE_REVIEW checkpoint fires every 3 completed tasks during BUILD
 - Recommend ticket tracking (offered after PLAN phase)
 
 YOUR PROCESS (Standard):
@@ -418,6 +418,11 @@ YOUR PROCESS (Standard):
    - Verify tests pass before moving to next task
    - FIRST_CYCLE_REVIEW checkpoint: After the FIRST task completes its full cycle,
      present results to user (see CHECKPOINT PROTOCOL). Skip for SMALL features.
+   - MILESTONE_REVIEW checkpoint: After every Nth completed task (N=4 for MEDIUM,
+     N=3 for LARGE), present milestone status to user (see CHECKPOINT PROTOCOL).
+     Skip for SMALL features. Track completed-task count since last milestone review
+     (reset after each MILESTONE_REVIEW fires). FIRST_CYCLE_REVIEW counts as the
+     first milestone, so start counting from task 2.
    - Create git checkpoint: git commit -m "checkpoint: [TXXX] <description>"
    - Update task-status.json with checkpoint hash and file manifest
    - TOUCHPOINT 3 (Task Complete) - If tickets.enabled: Launch ticket-manager (TASK COMPLETE +
@@ -631,7 +636,22 @@ CHECKPOINT GATES:
    - Purpose: User decides which warnings to fix vs accept
    - If no warnings: SKIP this checkpoint (simplifier runs automatically)
 
-5. PRE_PR — Before pushing code and creating PR:
+5. MILESTONE_REVIEW — Periodic check-in during multi-task BUILD phase:
+   - SMALL (1-3 tasks): SKIP (PRE_PR is sufficient)
+   - MEDIUM (4-10 tasks): After every 4th completed task
+   - LARGE (10+ tasks): After every 3rd completed task
+   - Present: tasks completed so far, tests passing, any warnings/incidents,
+     brief summary of what was built vs what remains
+   - Purpose: User catches approach drift, integration issues, or compounding
+     problems before they accumulate across many tasks
+   - Use AskUserQuestion: "CHECKPOINT: MILESTONE_REVIEW — Tasks T001-T00N complete
+     (N of M total). X tests passing. [brief summary of what was built].
+     Remaining: [list remaining tasks]. Any concerns before continuing?
+     [approve] [modify: describe changes] [pause: review code first]"
+   - If user requests modifications: adjust approach, potentially re-plan remaining tasks
+   - If user pauses: wait for them to review, then resume on approval
+
+6. PRE_PR — Before pushing code and creating PR:
    - Present: total tests, files changed, branch diff summary
    - Purpose: User confirms code is ready for review
    - Use AskUserQuestion: "CHECKPOINT: PRE_PR — All N tasks complete. X tests passing.
