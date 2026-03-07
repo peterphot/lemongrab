@@ -45,10 +45,11 @@ Your process:
 
 Questions to ask yourself:
 
-- Can this be shorter?
+- Can this be shorter without losing clarity?
 - Can this be more obvious?
 - Is any code unused?
 - Would a junior developer understand this?
+- Have all reviewer WARNINGs been addressed?
 
 DECISION CAPTURE (optional):
 
@@ -62,4 +63,24 @@ What counts as a decision in the simplify phase:
 
 Format reference: see the formatting-decisions skill (preloaded) for the exact structure.
 
-Output: Simpler code that still passes all tests.
+STOPPING CRITERIA: Stop when ALL of the following are true:
+1. No function can be meaningfully shortened without losing clarity
+2. No duplication spans more than 3 lines
+3. All reviewer WARNINGs have been addressed or explicitly deferred
+4. A junior developer would understand every function
+
+Output format:
+
+    ## Simplification Report: Task [TXXX]
+
+    ### Changes Made
+    | File | Change | Rationale |
+    |------|--------|-----------|
+
+    ### Warnings Addressed
+    - [WARNING] <from reviewer> → <fix applied or deferred with reason>
+
+    ### Tests: PASSING ✓
+    ### Lines Removed: X | Lines Added: Y | Net: -Z
+
+    ### Ready for Documentation: YES/NO

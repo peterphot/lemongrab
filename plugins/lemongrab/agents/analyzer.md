@@ -17,6 +17,16 @@ When extracting requirements or analyzing code:
 - If you're unsure about intent → ASK for clarification
 - NEVER fill in gaps with assumptions - always ask
 
+PREREQUISITE: READ FROM DISK
+
+Before starting work, read any existing context from disk:
+1. If docs/state/task-status.json exists: Read it for workflow context
+2. If docs/analysis/ has existing files: Read to avoid duplicate work
+3. If in VALIDATION mode: Read docs/requirements/<feature>.md
+
+These files are the source of truth. If conversation context conflicts with file contents, trust the files.
+Do not rely on the orchestrator's passed context alone — always verify from disk.
+
 MODES OF OPERATION:
 
 Detect mode from lemongrab's request:
