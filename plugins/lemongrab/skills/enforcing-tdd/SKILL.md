@@ -144,6 +144,25 @@ If you're thinking any of these, STOP. You are about to violate TDD.
 | "I'll refactor first, then test" | Refactoring without tests is gambling. | Tests first, then refactor with safety net. |
 | "The existing tests cover this" | Do they? Run them. Check. Don't assume. | Verify coverage, add tests for gaps. |
 
+## Structural Refactoring and TDD
+
+The "refactor" step of red-green-refactor has always included adapting tests to match new
+structure. This is not a TDD violation — it IS the refactor step working as intended.
+
+**What is allowed during refactoring:**
+- Adapting test imports, references, and paths after structural changes
+- Consolidating duplicate test setup
+- Renaming test descriptions to match renamed concepts
+
+**What is still a TDD violation during refactoring:**
+- Deleting test cases to make a refactoring "work"
+- Weakening assertions (changing `toEqual` to `toBeTruthy`, removing checks)
+- Reducing assertion count
+- Changing what behavior a test verifies
+
+**The invariant:** After refactoring, the test suite must verify the same behaviors with
+the same rigor. The structure of tests may change; the behavioral coverage must not.
+
 ## Anti-Patterns
 
 ### Test Anti-Patterns

@@ -27,14 +27,39 @@ If a change doesn't achieve at least one of these, don't make it.
 
 ## Safety Rules
 
-### The Green Rule
+### The Green Rule (Mechanical Simplification)
 ```
 1. Run tests → PASS (baseline)
-2. Make ONE small change
+2. Make ONE small change to implementation code
 3. Run tests → Must still PASS
 4. If FAIL → Revert immediately
 5. Repeat
 ```
+
+### Structural Refactoring Protocol
+When a design-level simplification (concept compression, module consolidation, API surface
+reduction) requires test changes to match the new structure, follow this protocol:
+
+```
+1. Run tests → PASS (record assertion count + pass count as snapshot)
+2. Make the structural change to implementation code
+3. Adapt tests MECHANICALLY (update imports, rename references, adjust paths)
+4. Run tests → Must still PASS with same assertion count and pass count
+5. If FAIL for non-mechanical reasons → Revert EVERYTHING (implementation + test changes)
+```
+
+**Guardrails for test adaptation:**
+- Assertion count must not decrease
+- No test case deletion (flag redundant tests for test-writer)
+- Mechanical changes only: imports, references, paths, duplicate setup consolidation
+- No rewriting assertion logic or changing what is being tested
+- Any test changes must be reported separately with per-change justification
+
+**When to STOP and flag for test-writer:**
+- A test needs new assertion logic
+- A test case should be deleted (coverage decision)
+- A new test case is needed
+- You're unsure whether a change is mechanical or behavioral
 
 ### What NOT to Do
 - Change multiple things at once
@@ -42,6 +67,8 @@ If a change doesn't achieve at least one of these, don't make it.
 - Change behavior (even if "better")
 - Ignore failing tests
 - Refactor untested code
+- Delete test cases (flag for test-writer instead)
+- Rewrite assertion logic during structural refactoring
 
 ## Simplification Patterns
 
@@ -259,6 +286,79 @@ For every piece of code:
 4. **Would a junior understand this?**
    - If no, simplify or add comment
    - Clever code is rarely good code
+
+## Design-Level Simplifications
+
+Beyond mechanical transforms, consider these higher-order improvements:
+
+### 9. Concept Compression
+```javascript
+// Before: Three types that represent the same concept
+interface UserRequest { email: string; name: string; }
+interface UserInput { email: string; name: string; }
+interface UserData { email: string; name: string; }
+
+// After: One type, well-named
+interface UserInput { email: string; name: string; }
+```
+
+### 10. Information Hiding
+```javascript
+// Before: Module exposes internals
+export class AuthService {
+  public tokenCache: Map<string, Token>;  // Why is this public?
+  public hashPassword(pw: string): string { ... }
+  public login(creds: Credentials): Session { ... }
+}
+
+// After: Minimal public surface
+export class AuthService {
+  login(creds: Credentials): Session { ... }
+  // tokenCache and hashPassword are private implementation details
+}
+```
+
+### 11. Symmetry
+```javascript
+// Before: Similar operations handled differently
+function createUser(data) { return db.insert('users', data); }
+function createOrder(data) {
+  const validated = validate(data);
+  const result = db.insert('orders', validated);
+  return result;
+}
+
+// After: Same pattern for same kind of operation
+function createUser(data) {
+  const validated = validate(data);
+  return db.insert('users', validated);
+}
+function createOrder(data) {
+  const validated = validate(data);
+  return db.insert('orders', validated);
+}
+```
+
+### 12. Naming as Design
+```javascript
+// Before: Name hides what the function actually does
+function processData(input) {
+  if (!input.email) throw new Error('missing email');
+  input.email = input.email.toLowerCase();
+  input.createdAt = new Date();
+  return input;
+}
+
+// After: Name reveals intent (or split into separate functions)
+function validateAndNormalize(input) {
+  if (!input.email) throw new Error('missing email');
+  return {
+    ...input,
+    email: input.email.toLowerCase(),
+    createdAt: new Date(),
+  };
+}
+```
 
 ## Anti-Patterns
 
