@@ -805,9 +805,14 @@ agent return and your next action, unpersisted state is permanently lost.
    - Reviewer verdict and issue counts if applicable
 
 4. THEN extract decisions (see DECISION EXTRACTION TIMING below).
-5. THEN launch the next agent.
+5. SET currentAgent: Before launching the next agent, update current-phase.json with
+   "currentAgent": "<agent-name>" (e.g., "test-writer", "implementer", "reviewer",
+   "simplifier", "documenter", "qa-engineer"). This field is read by the agent-boundaries
+   hook to enforce tool restrictions — without it, boundaries are not enforced.
+   Clear currentAgent to null after the agent returns (before persistence step 1).
+6. THEN launch the next agent.
 
-ORDER IS NON-NEGOTIABLE: persist → extract decisions → launch next agent.
+ORDER IS NON-NEGOTIABLE: persist → extract decisions → set currentAgent → launch next agent.
 
 DECISION EXTRACTION TIMING:
 

@@ -23,6 +23,7 @@ Use these exact strings:
   "feature": "user-authentication",
   "phase": "BUILD_IN_PROGRESS",
   "currentTask": "T004",
+  "currentAgent": "test-writer",
   "status": "in_progress",
   "lastUpdated": "2024-01-15T10:30:00Z"
 }
@@ -33,6 +34,7 @@ Use these exact strings:
 | feature | string | Feature slug (kebab-case) |
 | phase | string | One of the valid phase values above |
 | currentTask | string | Current task ID (e.g., "T004") or null |
+| currentAgent | string | Agent currently running (e.g., "test-writer", "implementer"). Set by orchestrator before launching each agent. Used by agent-boundaries hook for enforcement. |
 | status | string | "in_progress", "complete", "blocked" |
 | lastUpdated | string | ISO 8601 timestamp |
 

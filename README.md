@@ -361,6 +361,14 @@ lemongrab/
 │       │   ├── planning-technical-work/
 │       │   ├── security-awareness/
 │       │   └── simplifying-code/
+│       ├── hooks/               # Automation hooks
+│       │   ├── hooks.json
+│       │   └── scripts/
+│       │       ├── verify-environment.sh
+│       │       ├── pre-commit-guard.sh
+│       │       ├── agent-boundaries.sh
+│       │       ├── auto-format.sh
+│       │       └── checkpoint-tracker.sh
 │       └── examples/            # Usage examples
 ├── .gitignore
 └── README.md
@@ -368,42 +376,32 @@ lemongrab/
 
 ---
 
-## Recommended Hooks
+## Built-in Hooks
 
-Add these to your project's `.claude/hooks.json` for a better experience:
+Lemongrab ships with automation hooks that enforce workflow discipline. These activate automatically when the plugin is installed — no project-level configuration needed.
 
-```json
-{
-  "hooks": {
-    "PostEdit": [
-      {
-        "description": "Auto-format changed files",
-        "command": "if command -v prettier &>/dev/null; then prettier --write \"$CLAUDE_FILE_PATH\" 2>/dev/null; elif command -v black &>/dev/null; then black \"$CLAUDE_FILE_PATH\" 2>/dev/null; fi",
-        "when": "always"
-      }
-    ],
-    "PreCommit": [
-      {
-        "description": "Run test subset before commit",
-        "command": "if [ -f package.json ]; then npm test 2>&1 | tail -20; elif [ -f pyproject.toml ] || [ -f setup.py ]; then python -m pytest --tb=short -q 2>&1 | tail -20; fi",
-        "when": "always"
-      }
-    ],
-    "PostSessionStart": [
-      {
-        "description": "Verify MCP connections for ticket/PRD/RFC workflows",
-        "command": "echo 'Session started. If using /ticket or PRD/RFC workflows, verify MCP connections are active.'",
-        "when": "always"
-      }
-    ]
-  }
-}
-```
+| Event | Hook | What it does |
+|-------|------|-------------|
+| `SessionStart` | `verify-environment.sh` | Checks git/gh, plugin status, MCP servers, interrupted workflows |
+| `PreToolUse [Bash]` | `pre-commit-guard.sh` | Runs tests + linter on changed files before git commit |
+| `PreToolUse [Write\|Edit]` | `agent-boundaries.sh` | Blocks file writes that violate agent boundaries (e.g., test-writer can't write production code) |
+| `PostToolUse [Edit\|Write]` | `auto-format.sh` | Auto-formats files with prettier/black/gofmt/rustfmt based on file type |
+| `PostToolUse [Bash]` | `checkpoint-tracker.sh` | Auto-captures commit hashes in task-status.json after git commits |
+| `Notification` | inline | macOS desktop notifications when Claude needs permission or input |
 
-These hooks provide:
-- **PostEdit**: Auto-format with prettier/black after file edits
-- **PreCommit**: Run tests before allowing commits (catches regressions early)
-- **PostSessionStart**: Reminder to verify MCP connections for workflows that need them
+### Agent Boundary Enforcement
+
+The `agent-boundaries.sh` hook reads `currentAgent` from `docs/state/current-phase.json` and enforces:
+
+| Agent | Restriction |
+|-------|-------------|
+| test-writer | Can only write test/spec files |
+| implementer | Cannot write test files |
+| reviewer, security-reviewer, performance-reviewer | Cannot write any files (read-only) |
+| simplifier | Cannot write test files |
+| documenter | Can only write to docs/ |
+
+This is impossible for Claude to bypass — the hook runs at the shell level before the tool executes.
 
 ---
 

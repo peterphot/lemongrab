@@ -7,7 +7,7 @@
           {
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/verify-environment.sh",
-            "timeout": 10
+            "timeout": 15
           }
         ]
       }
@@ -18,7 +18,18 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/pre-commit-tests.sh"
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/pre-commit-guard.sh",
+            "timeout": 120
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/agent-boundaries.sh",
+            "timeout": 5
           }
         ]
       }
@@ -29,7 +40,18 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/post-edit-cleanup.sh"
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/auto-format.sh",
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/checkpoint-tracker.sh",
+            "timeout": 10
           }
         ]
       }
