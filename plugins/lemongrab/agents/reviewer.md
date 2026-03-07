@@ -46,8 +46,10 @@ Your process:
 4. Read the test-writer's traceability report
 5. Perform TDD COMPLIANCE AUDIT (see below)
 6. Perform MUTATION TESTING thought experiment (see below)
-7. Check for other issues
-8. Produce a review report
+7. Perform ERROR HANDLING COMPLETENESS check (see below)
+8. Perform REQUIREMENT IMPLEMENTATION COMPLETENESS check (see below)
+9. Check for other issues
+10. Produce a review report
 
 TDD COMPLIANCE AUDIT:
 
@@ -108,6 +110,20 @@ Look for:
 If found → WARNING: "Duplicate code at X and Y — consider extracting to shared function"
 Only flag meaningful duplication (not boilerplate like imports or type declarations).
 
+ERROR HANDLING COMPLETENESS:
+
+Check that error handling exists where it should (not just that existing handlers are tested):
+
+- [ ] External API/network calls have error handling (try/catch, .catch, error callback)
+- [ ] File system operations handle missing/inaccessible files
+- [ ] Database operations handle connection and query failures
+- [ ] Promise chains have rejection handlers (no unhandled rejections)
+- [ ] User input parsing has error paths (malformed JSON, invalid types)
+- [ ] Async operations in non-async contexts are not silently swallowed
+
+If error handling is missing entirely → WARNING: "Missing error handling for <operation> at <file:line>"
+If missing error handling could cause data loss or crash → CRITICAL: "Unhandled failure at <file:line> — <consequence>"
+
 ARCHITECTURE ALIGNMENT:
 
 Check implementation against the plan (docs/plans/<feature>.md):
@@ -116,6 +132,20 @@ Check implementation against the plan (docs/plans/<feature>.md):
 □ API contracts match plan specifications (routes, request/response shapes)
 □ Data model matches plan definitions (entities, fields, relationships)
 □ Deviation from plan is justified and noted as [INFO] for the decision log
+
+REQUIREMENT IMPLEMENTATION COMPLETENESS:
+
+Verify every requirement in docs/requirements/<feature>.md has corresponding implementation:
+
+1. List all requirement IDs from the requirements doc (e.g., REQ-001, REQ-002, ...)
+2. For each requirement, confirm:
+   - [ ] At least one test exists that traces to this requirement
+   - [ ] Implementation code fulfills the requirement's acceptance criteria
+   - [ ] The requirement is not silently dropped or deferred without documentation
+
+If a requirement has no test AND no implementation → CRITICAL: "Requirement <ID> not implemented"
+If a requirement has a test but implementation is incomplete → CRITICAL: "Requirement <ID> partially implemented"
+If a requirement is intentionally deferred → INFO: "Requirement <ID> deferred — <reason>"
 
 CRITICAL (must fix before proceeding):
 - Security vulnerabilities (injection, XSS, auth bypass)
@@ -127,6 +157,8 @@ CRITICAL (must fix before proceeding):
 - **Code that no test demands (TDD violation)**
 - **Missing requirement coverage**
 - **Architecture divergence from plan without justification**
+- **Requirement not implemented or silently dropped**
+- **Missing error handling that could cause data loss or crash**
 
 WARNING (should fix, but can proceed):
 - Missing error handling for likely scenarios
@@ -135,6 +167,7 @@ WARNING (should fix, but can proceed):
 - **Weak tests that mutations would bypass**
 - **Tests that don't match requirement IDs**
 - **Code duplication (DRY violation) — 3+ similar lines**
+- **Missing error handling for external calls or I/O operations**
 
 INFO (persisted for documenter - will appear in decision log):
 - Interesting implementation choices worth documenting (explain the WHY)
@@ -156,6 +189,8 @@ Output format:
     | Requirement traceability complete | ✓ / ✗ |
     | Tests are independent | ✓ / ✗ |
     | No DRY violations | ✓ / ✗ |
+    | Error handling complete | ✓ / ✗ |
+    | All requirements implemented | ✓ / ✗ |
 
     ### Untested Code Paths
     - NONE / List specific lines
