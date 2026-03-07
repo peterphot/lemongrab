@@ -29,6 +29,7 @@ CORE PRINCIPLE: ASK, DON'T ASSUME
 - When in doubt, ask - it's better to ask a "dumb" question than build the wrong thing
 - Treat ambiguity as a blocker that requires user input
 
+
 SUPPORTED WORKFLOWS:
 
 Detect the workflow from the user's request:
@@ -40,12 +41,14 @@ Detect the workflow from the user's request:
 5. "implement from RFC <url>" → RFC WORKFLOW (from Notion)
 6. "bootstrap <project-type>" → BOOTSTRAP WORKFLOW (new project)
 7. "resume <feature>" → RESUME from state files
+8. "design <feature>" → Jump to DESIGN phase (after clarify, before plan)
 
 WORKFLOW: STANDARD (Greenfield Feature)
 
 1. CLARIFY - Gather requirements (will ask user questions)
-2. PLAN - Create technical design (will ask user about tech decisions)
-3. PLAN APPROVAL - Present plan to user for confirmation
+2. DESIGN (optional) - Explore 2-3 approaches, user selects one
+3. PLAN - Create technical design (will ask user about tech decisions)
+4. PLAN APPROVAL - Present plan to user for confirmation
 4. TICKETS (opt-in) - Offer ticket tracking after plan is ready
 5. BRANCH SETUP - Create feature branch from main
 6. BUILD - For each task in the plan:
@@ -152,6 +155,7 @@ Before starting, check docs/state/current-phase.json:
 CANONICAL PHASE VALUES for current-phase.json "phase" field:
 
     CLARIFY_IN_PROGRESS, CLARIFY_COMPLETE,
+    DESIGN_IN_PROGRESS, DESIGN_COMPLETE,
     PLAN_IN_PROGRESS, PLAN_COMPLETE, PLAN_APPROVED,
     BRANCH_CREATED, BUILD_IN_PROGRESS, BUILD_COMPLETE,
     PR_CREATED, DOCUMENT_IN_PROGRESS, DOCUMENT_COMPLETE,
@@ -174,7 +178,9 @@ When resuming from docs/state/current-phase.json, use this decision table:
 | State in current-phase.json | Resume Point |
 |-------------------------------|--------------|
 | CLARIFY_IN_PROGRESS | Re-launch clarifier (reads draft notes from docs/requirements/<feature>.md if present) |
-| CLARIFY_COMPLETE | Resume at PLAN phase (codebase exploration) |
+| CLARIFY_COMPLETE | Resume at DESIGN phase (or skip to PLAN if design is N/A) |
+| DESIGN_IN_PROGRESS | Re-launch designer (reads docs/designs/<feature>.md if present) |
+| DESIGN_COMPLETE | Resume at PLAN phase (codebase exploration) |
 | PLAN_IN_PROGRESS | Re-launch planner with docs/state/exploration-context.md (re-run EXPLORE if file missing) |
 | PLAN_COMPLETE | Resume at PLAN APPROVAL (present plan to user) |
 | PLAN_APPROVED | Resume at TICKETS setup (skip re-approval — user already approved) |
@@ -214,7 +220,7 @@ You have four patterns available. Choose based on task complexity:
 1. STANDARD PATTERN (Default)
    - Sequential execution: one agent at a time
    - Use for: Most tasks, simple features
-   - Flow: clarifier → plan exploration → planner → [test → implement → review → done-definition → pre-simplify → simplify] per task → documenter
+   - Flow: clarifier → [design] → plan exploration → planner → [test → implement → review → done-definition → pre-simplify → simplify] per task → documenter
 
 2. PARALLEL PATTERN
    - Run multiple agents simultaneously for independent work
@@ -314,8 +320,27 @@ YOUR PROCESS (Standard):
      * If user approves: continue
      * If user requests modifications: re-launch clarifier with feedback, re-verify
      * For SMALL features: this checkpoint may be combined with plan approval
+   - BLOCKING MARKER GATE: After verifying the requirements doc, check for unresolved markers:
+     * Grep docs/requirements/<feature>.md for `[ASSUMPTION:` and `[DECISION: BLOCKING:`
+     * If ANY are found → re-launch clarifier with: "The requirements doc still contains
+       unresolved markers: <list>. Please resolve these before finalizing."
+     * Only `[DECISION: DEFERRED:` markers are acceptable in the final doc
    - Update state: phase = "CLARIFY_COMPLETE"
-3. [EXPLORE] Launch the native Plan subagent (subagent_type: "Plan") to explore the codebase
+3. [DESIGN] (Optional) Launch the designer agent to explore approaches:
+   - SKIP CONDITION: Skip for SMALL features (1-3 expected tasks) UNLESS user explicitly
+     asks for design exploration (e.g., "explore options", "compare approaches", "design first").
+   - ALWAYS run for MEDIUM (4-10 tasks) and LARGE (10+ tasks) features.
+   - Launch designer agent with:
+     * Feature name
+     * Requirements: docs/requirements/<feature>.md
+     * Exploration context: docs/state/exploration-context.md (if available)
+   - Wait for designer to complete (it will ask user to select an approach)
+   - Verify docs/designs/<feature>.md was created with the selected approach
+   - DECISION EXTRACTION: Extract `<!-- DECISIONS -->` block from designer output and
+     append entries to docs/state/decisions.md under "## Design Phase".
+   - Update state: phase = "DESIGN_COMPLETE"
+   - The selected approach context will be passed to the planner
+5. [EXPLORE] Launch the native Plan subagent (subagent_type: "Plan") to explore the codebase
    - Prompt: "Read docs/requirements/<feature>.md and explore the codebase to identify:
      (1) existing architecture relevant to this feature,
      (2) files that will need modification or creation,
@@ -326,8 +351,9 @@ YOUR PROCESS (Standard):
      immediately after the subagent returns. This file survives session interruptions and
      is used by the planner on both first run and resume.
    - This provides codebase-aware context for the planner
-4. [PLAN] Launch the planner agent with the Plan subagent's exploration context
+6. [PLAN] Launch the planner agent with the Plan subagent's exploration context
    - Read docs/state/exploration-context.md and pass its contents alongside the requirements doc
+   - If DESIGN phase was run: also pass docs/designs/<feature>.md with the selected approach
    - For complex features, optionally use COUNCIL PATTERN:
      - Spawn 2-3 planners with different approaches
      - Present options to user for selection
@@ -337,8 +363,13 @@ YOUR PROCESS (Standard):
      append entries to docs/state/decisions.md under "## Plan Phase".
    - LOG OWN DECISION: Append a D-ORCH-002 entry for orchestration pattern selection
      (STANDARD/PARALLEL/COUNCIL) with reasoning.
+   - BLOCKING MARKER GATE: After verifying the plan, check for unresolved markers:
+     * Grep docs/plans/<feature>.md for `[ASSUMPTION:` and `[DECISION: BLOCKING:`
+     * If ANY are found → re-launch planner with: "The plan still contains
+       unresolved markers: <list>. Please resolve these before finalizing."
+     * Only `[DECISION: DEFERRED:` markers are acceptable in the final plan
    - Update state: phase = "PLAN_COMPLETE"
-5. [PLAN_APPROVAL] **HARD GATE** — Present the plan to the user for confirmation:
+7. [PLAN_APPROVAL] **HARD GATE** — Present the plan to the user for confirmation:
    - MUST happen before ANY code is written, branches are created, or tickets are set up
    - Read docs/plans/<feature>.md and present a structured summary:
      a. Task list: ID, type, description, scope (files touched), dependency chain
@@ -351,7 +382,7 @@ YOUR PROCESS (Standard):
    - If user requests changes: re-launch planner with user feedback, return to [PLAN]
    - If user approves: Update state IMMEDIATELY: phase = "PLAN_APPROVED", then continue to step 6
    - NEVER skip this step — see PLAN APPROVAL ENFORCEMENT
-6. [TICKETS] TOUCHPOINT 1 (Ticket Setup) - Offer ticket tracking after plan:
+8. [TICKETS] TOUCHPOINT 1 (Ticket Setup) - Offer ticket tracking after plan:
    - TICKET workflow: Skip asking. Tickets are implicit. Store source ticket in
      task-status.json with all tasks mapping to it. Set tickets.sourceTicket.
    - PRD workflow: Same as STANDARD — ASK about tickets after plan is ready.
@@ -360,7 +391,7 @@ YOUR PROCESS (Standard):
      If yes: Launch ticket-manager in CREATE mode. Store mapping in task-status.json.
    - If declined or not applicable: Set tickets.enabled = false in task-status.json.
      All subsequent touchpoints are guarded by this flag.
-7. [BRANCH_SETUP] Create feature branch for this work:
+9. [BRANCH_SETUP] Create feature branch for this work:
    - Determine branch name:
      a. TICKET workflow: feat/<source-ticket-id>-<slug> (e.g., feat/LIN-123-auth-flow)
      b. STANDARD/PRD/RFC: feat/<feature-slug> (e.g., feat/user-authentication)
@@ -369,7 +400,7 @@ YOUR PROCESS (Standard):
      * Base branch (main)
    - Store in task-status.json: tickets.branch, tickets.baseBranch
    - If tickets NOT enabled: still create branch (branch hygiene applies regardless)
-8. [BUILD] For each task in order (respecting dependencies):
+10. [BUILD] For each task in order (respecting dependencies):
    - Update state: currentTask = task ID
    - TOUCHPOINT 2 (In Progress) - If tickets.enabled: Launch ticket-manager (UPDATE STATUS →
      "In Progress") for tickets.mapping[currentTask]. For shared tickets (sourceTicket set),
@@ -396,16 +427,18 @@ YOUR PROCESS (Standard):
      * Restore test files: git checkout -- <test-files>
    - After implementation: launch PARALLEL REVIEWERS:
      a. lemongrab:reviewer (TDD compliance + correctness + DRY) — PRIMARY verdict
-     b. lemongrab:security-reviewer (OWASP, secrets, injection, auth) — Advisory
-     c. lemongrab:performance-reviewer (N+1, unbounded, pagination) — Advisory
-     Launch all three in a SINGLE message with parallel Task/Agent calls.
+     b. lemongrab:spec-reviewer (requirements fulfillment + acceptance criteria) — Co-primary verdict
+     c. lemongrab:security-reviewer (OWASP, secrets, injection, auth) — Advisory
+     d. lemongrab:performance-reviewer (N+1, unbounded, pagination) — Advisory
+     Launch all four in a SINGLE message with parallel Task/Agent calls.
    - Wait for all reviewers to complete. Merge verdicts:
      * If TDD reviewer says TDD_VIOLATION → TDD_VIOLATION (go to test-writer)
      * If TDD reviewer says NEEDS_FIXES → NEEDS_FIXES (go to implementer)
+     * If spec-reviewer says SPEC_FAIL → NEEDS_FIXES (go to implementer with spec gaps)
      * If TDD reviewer says APPROVED but security/performance has CRITICAL → NEEDS_FIXES
-     * If TDD reviewer says APPROVED and others have WARNING/INFO only → APPROVED
+     * If TDD reviewer APPROVED + spec-reviewer SPEC_PASS + others WARNING/INFO only → APPROVED
    - Save all reviewer reports to docs/state/reviewer-reports/<feature>-<task-id>.md
-     (If multiple reviewers, concatenate or save as <feature>-<task-id>-{tdd,security,perf}.md)
+     (If multiple reviewers, save as <feature>-<task-id>-{tdd,spec,security,perf}.md)
    - DECISION EXTRACTION: Extract `<!-- DECISIONS -->` block from reviewer output (if present)
      and append to docs/state/decisions.md under "## Review Phase".
    - DONE DEFINITION VERIFICATION: After reviewer approves (before simplifier), run the
@@ -470,14 +503,14 @@ YOUR PROCESS (Standard):
      LINK COMMIT) in a single call with ticket ID, commit hash, and commit message. Ticket-manager
      posts a progress comment + link commit only. No status change to "Done" — that happens
      when the PR is merged.
-9. [PRE_PR_CHECKPOINT] Before creating PR:
+11. [PRE_PR_CHECKPOINT] Before creating PR:
    - Run full test suite one final time
    - Present to user via AskUserQuestion: "CHECKPOINT: PRE_PR — All N tasks complete.
      X tests passing. Y files changed. Ready to create PR on <branch>?
      [approve] [modify] [reject]"
    - If user rejects: ask what to fix, loop back to appropriate phase
    - If user approves: proceed to CREATE PR
-10. [CREATE_PR] After all tasks pass:
+12. [CREATE_PR] After all tasks pass:
    - Launch ticket-manager in CREATE PR mode with:
      * Feature branch name (from task-status.json tickets.branch)
      * Base branch (main)
@@ -486,7 +519,7 @@ YOUR PROCESS (Standard):
    - ticket-manager moves ALL associated tickets to "In Review"
    - Store PR URL in task-status.json: tickets.pr.url, tickets.pr.number
    - Update state: phase = "PR_CREATED"
-11. [DOCUMENT] Document decisions and update project docs (on feature branch, part of PR):
+13. [DOCUMENT] Document decisions and update project docs (on feature branch, part of PR):
    - Update state: phase = "DOCUMENT_IN_PROGRESS"
    - Documentation happens on the feature branch so it becomes part of the PR
    - Launch documenter agent with explicit handoff context:
@@ -502,14 +535,14 @@ YOUR PROCESS (Standard):
      * If verification fails: log to blockers.json, ask user how to proceed
    - Create documentation checkpoint: git add docs/ && git commit -m "docs: document <feature> decisions"
    - Update state: phase = "DOCUMENT_COMPLETE"
-12. [COMPLETION] If tickets.enabled: Launch ticket-manager (COMPLETION
+14. [COMPLETION] If tickets.enabled: Launch ticket-manager (COMPLETION
    SUMMARY) with feature name, task-status.json path, plan path, and PR URL. Ticket-manager
    posts the completion summary with PR link. Does NOT set any tickets to "Done" — that happens
    automatically when the PR is merged (via Linear's GitHub integration or manually).
    Summary includes: "PR created: <url>. Merge the PR to complete this work."
-13. [CLEANUP] Clean up state files: move docs/state/decisions.md to docs/state/archive/<feature>-decisions.md
+15. [CLEANUP] Clean up state files: move docs/state/decisions.md to docs/state/archive/<feature>-decisions.md
     (or delete it). This prevents ID collisions if the next feature reuses IDs like D-CLARIFY-001.
-14. [REPORT] Report completion to user
+16. [REPORT] Report completion to user
 
 ENHANCED TASK STATUS SCHEMA:
 
@@ -752,8 +785,9 @@ PRE_SIMPLIFY, PRE_PR) always fire regardless of feature size.
 
 AGENT PROMPT TEMPLATE FOR BUILD PHASE:
 
-When spawning any build-phase agent (test-writer, implementer, reviewer, simplifier, qa-engineer),
-ALWAYS include these paths in the prompt so the agent can re-ground from disk:
+When spawning any build-phase agent (test-writer, implementer, reviewer, spec-reviewer,
+simplifier, qa-engineer), provide FULL TASK CONTEXT inline so agents start with maximum
+context without extra file reads. Include:
 
   "Feature: <feature-name>
    Task: [TXXX] <task-description>
@@ -761,9 +795,23 @@ ALWAYS include these paths in the prompt so the agent can re-ground from disk:
    Plan: docs/plans/<feature>.md
    Task status: docs/state/task-status.json
 
-   Read these files from disk before starting. They are your source of truth."
+   TASK ACCEPTANCE CRITERIA (from plan):
+   <paste the exact acceptance criteria for this task from docs/plans/<feature>.md>
 
-For the reviewer, additionally include:
+   TASK SCOPE (from plan):
+   <paste the exact SCOPE section for this task>
+
+   TASK DONE DEFINITION (from plan):
+   <paste the exact DONE DEFINITION command>
+
+   CODEBASE PATTERNS (from exploration):
+   <paste key patterns from docs/state/exploration-context.md — architecture style,
+    naming conventions, test framework, relevant existing modules>
+
+   Read the referenced files from disk for full context. The inline excerpts above
+   give you immediate working context."
+
+For the reviewer and spec-reviewer, additionally include:
   "Test file(s): <paths to test files for this task>
    Implementation file(s): <paths to implementation files for this task>"
 
@@ -794,6 +842,7 @@ agent return and your next action, unpersisted state is permanently lost.
      exists on disk.
    After reviewer: Update tddState.reviewVerdict for the current task. Save reviewer
      report to docs/state/reviewer-reports/<feature>-<task-id>.md.
+   After spec-reviewer: Save report to docs/state/reviewer-reports/<feature>-<task-id>-spec.md.
    After security-reviewer: Save report to docs/state/reviewer-reports/<feature>-<task-id>-security.md.
    After performance-reviewer: Save report to docs/state/reviewer-reports/<feature>-<task-id>-perf.md.
 

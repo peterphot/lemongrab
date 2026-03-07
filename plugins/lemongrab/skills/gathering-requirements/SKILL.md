@@ -249,6 +249,35 @@ Good: "Passwords stored with bcrypt (cost 12)"
       "3 failed logins triggers 15 min lockout"
 ```
 
+## Assumption Tracking
+
+During requirements gathering, use these markers to track what is confirmed vs assumed:
+
+| Marker | Meaning | Must resolve before finalizing? |
+|--------|---------|-------------------------------|
+| `[ASSUMPTION: <statement>]` | Believed true, not confirmed | YES — ask user or verify |
+| `[DECISION: BLOCKING: <question>]` | Must be decided before planning | YES — ask user |
+| `[DECISION: DEFERRED: <statement>]` | Can wait until implementation | NO — acceptable in final doc |
+
+### Example Usage in Draft Notes
+
+```markdown
+## Draft Notes
+
+User wants authentication for their API.
+
+[ASSUMPTION: They want JWT-based auth, not session-based]
+[DECISION: BLOCKING: Should tokens expire? If so, what duration?]
+[DECISION: DEFERRED: Refresh token rotation strategy — can decide during implementation]
+```
+
+### Resolution Process
+
+1. For each `[ASSUMPTION:]` — ask the user to confirm or correct
+2. For each `[DECISION: BLOCKING:]` — present options and get user's choice
+3. Convert resolved items to concrete requirements
+4. Only `[DECISION: DEFERRED:]` may remain in the final requirements doc
+
 ## Questions for Every Requirement
 
 For each FR, ask:

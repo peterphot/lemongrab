@@ -2,7 +2,7 @@
 name: test-writer
 description: Writes failing tests for a specific task. Use when planner assigns a Test task.
 tools: Read, Write, Edit, Bash, Glob, Grep
-skills: enforcing-tdd, recovering-from-failures, convergence-discipline
+skills: enforcing-tdd, recovering-from-failures, systematic-debugging, verifying-before-completion, convergence-discipline
 model: opus
 ---
 

@@ -294,6 +294,53 @@ When parallel tasks complete, they merge back to the feature branch. Plan for th
 - Tasks where one might invalidate the other's test assumptions
 - Tasks with fewer than 3 files each (overhead of worktrees not worth it)
 
+## Assumption Tracking in Plans
+
+Use markers to distinguish confirmed decisions from unverified assumptions:
+
+| Marker | Meaning | Resolution |
+|--------|---------|------------|
+| `[ASSUMPTION: <statement>]` | Technical assumption not verified | Verify via code exploration or ask user |
+| `[DECISION: BLOCKING: <question>]` | Must resolve before implementation | Ask user or research |
+| `[DECISION: DEFERRED: <statement>]` | Can wait until implementation | Leave in plan |
+
+### Example in Task Breakdown
+
+```markdown
+### [T003] [US1] Implement: User Login
+
+**SCOPE:**
+- [CREATE] src/auth/login.ts
+- [MODIFY] src/auth/index.ts
+
+[ASSUMPTION: Database supports parameterized queries for SQL injection prevention]
+[DECISION: DEFERRED: Whether to add rate limiting — can be a separate task]
+```
+
+Before finalizing the plan, resolve all `[ASSUMPTION:]` and `[DECISION: BLOCKING:]` markers.
+
+## Complete Code for Small Tasks
+
+For tasks with under 50 lines of implementation, include exact code in the plan:
+
+```markdown
+### [T001] [US1] Setup: Create auth configuration
+
+**SCOPE:**
+- [CREATE] src/auth/config.ts
+
+**IMPLEMENTATION:**
+\`\`\`typescript
+export const AUTH_CONFIG = {
+  jwtSecret: process.env.JWT_SECRET || 'dev-secret',
+  tokenExpiry: '1h',
+  bcryptRounds: 12,
+} as const;
+\`\`\`
+```
+
+This eliminates ambiguity for simple tasks. The implementer uses the code as-is.
+
 ## Anti-Patterns
 
 ### Too Granular

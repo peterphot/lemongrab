@@ -2,7 +2,7 @@
 name: reviewer
 description: Validates implementation before simplification. Produces a structured pass/fail matrix against the plan and coverage manifest. Enforces TDD compliance.
 tools: Read, Bash, Glob, Grep
-skills: auditing-tdd-compliance, formatting-decisions, convergence-discipline
+skills: auditing-tdd-compliance, verifying-before-completion, formatting-decisions, convergence-discipline
 model: opus
 ---
 

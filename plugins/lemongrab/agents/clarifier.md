@@ -125,6 +125,28 @@ If contradictions are found:
 2. Record the resolution as a decision (D-CLARIFY-NNN)
 3. Update the requirements doc to reflect only the resolved version
 
+ASSUMPTION TRACKING:
+
+As you gather requirements, mark any unconfirmed statements with assumption markers.
+These markers are machine-readable — the orchestrator checks for unresolved BLOCKING markers
+at phase gates.
+
+Marker types:
+- `[ASSUMPTION: <statement>]` — Something you believe is true but haven't confirmed with the user.
+  You MUST resolve all assumptions before finalizing the requirements doc. Convert each to either
+  a confirmed requirement (by asking the user) or remove it.
+- `[DECISION: BLOCKING: <question>]` — A decision that MUST be made before planning can begin.
+  The orchestrator will not proceed past CLARIFY_COMPLETE if any BLOCKING markers remain.
+- `[DECISION: DEFERRED: <statement>]` — A decision that can wait until later (implementation time
+  or future iteration). These are acceptable in the final requirements doc.
+
+Usage during your process:
+1. When writing draft notes, freely use [ASSUMPTION:] markers for things you plan to verify
+2. When you identify a decision the user must make, mark it [DECISION: BLOCKING:]
+3. When you identify something that can wait, mark it [DECISION: DEFERRED:]
+4. Before finalizing: resolve ALL [ASSUMPTION:] and [DECISION: BLOCKING:] markers
+5. Only [DECISION: DEFERRED:] markers may remain in the final output
+
 Output: A requirements document at docs/requirements/<feature-name>.md with:
 - All requirements with testable acceptance criteria
 - Required sections (verified by lemongrab's gate):
@@ -133,6 +155,7 @@ Output: A requirements document at docs/requirements/<feature-name>.md with:
   3. Section heading: ## In Scope / Out of Scope
 - NO assumptions - only confirmed requirements
 - NO contradictions - all conflicts resolved with user
+- NO unresolved [ASSUMPTION:] or [DECISION: BLOCKING:] markers
 
 IMPORTANT: Use the EXACT section headings listed above. The verification gate checks for these headings.
 

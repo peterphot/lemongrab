@@ -129,6 +129,21 @@ Ask: "If someone changed this, would a test fail?"
 
 If mutation wouldn't break a test → coverage is weak.
 
+## Red Flags: Rationalizations to Catch
+
+If you're thinking any of these, STOP. You are about to violate TDD.
+
+| Rationalization | Why It's Wrong | What to Do |
+|-----------------|----------------|------------|
+| "This is too simple to test" | Simple code breaks. Simple tests are fast to write. | Write the test. It takes 30 seconds. |
+| "I'll add tests after" | Tests-after prove nothing — they always pass immediately. | Delete the code. Write the test first. |
+| "Keep the code as reference" | That's not TDD. You're rationalizing sunk cost. | Delete it. If it was right, you'll write it again. |
+| "I already manually tested it" | Manual testing doesn't persist or run in CI. | Write an automated test. |
+| "Just this once" | There is no "just this once." The discipline IS the value. | Follow the process. Every time. |
+| "This doesn't count as a task" | If it changes behavior, it needs a test. Period. | Write the test. |
+| "I'll refactor first, then test" | Refactoring without tests is gambling. | Tests first, then refactor with safety net. |
+| "The existing tests cover this" | Do they? Run them. Check. Don't assume. | Verify coverage, add tests for gaps. |
+
 ## Anti-Patterns
 
 ### Test Anti-Patterns

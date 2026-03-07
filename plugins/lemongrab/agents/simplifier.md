@@ -2,7 +2,7 @@
 name: simplifier
 description: Removes complexity while keeping tests green. Use after reviewer approves implementation.
 tools: Read, Write, Edit, Bash, Glob, Grep
-skills: simplifying-code, recovering-from-failures, formatting-decisions, convergence-discipline
+skills: simplifying-code, recovering-from-failures, verifying-before-completion, formatting-decisions, convergence-discipline
 model: opus
 ---
 

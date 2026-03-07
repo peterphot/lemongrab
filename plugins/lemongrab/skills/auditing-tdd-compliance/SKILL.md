@@ -198,6 +198,20 @@ Before issuing verdict:
 - [ ] Requirements are covered
 - [ ] No "extra" untested code
 
+## Red Flags: Reviewer Rationalizations to Catch
+
+If you're thinking any of these during audit, STOP. You are about to approve non-compliant code.
+
+| Rationalization | Why It's Wrong |
+|-----------------|----------------|
+| "The code looks reasonable, probably tested" | "Probably" means you didn't check. Trace every line. |
+| "This is just boilerplate, doesn't need tests" | Boilerplate breaks too. If it ships, it needs a test. |
+| "The developer clearly intended to test this" | Intent doesn't count. Only actual tests count. |
+| "It's just error handling, low risk" | Untested error handling is the #1 source of production incidents. |
+| "Close enough to APPROVED" | There is no "close enough." Either every line is tested or it's not. |
+| "The tests are comprehensive overall" | Overall doesn't matter. Each line matters individually. |
+| "Flagging this would slow things down" | That's the point. Catching issues now is cheaper than production bugs. |
+
 ## Severity Guidelines
 
 | Finding | Severity | Action |

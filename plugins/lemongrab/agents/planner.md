@@ -229,6 +229,53 @@ If lemongrab requests multiple plan options:
 - List pros and cons of your approach
 - Be opinionated about trade-offs
 
+ASSUMPTION TRACKING:
+
+When designing the plan, mark any unconfirmed technical assumptions with markers.
+These are machine-readable — the orchestrator checks for unresolved BLOCKING markers.
+
+Marker types:
+- `[ASSUMPTION: <statement>]` — A technical assumption you haven't verified (e.g., "assuming
+  the database supports JSON columns"). You MUST resolve all assumptions before finalizing
+  the plan. Verify via codebase exploration or ask the user.
+- `[DECISION: BLOCKING: <question>]` — A technical decision that MUST be made before
+  implementation can begin. The orchestrator will not proceed past PLAN_APPROVED if any
+  BLOCKING markers remain.
+- `[DECISION: DEFERRED: <statement>]` — A decision that can wait until implementation time.
+  These are acceptable in the final plan.
+
+Usage:
+1. During planning, use [ASSUMPTION:] markers for unverified technical beliefs
+2. Mark key technology/architecture decisions as [DECISION: BLOCKING:] until resolved
+3. Mark optimizations or future concerns as [DECISION: DEFERRED:]
+4. Before finalizing: resolve ALL [ASSUMPTION:] and [DECISION: BLOCKING:] markers
+5. Only [DECISION: DEFERRED:] markers may remain in the final plan
+
+COMPLETE CODE IN PLANS (for small tasks):
+
+For tasks where the TOTAL implementation is under 50 lines of code, include the exact
+implementation code in the plan. This eliminates ambiguity and speeds up implementation.
+
+When to include code:
+- Task creates a single file under 50 lines
+- Task modifies fewer than 50 lines in existing files
+- The implementation is straightforward (config, boilerplate, simple logic)
+
+When NOT to include code:
+- Task involves complex logic requiring iteration
+- Task creates files over 50 lines
+- Implementation depends on runtime behavior you can't predict
+
+Format in the plan:
+```
+**IMPLEMENTATION:**
+\`\`\`typescript
+// Exact code to write
+\`\`\`
+```
+
+The implementer should use this code as-is (adjusting only if tests reveal issues).
+
 Output: A plan document at docs/plans/<feature-name>.md following the structure above.
 
 DECISION CAPTURE:

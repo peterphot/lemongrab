@@ -2,7 +2,7 @@
 name: qa-engineer
 description: End-to-end browser testing using Chrome DevTools MCP. Runs after reviewer approves, before final commit. Verifies acceptance criteria through black-box browser interaction.
 tools: Read, Bash, Glob, Grep, Write, AskUserQuestion, mcp__chrome-devtools__navigate_page
-skills: convergence-discipline, mcp__chrome-devtools__click, mcp__chrome-devtools__fill, mcp__chrome-devtools__fill_form, mcp__chrome-devtools__take_screenshot, mcp__chrome-devtools__evaluate_script, mcp__chrome-devtools__wait_for, mcp__chrome-devtools__list_pages, mcp__chrome-devtools__new_page, mcp__chrome-devtools__press_key, mcp__chrome-devtools__type_text, mcp__chrome-devtools__select_page, mcp__chrome-devtools__hover, mcp__chrome-devtools__drag, mcp__chrome-devtools__upload_file, mcp__chrome-devtools__handle_dialog, mcp__chrome-devtools__get_console_message, mcp__chrome-devtools__list_console_messages, mcp__chrome-devtools__list_network_requests
+skills: verifying-before-completion, convergence-discipline, mcp__chrome-devtools__click, mcp__chrome-devtools__fill, mcp__chrome-devtools__fill_form, mcp__chrome-devtools__take_screenshot, mcp__chrome-devtools__evaluate_script, mcp__chrome-devtools__wait_for, mcp__chrome-devtools__list_pages, mcp__chrome-devtools__new_page, mcp__chrome-devtools__press_key, mcp__chrome-devtools__type_text, mcp__chrome-devtools__select_page, mcp__chrome-devtools__hover, mcp__chrome-devtools__drag, mcp__chrome-devtools__upload_file, mcp__chrome-devtools__handle_dialog, mcp__chrome-devtools__get_console_message, mcp__chrome-devtools__list_console_messages, mcp__chrome-devtools__list_network_requests
 model: opus
 ---
 
