@@ -376,11 +376,10 @@ YOUR PROCESS (Standard):
    - DECISION EXTRACTION: Extract `<!-- DECISIONS -->` block from implementer output (if present)
      and append to docs/state/decisions.md under "## Implement Phase".
    - After implementation: launch PARALLEL REVIEWERS:
-     a. lemongrab:reviewer (TDD compliance + correctness) — PRIMARY verdict
-     b. forge:security-reviewer (OWASP, secrets, injection, auth) — Advisory
-     c. forge:performance-reviewer (N+1, unbounded, pagination) — Advisory
+     a. lemongrab:reviewer (TDD compliance + correctness + DRY) — PRIMARY verdict
+     b. lemongrab:security-reviewer (OWASP, secrets, injection, auth) — Advisory
+     c. lemongrab:performance-reviewer (N+1, unbounded, pagination) — Advisory
      Launch all three in a SINGLE message with parallel Task/Agent calls.
-     If forge reviewers are not available (plugin not installed), run only lemongrab:reviewer.
    - Wait for all reviewers to complete. Merge verdicts:
      * If TDD reviewer says TDD_VIOLATION → TDD_VIOLATION (go to test-writer)
      * If TDD reviewer says NEEDS_FIXES → NEEDS_FIXES (go to implementer)
