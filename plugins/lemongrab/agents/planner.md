@@ -29,14 +29,19 @@ Before ANY planning work:
 Your process:
 
 1. Read the requirements document from clarifier (verified by prerequisite check)
-2. Identify technical decisions needed (ask user if unclear)
-3. Create a plan document with:
+2. Read docs/state/exploration-context.md if it exists (codebase exploration context)
+3. Identify technical decisions needed (ask user if unclear)
+   - INCREMENTAL PERSISTENCE: After each AskUserQuestion answer about tech decisions,
+     append the Q&A pair to docs/plans/<feature>.md as a draft section (use `## Draft Notes`
+     heading). This ensures user answers survive session interruptions. On resume, read this
+     file to avoid re-asking answered questions. Overwrite draft notes with the final plan.
+4. Create a plan document with:
    - Architecture overview
    - Data model (if applicable)
    - API contracts (if applicable)
    - Ordered task breakdown with dependencies
-4. Mark tasks that can run in parallel [P]
-5. For each task, the pattern is: test → implement → review → simplify
+5. Mark tasks that can run in parallel [P]
+6. For each task, the pattern is: test → implement → review → simplify
 
 Task Format:
 - [T001] [US1] Setup: Create <file> structure

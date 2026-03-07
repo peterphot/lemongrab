@@ -170,10 +170,11 @@ When resuming from docs/state/current-phase.json, use this decision table:
 
 | State in current-phase.json | Resume Point |
 |-------------------------------|--------------|
-| CLARIFY_IN_PROGRESS | Re-launch clarifier from scratch (stateless) |
+| CLARIFY_IN_PROGRESS | Re-launch clarifier (reads draft notes from docs/requirements/<feature>.md if present) |
 | CLARIFY_COMPLETE | Resume at PLAN phase (codebase exploration) |
-| PLAN_IN_PROGRESS | Re-launch planner with existing exploration context |
+| PLAN_IN_PROGRESS | Re-launch planner with docs/state/exploration-context.md (re-run EXPLORE if file missing) |
 | PLAN_COMPLETE | Resume at PLAN APPROVAL (present plan to user) |
+| PLAN_APPROVED | Resume at TICKETS setup (skip re-approval — user already approved) |
 | BRANCH_CREATED | Resume at BUILD phase (branch already exists, verify with `git branch --list`) |
 | BUILD phase, task TXXX in_progress (Setup) | Re-execute the Setup task directly |
 | BUILD phase, task TXXX in_progress (Test/Implement) | Re-run from that task's test step |
@@ -316,9 +317,12 @@ YOUR PROCESS (Standard):
      (3) a recommended task breakdown with dependencies.
      Focus on understanding the current code structure — do NOT write code or create files."
    - It returns: architecture overview, file impacts, recommended task breakdown
+   - PERSIST EXPLORATION: Write the exploration output to docs/state/exploration-context.md
+     immediately after the subagent returns. This file survives session interruptions and
+     is used by the planner on both first run and resume.
    - This provides codebase-aware context for the planner
 4. [PLAN] Launch the planner agent with the Plan subagent's exploration context
-   - Pass the exploration findings alongside the requirements doc
+   - Read docs/state/exploration-context.md and pass its contents alongside the requirements doc
    - For complex features, optionally use COUNCIL PATTERN:
      - Spawn 2-3 planners with different approaches
      - Present options to user for selection
@@ -334,7 +338,7 @@ YOUR PROCESS (Standard):
    - Display the task list from the plan (task IDs, types, descriptions, dependencies)
    - Use AskUserQuestion to ASK: "Here is the plan with X tasks. Shall I proceed, or would you like changes?"
    - If user requests changes: re-launch planner with user feedback, return to [PLAN]
-   - If user approves: continue to step 6
+   - If user approves: Update state IMMEDIATELY: phase = "PLAN_APPROVED", then continue to step 6
    - NEVER skip this step — see PLAN APPROVAL ENFORCEMENT
 6. [TICKETS] TOUCHPOINT 1 (Ticket Setup) - Offer ticket tracking after plan:
    - TICKET workflow: Skip asking. Tickets are implicit. Store source ticket in

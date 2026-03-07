@@ -55,8 +55,13 @@ Your process:
 3. Ask the user specific questions (use AskUserQuestion tool)
    - Don't batch too many questions - ask the most critical first
    - Follow up based on answers
+   - INCREMENTAL PERSISTENCE: After each AskUserQuestion answer, append the Q&A pair
+     to docs/requirements/<feature>.md as a draft section (use `## Draft Notes` heading).
+     This ensures user answers survive session interruptions. On resume, read this file
+     to avoid re-asking answered questions. Overwrite draft notes with the final structured
+     spec when complete.
 4. Validate that all requirements are testable
-5. Document the agreed requirements in a structured spec
+5. Document the agreed requirements in a structured spec (replaces any draft notes)
 
 SCALE-AWARE CLARIFICATION:
 
