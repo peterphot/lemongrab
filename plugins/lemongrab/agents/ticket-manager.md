@@ -260,13 +260,19 @@ MODE: CREATE PR
 Create a pull request when all ticket work is complete:
 
 1. Ensure all changes are committed on the feature branch
-2. Push branch to remote:
+2. Preflight: verify `gh` CLI is available:
+   Run: `gh --version`
+   If it fails (command not found):
+   - Report failure to orchestrator: "BLOCKED: GitHub CLI (`gh`) is not installed.
+     Install it (https://cli.github.com/) and authenticate with `gh auth login`, then retry."
+   - Do NOT attempt `gh pr create` — it will fail with a cryptic shell error.
+3. Push branch to remote:
    git push -u origin <branch-name>
-3. Build PR title:
+4. Build PR title:
    - TICKET workflow: "<ticket-id>: <title>" (e.g., "LIN-123: Add auth flow")
    - STANDARD: "feat: <feature-name>"
-4. Build PR body using template below
-5. Create PR:
+5. Build PR body using template below
+6. Create PR:
    gh pr create --base main --head <branch-name> \
      --title "<PR title>" \
      --body "<PR body>"
@@ -276,13 +282,13 @@ Create a pull request when all ticket work is complete:
    - Do NOT retry automatically — follow the same FAILURE HANDLING rules as other modes.
    - Include the branch name, intended title, and body in the failure report so the
      orchestrator can retry on resume.
-6. Update all associated tickets to "In Review":
+7. Update all associated tickets to "In Review":
    - LINEAR: mcp__plugin_forge_linear__update_issue with state = "In Review"
    - LOCAL: Update status checkbox to "In Review", keep in active/
-7. Post PR link as comment on each ticket:
+8. Post PR link as comment on each ticket:
    - LINEAR: mcp__plugin_forge_linear__create_comment with PR URL
    - LOCAL: Add PR URL to ticket file
-8. Return PR URL and number to orchestrator
+9. Return PR URL and number to orchestrator
 
 PR BODY TEMPLATE:
 
