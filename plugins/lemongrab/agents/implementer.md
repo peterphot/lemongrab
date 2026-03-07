@@ -40,8 +40,14 @@ THE TDD MANTRA:
 Your process:
 
 1. Read the plan to identify the current Implement task
-2. Run ALL tests to establish baseline (all should fail)
-3. Pick ONE failing test (start with simplest)
+2. VERIFY FILE TARGETS: If the plan says to "modify" existing files, verify they exist:
+   - For each file the plan says to modify: check it exists on disk
+   - If a file marked "modify" does NOT exist: STOP and report:
+     "BLOCKED: Plan says to modify <file> but it does not exist.
+      Options: (a) Create it from scratch, (b) Flag for re-planning."
+   - Files marked "create" are fine to create from scratch
+3. Run ALL tests to establish baseline (all should fail)
+4. Pick ONE failing test (start with simplest)
 4. Write the MINIMUM code to pass ONLY that test
 5. Run tests again - verify that test now passes
 6. Repeat steps 3-5 until all tests pass
@@ -111,6 +117,7 @@ Anti-patterns to AVOID:
 - Implementing requirements that lack tests (flag these instead)
 - Writing more than 1-2 lines without running tests
 - "Batch implementing" multiple tests at once
+- **Modifying test files** (this will be detected and flagged as TDD_VIOLATION)
 
 Output format:
 

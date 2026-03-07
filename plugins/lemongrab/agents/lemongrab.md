@@ -284,7 +284,9 @@ YOUR PROCESS (Standard):
      * PRD/RFC workflow: Attempt mcp__plugin_forge_notion__notion-search with empty query.
        If fails → STOP with: "BLOCKED: Notion MCP plugin is not configured. Install it and retry."
      * QA check: Attempt mcp__chrome-devtools__list_pages. If fails → note that QA will be
-       skipped (non-blocking). Log D-ORCH entry.
+       skipped (non-blocking). Log D-ORCH entry. Persist result to counters.qaAvailable in
+       task-status.json (true if available, false if not). On resume, read this value instead
+       of re-running the preflight check.
      This prevents wasting time on clarification and planning only to fail at extraction.
 2. [CLARIFY] Launch the clarifier agent for the requested feature
    - Wait for it to complete (it will ask the user questions)
@@ -375,6 +377,14 @@ YOUR PROCESS (Standard):
    - If it's an Implement task: launch implementer agent
    - DECISION EXTRACTION: Extract `<!-- DECISIONS -->` block from implementer output (if present)
      and append to docs/state/decisions.md under "## Implement Phase".
+   - TEST FILE INTEGRITY CHECK: After implementer completes, verify test files were not modified:
+     * Read tddState.testFiles for this task from task-status.json
+     * Run: git diff --name-only -- <test-files>
+     * If ANY test file has uncommitted changes: automatic TDD_VIOLATION verdict.
+       Do NOT launch reviewers. Return to test-writer with:
+       "TDD_VIOLATION: Implementer modified test file(s): <files>. Tests must be restored
+        and implementation must pass the ORIGINAL tests."
+     * Restore test files: git checkout -- <test-files>
    - After implementation: launch PARALLEL REVIEWERS:
      a. lemongrab:reviewer (TDD compliance + correctness + DRY) — PRIMARY verdict
      b. lemongrab:security-reviewer (OWASP, secrets, injection, auth) — Advisory
@@ -419,9 +429,10 @@ YOUR PROCESS (Standard):
      present results to user (see CHECKPOINT PROTOCOL). Skip for SMALL features.
    - MILESTONE_REVIEW checkpoint: After every Nth completed task (N=4 for MEDIUM,
      N=3 for LARGE), present milestone status to user (see CHECKPOINT PROTOCOL).
-     Skip for SMALL features. Track completed-task count since last milestone review
-     (reset after each MILESTONE_REVIEW fires). FIRST_CYCLE_REVIEW counts as the
-     first milestone, so start counting from task 2.
+     Skip for SMALL features. Track via counters.tasksSinceLastMilestone in task-status.json
+     (increment after each task completion, reset to 0 after each MILESTONE_REVIEW fires,
+     persist immediately). FIRST_CYCLE_REVIEW counts as the first milestone, so start
+     counting from task 2.
    - Create git checkpoint: git commit -m "checkpoint: [TXXX] <description>"
    - Update task-status.json with checkpoint hash and file manifest
    - TOUCHPOINT 3 (Task Complete) - If tickets.enabled: Launch ticket-manager (TASK COMPLETE +
@@ -490,6 +501,29 @@ Per-task status MUST include TDD sub-state for resume granularity:
       "filesModified": [],
       "checkpoint": null
     }
+
+WORKFLOW COUNTERS (persisted for compaction/resume safety):
+
+The task-status.json file MUST include a top-level "counters" section:
+
+    {
+      "counters": {
+        "circuitBreakerTrips": 0,
+        "tasksSinceLastMilestone": 0,
+        "qaAvailable": null
+      }
+    }
+
+- circuitBreakerTrips: Number of tasks that hit their individual circuit breakers in this
+  workflow run. Reset to 0 at workflow start. Increment when any task's circuit breaker fires.
+  If >= 3 → trigger WORKFLOW CIRCUIT BREAKER.
+- tasksSinceLastMilestone: Number of tasks completed since last MILESTONE_REVIEW checkpoint.
+  Reset to 0 after each MILESTONE_REVIEW fires. Used to determine when next milestone fires.
+- qaAvailable: Result of Chrome DevTools MCP preflight check. true = available, false = not
+  available (skip QA), null = not yet checked. Set during INIT preflight.
+
+Update these counters at the relevant events and persist to disk IMMEDIATELY.
+On resume, read counters from task-status.json to restore workflow state.
 
 Update tddState at each sub-step:
 - After test-writer: set testsWritten=true, testFiles, testsCount
@@ -756,7 +790,11 @@ ERROR HANDLING:
 - If still failing:
   - Log to blockers.json
   - Log to incidents.json (see INCIDENT LOG below)
-  - Ask user whether to skip, debug, rollback, or modify requirements
+  - Ask user via AskUserQuestion: "Task [TXXX] has failed 3 implementation attempts.
+    This may indicate: (a) a bug in the implementation approach, (b) contradictory or
+    impossible tests, (c) missing setup or dependencies.
+    Options: (1) Skip this task, (2) Debug together, (3) Rollback to last checkpoint,
+    (4) Modify requirements, (5) Re-examine the tests for contradictions"
 - If agent fails: report error and ask how to proceed
 - If reviewer flags issues: address before simplifier runs
 - If ticket-manager fails (API error, wrong ticket ID): log the failure and continue.
@@ -774,7 +812,8 @@ escalation) during a single workflow run:
    Incidents: [list from incidents.json]
    Options: (a) Continue with remaining tasks, (b) Revise plan, (c) Revise requirements,
    (d) Abandon workflow"
-- Track circuit breaker count in a workflow-level counter (reset at workflow start)
+- Track via counters.circuitBreakerTrips in task-status.json (reset at workflow start,
+  increment on each trip, persist immediately after each increment)
 
 INCIDENT LOG:
 

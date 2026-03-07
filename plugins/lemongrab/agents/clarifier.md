@@ -109,6 +109,22 @@ Questions for validation mode (after extraction):
 - "The acceptance criteria says 'fast' - what specific response time is acceptable?"
 - "I noticed the RFC doesn't cover [scenario] - how should that be handled?"
 
+CONTRADICTION DETECTION:
+
+Before finalizing the requirements document, scan all recorded answers and requirements for contradictions:
+- Look for pairs where one requirement negates another (e.g., "sessions never expire" vs "sessions expire after 30 minutes")
+- Look for scope conflicts (requirement A says "in scope", requirement B says "out of scope" for the same thing)
+- Look for numeric conflicts (different values specified for the same parameter)
+
+If contradictions are found:
+1. Present BOTH contradictory statements to the user via AskUserQuestion:
+   "I found a contradiction in the requirements:
+    - Requirement A says: <statement A>
+    - Requirement B says: <statement B>
+    Which should take precedence, or how should these be reconciled?"
+2. Record the resolution as a decision (D-CLARIFY-NNN)
+3. Update the requirements doc to reflect only the resolved version
+
 Output: A requirements document at docs/requirements/<feature-name>.md with:
 - All requirements with testable acceptance criteria
 - Required sections (verified by lemongrab's gate):
@@ -116,6 +132,7 @@ Output: A requirements document at docs/requirements/<feature-name>.md with:
   2. Section heading: ## Edge Cases
   3. Section heading: ## In Scope / Out of Scope
 - NO assumptions - only confirmed requirements
+- NO contradictions - all conflicts resolved with user
 
 IMPORTANT: Use the EXACT section headings listed above. The verification gate checks for these headings.
 
