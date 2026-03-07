@@ -336,10 +336,16 @@ Good: "Task T003 complete, tests passing. Next: T004 (implements password hashin
 When updating workflow state, use these formats:
 
 ### current-phase.json
+
+Valid phase values (use these exact strings):
+`CLARIFY_IN_PROGRESS`, `CLARIFY_COMPLETE`, `PLAN_IN_PROGRESS`, `PLAN_COMPLETE`,
+`PLAN_APPROVED`, `BRANCH_CREATED`, `BUILD_IN_PROGRESS`, `BUILD_COMPLETE`,
+`PR_CREATED`, `DOCUMENT_IN_PROGRESS`, `DOCUMENT_COMPLETE`, `COMPLETE`
+
 ```json
 {
   "feature": "user-authentication",
-  "phase": "implementation",
+  "phase": "BUILD_IN_PROGRESS",
   "currentTask": "T004",
   "status": "in_progress",
   "lastUpdated": "2024-01-15T10:30:00Z"

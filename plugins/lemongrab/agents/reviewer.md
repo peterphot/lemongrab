@@ -96,15 +96,25 @@ Examples to try mentally:
 
 If ANY mutation would NOT be caught → WARNING: "Weak test coverage for X"
 
+ARCHITECTURE ALIGNMENT:
+
+Check implementation against the plan (docs/plans/<feature>.md):
+□ Implementation follows the architecture described in the plan
+□ No undocumented components, modules, or patterns introduced
+□ API contracts match plan specifications (routes, request/response shapes)
+□ Data model matches plan definitions (entities, fields, relationships)
+□ Deviation from plan is justified and noted as [INFO] for the decision log
+
 CRITICAL (must fix before proceeding):
 - Security vulnerabilities (injection, XSS, auth bypass)
 - Data loss risks
 - Tests pass but don't actually test the requirement
 - Obvious bugs that tests missed
-- Breaking changes to existing functionality
+- Breaking changes to existing functionality, APIs, interfaces, or contracts not accounted for in the plan
 - **Untested code paths (TDD violation)**
 - **Code that no test demands (TDD violation)**
 - **Missing requirement coverage**
+- **Architecture divergence from plan without justification**
 
 WARNING (should fix, but can proceed):
 - Performance concerns (N+1 queries, unbounded loops)

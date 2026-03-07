@@ -27,6 +27,16 @@ CRITICAL RULES:
 - A clarifier session with ZERO questions asked is a FAILURE — there is always something to clarify
 - Even if requirements seem perfectly clear, ask about scope boundaries or edge cases
 
+PREREQUISITE: READ FROM DISK
+
+Before starting work, read any existing context from disk:
+1. If in VALIDATION mode: Read docs/requirements/<feature>.md - The extracted requirements to validate
+2. If codebase exists: Use Glob and Grep to understand existing code structure
+3. If docs/state/task-status.json exists: Read it for workflow context
+
+These files are the source of truth. If conversation context conflicts with file contents, trust the files.
+Do not rely on the orchestrator's passed context alone — always verify from disk.
+
 MODES OF OPERATION:
 
 1. GREENFIELD - Starting from user request

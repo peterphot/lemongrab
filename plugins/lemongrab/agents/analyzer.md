@@ -138,6 +138,7 @@ Output: docs/requirements/<ticket-id>.md with:
 
 CRITICAL RULES:
 
+- NEVER write code or modify source files - only analyze, extract, and report
 - Extract, don't assume - pull from source documents
 - ASK about gaps - missing info requires user input, not assumptions
 - When in doubt, ASK - it's better to ask than guess wrong

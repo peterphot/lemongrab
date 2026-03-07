@@ -137,6 +137,17 @@ Before starting, check docs/state/current-phase.json:
 - If exists and matches feature: RESUME from last known state
 - If not exists: START fresh and create state files
 
+CANONICAL PHASE VALUES for current-phase.json "phase" field:
+
+    CLARIFY_IN_PROGRESS, CLARIFY_COMPLETE,
+    PLAN_IN_PROGRESS, PLAN_COMPLETE, PLAN_APPROVED,
+    BRANCH_CREATED, BUILD_IN_PROGRESS, BUILD_COMPLETE,
+    PR_CREATED, DOCUMENT_IN_PROGRESS, DOCUMENT_COMPLETE,
+    COMPLETE
+
+Always use these exact values. Do not invent new phase names or use informal labels
+like "implementation" or "testing".
+
 Update state files after each phase transition:
 - docs/state/current-phase.json - Current workflow position
 - docs/state/task-status.json - Per-task completion status
@@ -256,6 +267,15 @@ LARGE (10+ tasks):
 YOUR PROCESS (Standard):
 
 1. [INIT] Initialize or resume state
+   - MCP PREFLIGHT CHECK (for TICKET, PRD, RFC workflows):
+     Before starting the workflow, verify MCP availability:
+     * TICKET workflow: Attempt mcp__plugin_forge_linear__list_teams. If fails →
+       STOP with: "BLOCKED: Linear MCP plugin is not configured. Install it and retry."
+     * PRD/RFC workflow: Attempt mcp__plugin_forge_notion__notion-search with empty query.
+       If fails → STOP with: "BLOCKED: Notion MCP plugin is not configured. Install it and retry."
+     * QA check: Attempt mcp__chrome-devtools__list_pages. If fails → note that QA will be
+       skipped (non-blocking). Log D-ORCH entry.
+     This prevents wasting time on clarification and planning only to fail at extraction.
 2. [CLARIFY] Launch the clarifier agent for the requested feature
    - Wait for it to complete (it will ask the user questions)
    - VERIFICATION GATE: Check that docs/requirements/<feature>.md exists and
@@ -272,6 +292,13 @@ YOUR PROCESS (Standard):
      append entries to docs/state/decisions.md under "## Clarify Phase".
    - LOG OWN DECISION: Append a D-ORCH-001 entry for scale assessment (SMALL/MEDIUM/LARGE)
      with reasoning based on the requirements scope.
+   - REQUIREMENTS_REVIEW checkpoint: Present the finalized requirements to the user:
+     Use AskUserQuestion: "CHECKPOINT: REQUIREMENTS_REVIEW — Requirements documented at
+     docs/requirements/<feature>.md. [summary of key requirements, scope, and edge cases].
+     Please review. [approve] [modify: describe changes] [reject: explain concern]"
+     * If user approves: continue
+     * If user requests modifications: re-launch clarifier with feedback, re-verify
+     * For SMALL features: this checkpoint may be combined with plan approval
    - Update state: phase = "CLARIFY_COMPLETE"
 3. [EXPLORE] Launch the native Plan subagent (subagent_type: "Plan") to explore the codebase
    - Prompt: "Read docs/requirements/<feature>.md and explore the codebase to identify:
@@ -354,17 +381,27 @@ YOUR PROCESS (Standard):
    - DECISION EXTRACTION: Extract `<!-- DECISIONS -->` block from simplifier output (if present)
      and append to docs/state/decisions.md under "## Simplify Phase".
    - If reviewer flags issues: address before continuing
+   - CRITICAL FINDINGS ESCALATION: If ANY reviewer returns a CRITICAL finding, present it
+     to the user IMMEDIATELY via AskUserQuestion before auto-looping back to implementer:
+     "REVIEWER CRITICAL: [finding description] in [file:line]. Options:
+     (a) Fix it (return to implementer), (b) Override (accept the risk), (c) Debug together"
+     Only auto-loop for NEEDS_FIXES with WARNING severity or below.
    - CIRCUIT BREAKER: Track review attempts per task. After 2 NEEDS_FIXES or TDD_VIOLATION
      cycles for the same task, stop and ASK the user: "Task [TXXX] has been rejected twice
      by the reviewer. How would you like to proceed?" Options: (a) Skip this task,
      (b) Debug together, (c) Modify requirements, (d) Override reviewer and continue.
    - QA (conditional) - If the feature has a browser UI:
+     * QA APPLICABILITY HEURISTIC:
+       - If plan creates/modifies files in: pages/, components/, routes/, views/, templates/,
+         or any HTML/JSX/TSX → likely has UI, run QA
+       - If plan only touches: API endpoints, CLI commands, libraries, utilities → NOT_APPLICABLE
+       - If unsure: ASK the user "Does this feature have a browser UI that should be E2E tested?"
      * Launch qa-engineer agent
      * If QA_PASS: proceed to checkpoint
      * If QA_FAIL: return to implementer with QA failures
      * If NOT_APPLICABLE: skip (log D-ORCH entry noting skip reason)
      * Circuit breaker: After 2 QA_FAIL cycles for same task, ask user
-     * If Chrome DevTools MCP is not available: skip QA, log D-ORCH entry
+     * If Chrome DevTools MCP is not available (detected in INIT preflight): skip QA, log D-ORCH entry
    - Verify tests pass before moving to next task
    - FIRST_CYCLE_REVIEW checkpoint: After the FIRST task completes its full cycle,
      present results to user (see CHECKPOINT PROTOCOL). Skip for SMALL features.
@@ -563,20 +600,25 @@ Use AskUserQuestion with this format for each checkpoint:
 
 CHECKPOINT GATES:
 
-1. PLAN_APPROVAL (existing) — HARD GATE, already enforced above.
+1. REQUIREMENTS_REVIEW — After clarifier produces finalized requirements:
+   - Present: key requirements summary, scope boundaries, edge cases
+   - Purpose: User validates requirements are complete and correct before planning begins
+   - For SMALL features: may be combined with plan approval (present both together)
 
-2. FIRST_CYCLE_REVIEW — After the FIRST task's full TDD cycle (test → implement → review → simplify):
+2. PLAN_APPROVAL — HARD GATE, already enforced above.
+
+3. FIRST_CYCLE_REVIEW — After the FIRST task's full TDD cycle (test → implement → review → simplify):
    - Present: test count, implementation summary, reviewer verdict
    - Purpose: User validates quality bar, test style, and approach before tasks 2-N proceed
    - If user requests changes: adjust approach for remaining tasks
    - For SMALL features (1-3 tasks): SKIP this checkpoint (plan approval is sufficient)
 
-3. PRE_SIMPLIFY — Before the simplifier runs on any task with reviewer WARNINGS:
+4. PRE_SIMPLIFY — Before the simplifier runs on any task with reviewer WARNINGS:
    - Present: reviewer warnings that simplifier will address
    - Purpose: User decides which warnings to fix vs accept
    - If no warnings: SKIP this checkpoint (simplifier runs automatically)
 
-4. PRE_PR — Before pushing code and creating PR:
+5. PRE_PR — Before pushing code and creating PR:
    - Present: total tests, files changed, branch diff summary
    - Purpose: User confirms code is ready for review
    - Use AskUserQuestion: "CHECKPOINT: PRE_PR — All N tasks complete. X tests passing.
@@ -689,6 +731,19 @@ ERROR HANDLING:
   Ticket operations are best-effort and must never block the build. On resume,
   the orchestrator can retry failed ticket updates using the mapping in task-status.json.
 
+WORKFLOW CIRCUIT BREAKER:
+
+If 3 or more tasks hit their individual circuit breakers (reviewer rejection or test failure
+escalation) during a single workflow run:
+- STOP the entire workflow
+- Present all incidents to the user via AskUserQuestion:
+  "WORKFLOW HALTED: [N] tasks have hit circuit breakers during this workflow.
+   This may indicate a fundamental issue with the requirements or plan.
+   Incidents: [list from incidents.json]
+   Options: (a) Continue with remaining tasks, (b) Revise plan, (c) Revise requirements,
+   (d) Abandon workflow"
+- Track circuit breaker count in a workflow-level counter (reset at workflow start)
+
 INCIDENT LOG:
 
 On ANY failure (test failure, reviewer rejection, agent error, MCP failure, rollback):
@@ -720,9 +775,18 @@ If user requests rollback or critical failure occurs:
 4. Run: git clean -fd -- src/ tests/ lib/ app/ (remove untracked files from source dirs only)
    - Do NOT clean docs/ (preserves state files and documentation)
    - Do NOT clean root (preserves config files)
-5. Update state files to reflect rollback
-6. Log incident to docs/state/incidents.json with type "rollback"
-7. Report: what was rolled back, what was cleaned, stash ref for recovery, and resume options
+5. Update state files to reflect rollback:
+   a. In task-status.json: set the rolled-back task status to "rolled_back", clear its tddState,
+      set currentTask to the rolled-back task ID (so resume re-starts it)
+   b. In current-phase.json: set phase to BUILD_IN_PROGRESS with currentTask pointing to
+      the task that needs re-doing
+6. Clean up any active worktrees:
+   a. Read tickets.worktrees from task-status.json
+   b. For each worktree: git worktree remove <path> --force
+   c. Delete worktree branches: git branch -D <branch>
+   d. Clear tickets.worktrees in task-status.json
+7. Log incident to docs/state/incidents.json with type "rollback"
+8. Report: what was rolled back, what was cleaned, stash ref for recovery, and resume options
 
 OUTPUT:
 
