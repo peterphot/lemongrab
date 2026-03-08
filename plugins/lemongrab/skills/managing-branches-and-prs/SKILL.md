@@ -14,6 +14,7 @@ This skill handles git branch management, pull request creation, and worktree se
 - Creating pull requests for code review
 - Managing parallel work with git worktrees
 - Linking PRs to Linear tickets for auto-close
+- Per-ticket branching in MULTI_TICKET workflows
 
 ## Branch Management
 
@@ -109,6 +110,69 @@ to work. If it's not available, the completion summary should note:
 - Move all associated tickets to "In Review"
 - Post PR link as comment on each ticket
 - Store PR URL in task-status.json
+
+## Per-Ticket Branching (MULTI_TICKET Workflow)
+
+When the MULTI_TICKET workflow uses per-ticket branching, each ticket gets its own
+branch and PR. This requires careful sequencing to ensure each branch is based on
+the latest merged state of main.
+
+### Per-Ticket Branch Lifecycle
+
+```
+For each ticket in the queue:
+  1. git checkout main && git pull origin main    # Start from latest main
+  2. git checkout -b feat/<ticket-id>-<slug>      # Create ticket branch
+  3. [... build cycle ...]                        # Implement on this branch
+  4. git push -u origin feat/<ticket-id>-<slug>   # Push for PR
+  5. gh pr create ...                             # Create PR
+  6. [... PR review cycle ...]                    # Review and fix
+  7. gh pr merge --squash --delete-branch         # Merge (manual or auto)
+  8. git checkout main && git pull origin main    # Pull merged changes
+  9. → Next ticket                                # Repeat
+```
+
+### Per-Ticket State in task-status.json
+
+Each ticket in a MULTI_TICKET workflow tracks its own branch and PR:
+
+```json
+{
+  "multiTicket": {
+    "config": { "branching": "per-ticket" },
+    "ticketQueue": ["LIN-124", "LIN-125"],
+    "prLinks": {
+      "LIN-124": "https://github.com/org/repo/pull/42"
+    }
+  },
+  "tickets": {
+    "branch": "feat/LIN-125-auth-middleware",
+    "baseBranch": "main",
+    "pr": { "url": null, "number": null }
+  }
+}
+```
+
+Note: `tickets.branch` and `tickets.pr` are overwritten for each ticket in the queue.
+Historical PR links are preserved in `multiTicket.prLinks`.
+
+### Single Branch Mode (MULTI_TICKET alternative)
+
+When MULTI_TICKET uses single-branch mode, behavior matches the standard workflow:
+one feature branch, one PR at the end. All tickets are implemented as commits on
+the same branch.
+
+### Post-Merge Verification
+
+After each PR merge in per-ticket mode, verify clean state before starting next ticket:
+
+```bash
+git checkout main && git pull origin main
+git status --porcelain  # Must be empty
+git log --oneline -1    # Should show the merge commit
+```
+
+If the working tree is not clean, ask the user to resolve before continuing.
 
 ## Git Worktrees for Parallel Work
 
@@ -265,3 +329,12 @@ git diff HEAD~1..HEAD --name-only
 - [ ] Worktree directories removed
 - [ ] Worktree branches deleted
 - [ ] task-status.json worktrees section cleaned
+
+### Per-Ticket Merge Gate (MULTI_TICKET only)
+- [ ] PR review passed (or user chose to ship as-is)
+- [ ] PR merged (verified via `gh pr view`)
+- [ ] Main branch pulled with latest changes
+- [ ] Working tree clean before starting next ticket
+- [ ] multiTicket.completedTickets updated
+- [ ] multiTicket.prLinks updated with PR URL
+- [ ] tickets.branch and tickets.pr reset for next ticket

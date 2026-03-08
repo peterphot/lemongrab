@@ -42,6 +42,9 @@ Detect the workflow from the user's request:
 6. "bootstrap <project-type>" → BOOTSTRAP WORKFLOW (new project)
 7. "resume <feature>" → RESUME from state files
 8. "design <feature>" → Jump to DESIGN phase (after clarify, before plan)
+9. "implement from plan <path>" → PLAN_IMPORT WORKFLOW (skip clarify/plan, use existing plan)
+10. "implement tickets <LIN-1>, <LIN-2>, ..." → MULTI_TICKET WORKFLOW (sequential per-ticket PRs)
+11. "implement sub-issues of <LIN-123>" → MULTI_TICKET WORKFLOW (fetch sub-issues from parent)
 
 WORKFLOW: STANDARD (Greenfield Feature)
 
@@ -147,6 +150,172 @@ WORKFLOW: BOOTSTRAP (New Project)
 7. ASK: "What's the first feature to implement?"
 8. Transition to STANDARD workflow starting at CLARIFY phase (includes PLAN APPROVAL)
 
+WORKFLOW: PLAN_IMPORT (From Existing Plan)
+
+Use when the user has already written or tweaked a plan and wants to skip clarify/explore/plan
+phases. Jumps straight to plan validation, approval, and build.
+
+1. VALIDATE PLAN - Run plan structure verification:
+   `bash hooks/scripts/verify-plan-structure.sh <plan-path>`
+   - If verification fails: report errors to user. Options:
+     (a) Fix the plan manually and retry
+     (b) Launch planner to generate a compliant plan from this draft
+   - If verification passes: continue
+2. REQUIREMENTS CHECK - Look for a matching requirements doc:
+   - Check docs/requirements/<feature>.md (feature name derived from plan filename)
+   - If exists: use it as-is (skip clarifier)
+   - If missing: ASK user: "No requirements doc found for this plan. Options:
+     (a) Skip requirements (proceed with plan only)
+     (b) Create a lightweight requirements doc from the plan's acceptance criteria
+     (c) Run the full clarifier first"
+   - If user chooses (b): extract ACs from the plan and generate a minimal requirements doc
+3. PLAN APPROVAL - Present the plan to user for confirmation (same as STANDARD step 7)
+   - PLAN_APPROVAL hard gate applies — even imported plans need explicit approval
+4. Continue with TICKETS → BRANCH_SETUP → BUILD → PR → DOCUMENT (same as STANDARD from step 8 onward)
+
+NOTE: The plan file is copied to docs/plans/<feature>.md if it's not already there,
+so all downstream agents find it in the expected location.
+
+WORKFLOW: MULTI_TICKET (Sequential Per-Ticket Implementation)
+
+Use when the user has a set of tickets (sub-issues of a parent, or an explicit list) that
+should each be implemented as independent branch/PR/merge cycles.
+
+CONFIGURATION (asked once at workflow start via AskUserQuestion):
+
+  "MULTI_TICKET SETUP — Found N tickets to implement.
+
+  Branching strategy:
+    (a) Per-ticket branches (each ticket → own branch from main → own PR → merge before next) [default]
+    (b) Single feature branch (all tickets → one branch → one PR)
+
+  PR review rounds: [2] (review→fix→review→fix)
+    Specify a number, or 'until clean'
+
+  Merge behavior:
+    (a) Manual — I'll confirm each merge [default]
+    (b) Auto-merge — merge automatically when PR review passes and tests are green
+    (c) No-merge — create PRs but don't wait for merges
+
+  Plan source:
+    (a) Import existing plan (provide path)
+    (b) Generate a plan per ticket
+    (c) Use ticket descriptions as-is (minimal planning — for well-specified tickets)
+
+  Proceed with defaults? Or customize?"
+
+Store configuration in docs/state/task-status.json under "multiTicket" section.
+
+MULTI_TICKET PROCESS:
+
+1. [FETCH] Gather the ticket list:
+   - If parent ticket ID given: Launch ticket-manager in FETCH_SUB_ISSUES mode
+     to get all sub-issues from the parent ticket
+   - If explicit list given: validate each ticket ID exists in Linear
+   - Present the ordered list to user for approval (user can reorder, skip, or add tickets)
+   - Store in task-status.json: multiTicket.ticketQueue (ordered array of ticket IDs)
+
+2. [ORDER] Determine implementation order:
+   - Default: order from Linear (priority or creation order)
+   - User can override with explicit ordering
+   - Store the approved order in multiTicket.ticketQueue
+
+3. [LOOP] For each ticket in multiTicket.ticketQueue:
+
+   a. UPDATE TRACKER: Set multiTicket.currentIndex to the current ticket's position.
+      Set multiTicket.currentTicketId to the ticket ID.
+
+   b. PLAN — Based on configured plan source:
+      - "import": Use PLAN_IMPORT workflow for this ticket
+      - "generate": Run CLARIFY → PLAN for this ticket (standard flow)
+      - "ticket-as-plan": Extract tasks directly from ticket description (minimal)
+      For "generate" and "ticket-as-plan": scale planning based on ticket complexity.
+      PLAN_APPROVAL hard gate applies for each ticket.
+
+   c. BRANCH — Based on configured branching strategy:
+      - "per-ticket": Create branch from latest main: feat/<ticket-id>-<slug>
+        * git checkout main && git pull origin main
+        * git checkout -b feat/<ticket-id>-<slug>
+      - "single": Use one feature branch for all tickets (created once before loop)
+
+   d. BUILD — Run the standard build cycle for this ticket's tasks:
+      test → implement → review → done-definition → simplify → checkpoint
+      (All BUILD phase behavior from the STANDARD workflow applies, including
+      FIRST_CYCLE_REVIEW, PRE_SIMPLIFY, MILESTONE_REVIEW, circuit breakers)
+
+   e. COHERENCE_REVIEW — If ticket has 4+ tasks, run coherence review.
+      Skip for small tickets (1-3 tasks) unless user configured "with coherence review".
+
+   f. CREATE PR — Push branch, create PR for this ticket:
+      - PR title: "<ticket-id>: <title>"
+      - PR body includes "Closes <ticket-id>"
+      - Move ticket to "In Review"
+
+   g. PR_REVIEW — Run chunked PR review:
+      - Number of rounds from configuration (default: 2)
+      - review → fix → review → fix cycle (as configured)
+      - Circuit breaker applies per configured max rounds
+
+   h. MERGE_GATE — Based on configured merge behavior:
+      - "manual": AskUserQuestion: "CHECKPOINT: MERGE_GATE — PR for <ticket-id> is ready.
+        <PR URL>. Review rounds: N. Status: <approved/has_findings>.
+        Please merge the PR, then say 'continue' to proceed to the next ticket.
+        [continue] [skip this ticket] [abort remaining tickets]"
+        Wait for user confirmation before advancing.
+      - "auto": Run `gh pr merge <PR-number> --squash --delete-branch`.
+        If merge fails (conflicts, branch protection): fall back to manual gate.
+      - "no-merge": Log PR URL and continue to next ticket immediately.
+
+   i. POST-MERGE CLEANUP (for per-ticket branching):
+      - git checkout main && git pull origin main
+      - Verify clean working tree
+      - Update task-status.json: mark ticket as complete in multiTicket.completedTickets
+
+   j. INTER-TICKET SUMMARY: Brief status update to user:
+      "Completed <ticket-id> (<N> of <total>). <remaining> tickets remaining.
+       Next: <next-ticket-id> — <title>. Continuing..."
+
+4. [COMPLETION] After all tickets processed:
+   - Post completion summary to parent ticket (if applicable):
+     "All N sub-issues implemented. PRs: [list of PR URLs]"
+   - Present final summary to user with all PR links and ticket statuses
+   - Clean up state files
+
+MULTI_TICKET STATE in task-status.json:
+
+    {
+      "multiTicket": {
+        "enabled": true,
+        "parentTicket": "<LIN-123 or null>",
+        "ticketQueue": ["LIN-124", "LIN-125", "LIN-126"],
+        "currentIndex": 0,
+        "currentTicketId": "LIN-124",
+        "completedTickets": [],
+        "skippedTickets": [],
+        "config": {
+          "branching": "per-ticket",
+          "prReviewRounds": 2,
+          "mergeBehavior": "manual",
+          "planSource": "generate"
+        },
+        "prLinks": {
+          "LIN-124": "https://github.com/org/repo/pull/42",
+          "LIN-125": null,
+          "LIN-126": null
+        }
+      }
+    }
+
+MULTI_TICKET RESUME:
+
+When resuming a MULTI_TICKET workflow:
+1. Read task-status.json for multiTicket section
+2. Find currentIndex — this is the ticket that was in progress
+3. For the current ticket: resume using standard BUILD resume logic
+   (check current-phase.json for the sub-phase within the current ticket)
+4. After current ticket completes, advance through remaining ticketQueue
+5. Skip tickets already in completedTickets or skippedTickets
+
 STATE MANAGEMENT:
 
 Before starting, check docs/state/current-phase.json:
@@ -158,10 +327,13 @@ CANONICAL PHASE VALUES for current-phase.json "phase" field:
     CLARIFY_IN_PROGRESS, CLARIFY_COMPLETE,
     DESIGN_IN_PROGRESS, DESIGN_COMPLETE,
     PLAN_IN_PROGRESS, PLAN_COMPLETE, PLAN_APPROVED,
+    PLAN_IMPORT_VALIDATING, PLAN_IMPORT_VALIDATED,
     BRANCH_CREATED, BUILD_IN_PROGRESS, BUILD_COMPLETE,
     COHERENCE_REVIEW_IN_PROGRESS, COHERENCE_REVIEW_COMPLETE,
     PR_CREATED, PR_REVIEW, PR_REVIEW_FIXING,
+    MERGE_GATE_WAITING, MERGE_GATE_COMPLETE,
     DOCUMENT_IN_PROGRESS, DOCUMENT_COMPLETE,
+    MULTI_TICKET_SETUP, MULTI_TICKET_IN_PROGRESS, MULTI_TICKET_COMPLETE,
     COMPLETE
 
 Always use these exact values. Do not invent new phase names or use informal labels
@@ -197,6 +369,13 @@ When resuming from docs/state/current-phase.json, use this decision table:
 | PR_CREATED | Resume at PR_REVIEW phase (PR already created, verify with `gh pr view`) |
 | PR_REVIEW | Re-run PR review from the beginning (chunk diffs may have changed) |
 | PR_REVIEW_FIXING | Re-launch implementer with findings from docs/state/reviewer-reports/<feature>-pr-chunk-*.md |
+| PLAN_IMPORT_VALIDATING | Re-run plan validation (verify-plan-structure.sh) |
+| PLAN_IMPORT_VALIDATED | Resume at PLAN_APPROVAL (present imported plan to user) |
+| MERGE_GATE_WAITING | Re-present merge gate to user (PR already created) |
+| MERGE_GATE_COMPLETE | Proceed to next ticket (multi-ticket) or DOCUMENT (single) |
+| MULTI_TICKET_SETUP | Re-present configuration to user |
+| MULTI_TICKET_IN_PROGRESS | Resume current ticket from multiTicket.currentIndex using sub-phase |
+| MULTI_TICKET_COMPLETE | Resume at final completion summary |
 | DOCUMENT_IN_PROGRESS | Re-launch documenter agent |
 | DOCUMENT_COMPLETE | Resume at COMPLETION SUMMARY |
 
@@ -882,6 +1061,18 @@ CHECKPOINT GATES:
    - Purpose: User confirms code is ready for review
    - Use AskUserQuestion: "CHECKPOINT: PRE_PR — All N tasks complete. X tests passing.
      Ready to create PR on <branch>? [approve] [modify] [reject]"
+
+8. MERGE_GATE — After PR review passes (MULTI_TICKET workflow only):
+   - Present: PR URL, review status, ticket ID, position in queue
+   - Purpose: User confirms PR is merged before advancing to next ticket
+   - Only fires when multiTicket.config.mergeBehavior = "manual"
+   - Use AskUserQuestion: "CHECKPOINT: MERGE_GATE — PR for <ticket-id> is ready.
+     <PR URL>. Please merge the PR, then say 'continue'.
+     [continue] [skip this ticket] [abort remaining tickets]"
+   - On "continue": verify PR is actually merged via `gh pr view <number> --json state`
+     If not merged: re-present the gate ("PR is still open. Please merge first.")
+   - On "skip": add ticket to multiTicket.skippedTickets, advance to next
+   - On "abort": stop workflow, present summary of completed/remaining tickets
 
 MILESTONE_REVIEW and COHERENCE_REVIEW are the only checkpoints that skip for SMALL features. It can be
 force-enabled by the user saying "with all checkpoints" in their initial request.
