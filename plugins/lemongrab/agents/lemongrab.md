@@ -160,7 +160,8 @@ CANONICAL PHASE VALUES for current-phase.json "phase" field:
     PLAN_IN_PROGRESS, PLAN_COMPLETE, PLAN_APPROVED,
     BRANCH_CREATED, BUILD_IN_PROGRESS, BUILD_COMPLETE,
     COHERENCE_REVIEW_IN_PROGRESS, COHERENCE_REVIEW_COMPLETE,
-    PR_CREATED, DOCUMENT_IN_PROGRESS, DOCUMENT_COMPLETE,
+    PR_CREATED, PR_REVIEW, PR_REVIEW_FIXING,
+    DOCUMENT_IN_PROGRESS, DOCUMENT_COMPLETE,
     COMPLETE
 
 Always use these exact values. Do not invent new phase names or use informal labels
@@ -193,7 +194,9 @@ When resuming from docs/state/current-phase.json, use this decision table:
 | BUILD_COMPLETE (all tasks done) | Resume at COHERENCE_REVIEW step (or CREATE PR if SMALL) |
 | COHERENCE_REVIEW_IN_PROGRESS | Re-launch coherence-reviewer |
 | COHERENCE_REVIEW_COMPLETE | Resume at PRE_PR_CHECKPOINT |
-| PR_CREATED | Resume at DOCUMENT phase (PR already created, verify with `gh pr view`) |
+| PR_CREATED | Resume at PR_REVIEW phase (PR already created, verify with `gh pr view`) |
+| PR_REVIEW | Re-run PR review from the beginning (chunk diffs may have changed) |
+| PR_REVIEW_FIXING | Re-launch implementer with findings from docs/state/reviewer-reports/<feature>-pr-chunk-*.md |
 | DOCUMENT_IN_PROGRESS | Re-launch documenter agent |
 | DOCUMENT_COMPLETE | Resume at COMPLETION SUMMARY |
 
@@ -549,8 +552,67 @@ YOUR PROCESS (Standard):
    - ticket-manager moves ALL associated tickets to "In Review"
    - Store PR URL in task-status.json: tickets.pr.url, tickets.pr.number
    - Update state: phase = "PR_CREATED"
-14. [DOCUMENT] Document decisions and update project docs (on feature branch, part of PR):
+14. [PR_REVIEW] Chunked PR review — review the assembled diff as a human reviewer would:
+   - Update state: phase = "PR_REVIEW"
+   - SKIP CONDITION: If total diff is < 50 lines (trivially small), skip to DOCUMENT.
+     Log a D-ORCH decision noting the skip.
+   - Get the full diff: `git diff main..HEAD`
+   - Get changed files: `git diff main..HEAD --name-only`
+   - CHUNK STRATEGY:
+     * Group files by logical unit: co-located source + test files together
+       (e.g., src/auth/login.ts + tests/auth/login.test.ts = 1 chunk)
+     * Target ~200-300 diff lines per chunk. If a single file exceeds 300 lines,
+       it becomes its own chunk.
+     * Use `git diff main..HEAD -- <file1> <file2>` to extract per-chunk diffs
+     * Save each chunk's diff to a temp file: docs/state/pr-review/chunk-<N>.diff
+     * Record chunk composition in task-status.json: tickets.pr.reviewChunks
+   - REVIEW PASS: For each chunk, launch lemongrab:pr-reviewer with:
+     * Chunk number and total chunks
+     * Chunk file list
+     * Chunk diff file path: docs/state/pr-review/chunk-<N>.diff
+     * Feature name, requirements doc path, plan doc path
+     * Launch chunks in PARALLEL (all at once) for efficiency
+   - Wait for all chunk reviewers to complete
+   - Save chunk reports to docs/state/reviewer-reports/<feature>-pr-chunk-<N>.md
+   - AGGREGATE FINDINGS:
+     * Collect all CRITICAL and WARNING findings across chunks
+     * Collect any [CROSS-REF] notes and log for user visibility
+     * If zero CRITICAL + zero WARNING across all chunks → PR_REVIEW_PASS
+     * If any CRITICAL or WARNING → PR_REVIEW_NEEDS_FIXES
+   - If PR_REVIEW_PASS:
+     * Update state: tickets.pr.reviewStatus = "approved", tickets.pr.reviewRounds = 1
+     * Present to user: "PR review passed (N chunks reviewed, M nits noted). Proceeding to documentation."
+     * Proceed to DOCUMENT
+   - If PR_REVIEW_NEEDS_FIXES:
+     * Present findings to user via AskUserQuestion:
+       "PR REVIEW (round <R>) found issues across <N> chunks:
+       CRITICAL: <count> | WARNING: <count> | NITs: <count>
+       [list each CRITICAL and WARNING with file:line and one-line summary]
+       Options: [fix all] [fix critical only] [skip PR review — ship as-is] [discuss]"
+     * If user chooses "fix all" or "fix critical only":
+       - Launch implementer with the findings as input (grouped by file)
+       - Run full test suite to verify nothing broke
+       - If tests fail: return to implementer with failures
+       - Commit fixes: git commit -m "pr-review: address feedback round <R>"
+       - Push to remote: git push
+       - RE-REVIEW: Only re-review CHANGED chunks (chunks whose files were modified by fixes)
+         * Get newly changed files: `git diff HEAD~1..HEAD --name-only`
+         * Identify which chunks contain those files
+         * Re-launch pr-reviewer for those chunks only (in re-review mode)
+         * Provide original findings + new diff since last review
+         * Unchanged chunks retain their previous verdict
+       - Aggregate again: if still HAS_FINDINGS, loop (up to circuit breaker)
+     * If user chooses "skip": proceed to DOCUMENT as-is, log D-ORCH decision
+     * If user chooses "discuss": enter interactive discussion about findings
+   - CIRCUIT BREAKER: Max 2 PR review rounds. After round 2, if still HAS_FINDINGS:
+     "PR review round 2 still has findings: [list]. Options:
+     [fix and skip re-review] [ship as-is] [debug together]"
+   - Update task-status.json: tickets.pr.reviewRounds, tickets.pr.reviewStatus
+   - Clean up temp files: remove docs/state/pr-review/ directory after completion
+15. [DOCUMENT] Document decisions and update project docs (on feature branch, part of PR):
    - Update state: phase = "DOCUMENT_IN_PROGRESS"
+   - NOTE: After PR review fixes (if any), documentation should include PR review findings
+     that were addressed — append to docs/state/decisions.md under "## PR Review Phase".
    - Documentation happens on the feature branch so it becomes part of the PR
    - Launch documenter agent with explicit handoff context:
      * Feature name: <feature>
@@ -565,14 +627,14 @@ YOUR PROCESS (Standard):
      * If verification fails: log to blockers.json, ask user how to proceed
    - Create documentation checkpoint: git add docs/ && git commit -m "docs: document <feature> decisions"
    - Update state: phase = "DOCUMENT_COMPLETE"
-15. [COMPLETION] If tickets.enabled: Launch ticket-manager (COMPLETION
+16. [COMPLETION] If tickets.enabled: Launch ticket-manager (COMPLETION
    SUMMARY) with feature name, task-status.json path, plan path, and PR URL. Ticket-manager
    posts the completion summary with PR link. Does NOT set any tickets to "Done" — that happens
    automatically when the PR is merged (via Linear's GitHub integration or manually).
    Summary includes: "PR created: <url>. Merge the PR to complete this work."
-16. [CLEANUP] Clean up state files: move docs/state/decisions.md to docs/state/archive/<feature>-decisions.md
+17. [CLEANUP] Clean up state files: move docs/state/decisions.md to docs/state/archive/<feature>-decisions.md
     (or delete it). This prevents ID collisions if the next feature reuses IDs like D-CLARIFY-001.
-17. [REPORT] Report completion to user
+18. [REPORT] Report completion to user
 
 ENHANCED TASK STATUS SCHEMA:
 
@@ -666,7 +728,10 @@ The task-status.json file includes a top-level tickets section:
         "worktrees": {},
         "pr": {
           "url": null,
-          "number": null
+          "number": null,
+          "reviewStatus": null,
+          "reviewRounds": 0,
+          "reviewChunks": []
         },
         "sourceTicket": null,
         "mapping": {
@@ -684,6 +749,9 @@ The task-status.json file includes a top-level tickets section:
 - tickets.worktrees: Maps task IDs to worktree paths and branches for parallel work.
 - tickets.pr.url: PR URL after creation. null until CREATE PR step.
 - tickets.pr.number: PR number after creation. null until CREATE PR step.
+- tickets.pr.reviewStatus: "pending" | "approved" | "skipped". Set during PR_REVIEW phase.
+- tickets.pr.reviewRounds: Number of PR review rounds completed (0 until PR_REVIEW runs).
+- tickets.pr.reviewChunks: Array of chunk descriptors [{files: [...], lines: N}] used during PR_REVIEW.
 - tickets.sourceTicket: Set in TICKET workflow. When present, all tasks map to
   this ticket and individual completions are progress comments. null otherwise.
 - tickets.mapping: Persists ticket IDs for resume-safety. On resume, the
