@@ -216,10 +216,14 @@ git checkout -b <tickets.branch>/TXXX-<task-slug>
 ```
 
 For Setup tasks:
+- If tickets enabled: Launch `lemongrab:ticket-manager` in UPDATE STATUS mode — mark task "In Progress"
 - Execute directly (mkdir, config files, etc.)
-- Git checkpoint, mark complete, continue
+- Git checkpoint, mark complete
+- If tickets enabled: Launch `lemongrab:ticket-manager` in TASK COMPLETE + LINK COMMIT mode
+- Continue
 
 For Test/Implement tasks:
+0. **Ticket update (if tickets enabled):** Launch `lemongrab:ticket-manager` in UPDATE STATUS mode — mark task "In Progress"
 1. Launch `lemongrab:test-writer` with task details from the plan
 2. Activate the `running-verifications` skill, then run `verify-manifest-coverage.sh` (re-launch if fail)
 3. Launch `lemongrab:implementer` with task details
@@ -238,12 +242,14 @@ For Test/Implement tasks:
 9. If approved: Launch `lemongrab:simplifier`
 10. Git checkpoint: `git commit -m "checkpoint: [TXXX] <description>"`
 11. Update task-status.json, mark task complete
-12. **Per-task PR (if tickets.branching = "per-task"):**
+12. **Ticket update (if tickets enabled):** Launch `lemongrab:ticket-manager` in TASK COMPLETE + LINK COMMIT mode — post progress comment with commit hash
+13. **Per-task PR (if tickets.branching = "per-task"):**
     - Push task branch: `git push -u origin <task-branch>`
     - Create task PR via ticket-manager (CREATE TASK PR mode) against integration branch
     - **Gate: TASK_PR** — "PR #N for [TXXX] created. [merge and continue] [review first] [skip PR]"
     - Merge: `gh pr merge <N> --squash --delete-branch`
     - Return: `git checkout <tickets.branch> && git pull origin <tickets.branch>`
+
 
 **Gate: FIRST_CYCLE_REVIEW (after task 1 only)**
 Use AskUserQuestion: "CHECKPOINT: FIRST_CYCLE_REVIEW — First task complete.
