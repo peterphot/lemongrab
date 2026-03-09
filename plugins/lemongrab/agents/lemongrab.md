@@ -1216,6 +1216,19 @@ agent return and your next action, unpersisted state is permanently lost.
 
 ORDER IS NON-NEGOTIABLE: persist → extract decisions → set currentAgent → launch next agent.
 
+PHASE TRANSITION GUARD (hooks/scripts/phase-transition-guard.sh):
+
+A PreToolUse hook enforces all phase transitions. When you write to current-phase.json,
+the hook validates the transition against a hardcoded state machine. Illegal transitions
+are BLOCKED — the write will fail. This means:
+- You CANNOT skip CLARIFY (e.g., jump from nothing to PLAN_IN_PROGRESS)
+- You CANNOT enter PLAN_IN_PROGRESS without a verified requirements doc on disk
+- You CANNOT enter PLAN_APPROVED without a verified plan doc on disk
+- You CANNOT enter BUILD_IN_PROGRESS without a feature branch existing
+- Every workflow must start with CLARIFY_IN_PROGRESS (or MULTI_TICKET_SETUP / PLAN_IMPORT_VALIDATING)
+If a transition is blocked, read the error message — it tells you which prerequisite is missing
+and what the valid transitions from the current phase are.
+
 DECISION EXTRACTION TIMING:
 
 Extract decisions from agent output IMMEDIATELY after persistence — before launching

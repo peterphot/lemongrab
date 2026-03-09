@@ -12,7 +12,7 @@ Lemongrab turns Claude Code into a disciplined engineering team. Instead of one 
 
 You type one command. Lemongrab handles the rest: asking you questions, writing tests, implementing code, running parallel reviews, simplifying, creating PRs, and documenting decisions. You stay in control through explicit approval gates at every major checkpoint.
 
-**17 agents. 20 skills. 5 slash commands. 10 automation hooks. Zero assumptions.**
+**17 agents. 20 skills. 5 slash commands. 11 automation hooks. Zero assumptions.**
 
 ---
 
@@ -864,7 +864,7 @@ Skills are reusable domain knowledge that agents load automatically. You don't i
 
 ## Automation Hooks
 
-Lemongrab ships with 10 automation hooks that enforce workflow discipline at the shell level. These activate automatically — no configuration needed.
+Lemongrab ships with 11 automation hooks that enforce workflow discipline at the shell level. These activate automatically — no configuration needed.
 
 ### Workflow Hooks
 
@@ -873,6 +873,7 @@ Lemongrab ships with 10 automation hooks that enforce workflow discipline at the
 | `SessionStart` | `verify-environment.sh` | Checks git/gh CLI, plugin status, MCP servers, detects interrupted workflows |
 | `PreToolUse [Bash]` | `pre-commit-guard.sh` | Runs tests and linter on changed files before any git commit |
 | `PreToolUse [Write\|Edit]` | `agent-boundaries.sh` | Blocks file writes that violate agent boundaries |
+| `PreToolUse [Write\|Edit]` | `phase-transition-guard.sh` | Enforces legal phase transitions via state machine |
 | `PostToolUse [Edit\|Write]` | `auto-format.sh` | Auto-formats files with prettier/black/gofmt/rustfmt based on file type |
 | `PostToolUse [Bash]` | `checkpoint-tracker.sh` | Captures git commit hashes in task-status.json for rollback |
 
@@ -885,6 +886,20 @@ Lemongrab ships with 10 automation hooks that enforce workflow discipline at the
 | `verify-manifest-coverage.sh` | Coverage manifest maps all acceptance criteria to tests |
 | `verify-test-integrity.sh` | Implementer didn't modify test files during implementation |
 | `verify-state-consistency.sh` | State files (current-phase.json, task-status.json) are consistent |
+
+### Phase Transition Guard
+
+The `phase-transition-guard.sh` hook enforces a hardcoded state machine on all writes to `current-phase.json`. Claude cannot skip workflow phases.
+
+| Rule | Effect |
+|------|--------|
+| Every workflow must start with `CLARIFY_IN_PROGRESS` | Cannot jump straight to planning or building |
+| `PLAN_IN_PROGRESS` requires verified requirements doc | `verify-requirements.sh` must pass on `docs/requirements/<feature>.md` |
+| `PLAN_APPROVED` requires verified plan doc | `verify-plan-structure.sh` must pass on `docs/plans/<feature>.md` |
+| `BUILD_IN_PROGRESS` requires feature branch to exist | Branch must be created before code is written |
+| 35 valid transitions defined | Any transition not in the table is blocked with an error message |
+
+If a transition is blocked, the error message tells you the current phase, the attempted phase, and the list of valid transitions.
 
 ### Agent Boundary Enforcement
 
@@ -1097,12 +1112,13 @@ lemongrab/
 │       │   ├── systematic-debugging/
 │       │   ├── using-git-worktrees/
 │       │   └── verifying-before-completion/
-│       ├── hooks/                  # 10 automation hooks
+│       ├── hooks/                  # 11 automation hooks
 │       │   ├── hooks.json
 │       │   └── scripts/
 │       │       ├── verify-environment.sh
 │       │       ├── pre-commit-guard.sh
 │       │       ├── agent-boundaries.sh
+│       │       ├── phase-transition-guard.sh
 │       │       ├── auto-format.sh
 │       │       ├── checkpoint-tracker.sh
 │       │       ├── verify-requirements.sh
@@ -1162,7 +1178,7 @@ These unlock additional workflow types but are NOT required for core functionali
 | **Resumable** | Session interrupted? `/resume` picks up exactly where it left off. No lost work. |
 | **Documented decisions** | Captures WHY decisions were made, not just WHAT was built. Future-you will thank present-you. |
 | **Language agnostic** | Works with any language Claude Code supports — TypeScript, Python, Rust, Go, Ruby, etc. |
-| **Shell-level enforcement** | Agent boundary hooks are impossible for Claude to bypass. The test writer literally cannot write production code. |
+| **Shell-level enforcement** | Agent boundary and phase transition hooks are impossible for Claude to bypass. The test writer literally cannot write production code, and the orchestrator cannot skip workflow phases. |
 | **You stay in control** | 7 explicit approval gates. Nothing major happens without your "yes." |
 | **Structured output** | Requirements, plans, manifests, decisions — all in organized docs/ directories. |
 
@@ -1337,6 +1353,14 @@ Check that `docs/state/current-phase.json` exists. If the docs/ directory was de
 ### "The agent-boundaries hook is blocking my writes"
 
 The hook reads `currentAgent` from `docs/state/current-phase.json`. If this file is stale or wrong, the hook may incorrectly block writes. Fix the state file or delete it to reset.
+
+### "The phase-transition-guard is blocking a phase change"
+
+The guard enforces a strict state machine. If it blocks a transition, the error message tells you the valid transitions from the current phase. Common causes:
+
+- **Skipped clarification**: The orchestrator tried to jump to planning without completing requirements gathering. Every workflow must go through `CLARIFY_IN_PROGRESS → CLARIFY_COMPLETE` first.
+- **Missing artifacts**: Can't enter `PLAN_IN_PROGRESS` without a verified requirements doc, or `PLAN_APPROVED` without a verified plan doc.
+- **Stale state file**: If `docs/state/current-phase.json` is left over from a previous run, delete it to start fresh.
 
 ### "I want to use Lemongrab but only for part of the workflow"
 
