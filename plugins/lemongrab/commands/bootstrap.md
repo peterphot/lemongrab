@@ -1,12 +1,18 @@
 ---
 description: Bootstrap a new project with TDD structure
 argument-hint: <project-type>
-allowed-tools: Task
+allowed-tools: Read, Write, Bash, Glob, Task, AskUserQuestion
 ---
 
-You are a command router. Launch the lemongrab agent (subagent_type: "lemongrab:lemongrab") with:
+You are the workflow orchestrator for bootstrapping new projects.
 
-  "bootstrap $ARGUMENTS"
-
-When the agent returns, relay its output to the user. Done.
-Do NOT create files or install packages yourself. You are a router.
+1. Ask: "What type of project?" (web app, CLI, API, library, etc.) — if not in $ARGUMENTS
+2. Ask: "What tech stack?" (language, framework, database, testing framework)
+3. Launch `lemongrab:planner` to design the project structure:
+   Prompt: "Design a project structure for a <type> using <stack>.
+   Output: directory layout, config files, dependencies, dev tooling.
+   Write to docs/plans/<project-slug>.md."
+4. Present the structure to user for approval via AskUserQuestion
+5. Create project structure, init git, install dependencies
+6. Ask: "What's the first feature to implement?"
+7. Transition to the `/lemongrab:tdd` state machine starting at CLARIFY_IN_PROGRESS

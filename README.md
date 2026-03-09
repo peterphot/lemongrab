@@ -995,6 +995,41 @@ git reset --hard e4f5g6h
 
 ## Orchestration Patterns
 
+### Phase-Per-Task Model (v2.1)
+
+The `/tdd` command runs a state machine loop in the main conversation context, launching one specialist agent per phase. User approval gates happen directly in the conversation — not buried inside a sub-agent.
+
+```
+/tdd command (main context — state machine loop)
+  │
+  ├─ Task: analyzer        → fetch PRD/RFC/ticket, write draft requirements
+  ├─ Task: clarifier       → ask user questions, validate requirements
+  │    ← REQUIREMENTS_REVIEW gate (user approves)
+  ├─ Task: designer        → 2-3 approaches (MEDIUM+ only)
+  │    ← DESIGN_SELECTION gate (user picks)
+  ├─ Task: Plan explorer   → codebase analysis
+  ├─ Task: planner         → write plan
+  │    ← PLAN_APPROVAL gate (user approves/modifies/rejects)
+  ├─ Task: ticket-manager  → create tickets (optional)
+  │    ← PLAN_ONLY exits here
+  │
+  ├─ BUILD LOOP (per task):
+  │   ├─ Task: test-writer → failing tests
+  │   ├─ Task: implementer → make tests pass
+  │   ├─ Tasks: 4 parallel reviewers
+  │   │    ← PRE_SIMPLIFY gate (user approves)
+  │   ├─ Task: simplifier  → clean up
+  │   │    ← FIRST_CYCLE_REVIEW gate (task 1 only)
+  │   └─ git checkpoint
+  │
+  ├─ Task: coherence-reviewer (MEDIUM+ only)
+  │    ← PRE_PR gate (user approves)
+  ├─ Task: ticket-manager  → create PR
+  └─ Task: documenter      → record decisions
+```
+
+This replaced the previous single-Task model where the entire workflow ran inside one sub-agent. The phase-per-Task model ensures user gates are never skipped due to context budget limits.
+
 ### Standard Pattern (Default)
 
 Tasks execute sequentially, one at a time. Simple and predictable. Used for most features.
