@@ -137,7 +137,10 @@ Options: [approve] [modify: describe changes] [reject: explain concern]"
 IMPORTANT: Plan approval is NOT the end of the workflow — even in PLAN_ONLY mode.
 After approval, always proceed to TICKET_SETUP. The PLAN_ONLY exit happens AFTER tickets.
 
-### Phase: PLAN_APPROVED → TICKETS
+### Phase: PLAN_APPROVED — STEP 1: TICKET_SETUP (MANDATORY — runs before PLAN_ONLY check)
+
+This step runs for ALL modes (FULL and PLAN_ONLY). Tickets are created BEFORE
+the PLAN_ONLY exit check. Do NOT skip this step. Do NOT check PLAN_ONLY yet.
 
 **Gate: TICKET_SETUP**
 
@@ -157,7 +160,7 @@ If user chooses Linear tickets, ask a follow-up:
 "Which Linear team should the tickets be created in?
 [List teams if available, or ask user to type the team name/key]"
 
-Then launch `lemongrab:ticket-manager` in CREATE mode with:
+If user chose Linear or local: launch `lemongrab:ticket-manager` in CREATE mode with:
 - Ticket type: "linear" or "local"
 - Linear team (if applicable)
 - Plan file path: docs/plans/<slug>.md
@@ -169,16 +172,20 @@ Update task-status.json with:
 - tickets.linearTeam = "<team-key>" (if Linear)
 - tickets.mapping = { task-id: ticket-id } (populated by ticket-manager)
 
-**PLAN_ONLY EXIT:**
+### Phase: PLAN_APPROVED — STEP 2: MODE CHECK (after tickets are done)
+
+NOW check the mode:
+
 If MODE = PLAN_ONLY:
-- Update phase → PLAN_APPROVED (keep)
 - Present completion summary:
   * Requirements: docs/requirements/<slug>.md
   * Plan: docs/plans/<slug>.md (task count, file count)
-  * Tickets: list if created, or "none"
+  * Tickets: list ticket IDs/URLs if created, or "none"
   * Design: docs/designs/<slug>.md (if applicable)
 - Tell user: "Plan-only mode complete. Run `/lemongrab:resume <slug>` to start building."
-- EXIT the loop.
+- EXIT the loop. Do NOT proceed to BRANCH_SETUP.
+
+If MODE = FULL: continue to BRANCH_SETUP below.
 
 ### Phase: PLAN_APPROVED → BRANCH_SETUP (FULL mode only)
 
