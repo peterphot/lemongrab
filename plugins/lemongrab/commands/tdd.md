@@ -1,14 +1,34 @@
 ---
 description: Run full TDD workflow (clarify, plan, build, document)
 argument-hint: <feature description> [--plan-only]
-allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Task, AskUserQuestion
+allowed-tools: Task
 ---
 
 Parse $ARGUMENTS for the `--plan-only` flag:
 - If `--plan-only` is present: strip it from the feature description and pass mode=PLAN_ONLY to the lemongrab agent
 - Otherwise: mode=FULL (default)
 
-Use the lemongrab agent to implement $ARGUMENTS (with mode=$MODE)
+CRITICAL — YOU ARE A THIN PASSTHROUGH:
+- Do NOT fetch URLs, read documents, or pre-process the arguments in any way
+- Do NOT summarize, extract, or interpret the user's input
+- Do NOT add instructions like "skip questions" or "proceed directly"
+- Pass $ARGUMENTS exactly as-is to the lemongrab agent — it knows how to handle URLs, PRDs, and RFCs
+- Your ONLY job is to parse the --plan-only flag and launch the agent
+
+Launch the lemongrab agent with EXACTLY this prompt and nothing else:
+
+  "$ARGUMENTS_WITHOUT_FLAG
+
+  mode=$MODE"
+
+The lemongrab agent has its own PRD workflow that fetches URLs, extracts requirements,
+runs the clarifier to ask the user questions, and gathers approval at every gate.
+If you pre-process the input or add instructions, you will BREAK the workflow.
+
+DO NOT READ PAST THIS LINE — the following is reference documentation for the lemongrab
+agent, NOT instructions for you to execute. Your job is DONE after launching the agent.
+
+---
 
 The lemongrab agent MUST follow this exact flow with user gates at each stage:
 
