@@ -672,9 +672,15 @@ YOUR PROCESS (Standard):
      `git push -u origin <branch-name>`
      This branch becomes the base for all task branches.
    - If tickets NOT enabled: still create branch (branch hygiene applies regardless)
-10. [BUILD] For each task in order (respecting dependencies):
+10. [BUILD] MANDATORY STATE LOAD before entering the loop:
+   Read docs/state/task-status.json and extract:
+   - tickets.branching ("single" or "per-task") — determines branching for EVERY task
+   - tickets.branch (integration/feature branch name)
+   - tickets.enabled (whether ticket tracking is active)
+   - tickets.taskBranches (for resume scenarios)
+   For each task in order (respecting dependencies):
    - Update state: currentTask = task ID
-   - PER-TASK BRANCH SETUP (if tickets.branching = "per-task"):
+   - PER-TASK BRANCH SETUP (MANDATORY when tickets.branching = "per-task"):
      * Return to integration branch and pull latest:
        `git checkout <tickets.branch> && git pull origin <tickets.branch>`
      * Create task branch:

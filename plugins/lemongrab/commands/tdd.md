@@ -204,16 +204,26 @@ If MODE = FULL: continue to BRANCH_SETUP below.
 ### Phase: BRANCH_CREATED → BUILD
 
 Update phase → BUILD_IN_PROGRESS.
-Read the plan to get the ordered task list.
+
+**MANDATORY STATE LOAD (do this BEFORE entering the loop):**
+Read `docs/state/task-status.json` and extract:
+- `tickets.branching` — "single" or "per-task" (determines branching behavior for EVERY task)
+- `tickets.branch` — the integration/feature branch name
+- `tickets.enabled` — whether ticket tracking is active
+- `tickets.taskBranches` — any already-created task branches (for resume scenarios)
+
+Read the plan (`docs/plans/<slug>.md`) to get the ordered task list.
 
 **BUILD LOOP — for each task in dependency order:**
 
-**Per-task branch setup (if tickets.branching = "per-task"):**
-Before each task, return to integration branch and create a task branch:
+**Per-task branch setup (MANDATORY when tickets.branching = "per-task"):**
+Before EVERY task, return to integration branch and create a task branch:
 ```
 git checkout <tickets.branch> && git pull origin <tickets.branch>
 git checkout -b <tickets.branch>/TXXX-<task-slug>
 ```
+Store in task-status.json: `tickets.taskBranches.TXXX.branch = "<branch-name>"`
+If this step is skipped, the per-task PR at step 14 will fail.
 
 For Setup tasks:
 - If tickets enabled: Launch `lemongrab:ticket-manager` in UPDATE STATUS mode — mark task "In Progress"

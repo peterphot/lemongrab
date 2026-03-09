@@ -74,6 +74,7 @@ of mode.
 → If tickets.branching = "per-task": verify integration branch exists on remote too
 
 **If phase = BUILD_IN_PROGRESS:**
+→ Re-read tickets.branching from task-status.json ("single" or "per-task") — this determines ALL branch behavior
 → Find current task from task-status.json, resume its TDD cycle
 → Verify feature branch exists: `git branch --list <branch>` then checkout
 → If task has tests but no implementation: launch implementer
