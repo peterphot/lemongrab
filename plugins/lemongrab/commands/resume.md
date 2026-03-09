@@ -22,41 +22,80 @@ STEP 1: READ STATE
 3. Read docs/state/task-status.json for task progress
 4. Extract: phase, feature name, mode, workflow type
 5. Apply mode override: if MODE_OVERRIDE is PLAN_ONLY, set mode to PLAN_ONLY in
-   current-phase.json (overrides whatever was stored). This lets users resume in
-   plan-only mode even if the original run didn't set it, or switch from FULL to
-   PLAN_ONLY to stop after tickets.
+   current-phase.json (overrides whatever was stored).
 
-STEP 2: RESUME
+STEP 2: DISPATCH ON PHASE
 
-Enter the state machine loop defined in the `/lemongrab:tdd` command at the phase
-read from current-phase.json. Use the resume table below to determine the entry point:
+Read the "phase" field from current-phase.json. Execute EXACTLY the action for that
+phase value. Do NOT interpret the mode or make decisions — just follow the dispatch.
 
-| Phase in current-phase.json | Resume Point |
-|---|---|
-| CLARIFY_IN_PROGRESS | Re-launch clarifier (reads draft from docs/requirements/) |
-| CLARIFY_COMPLETE | Present REQUIREMENTS_REVIEW gate to user |
-| DESIGN_IN_PROGRESS | Re-launch designer |
-| DESIGN_COMPLETE | Proceed to EXPLORE + PLAN |
-| PLAN_IN_PROGRESS | Re-launch planner with exploration context |
-| PLAN_COMPLETE | Present PLAN_APPROVAL gate to user |
-| PLAN_APPROVED | Transition to TICKETS_PENDING, run TICKET_SETUP gate |
-| TICKETS_PENDING | Run TICKET_SETUP gate (ask Linear/local/none) |
-| TICKETS_COMPLETE | Check mode: PLAN_ONLY → exit summary, FULL → BRANCH_SETUP |
-| BRANCH_CREATED | Verify branch exists, proceed to BUILD |
-| BUILD_IN_PROGRESS | Find current task from task-status.json, resume its TDD cycle |
-| BUILD_COMPLETE | Proceed to COHERENCE_REVIEW |
-| COHERENCE_REVIEW_IN_PROGRESS | Re-launch coherence-reviewer |
-| COHERENCE_REVIEW_COMPLETE | Present PRE_PR gate |
-| PR_CREATED | Proceed to DOCUMENT |
-| DOCUMENT_IN_PROGRESS | Re-launch documenter |
-| DOCUMENT_COMPLETE | Present final summary |
+The --plan-only flag has NO effect on dispatch. It is stored in the state file and
+only checked at TICKETS_COMPLETE. Every other phase executes identically regardless
+of mode.
 
-For BUILD_IN_PROGRESS resumes:
-- Verify feature branch exists: `git branch --list <branch>` then checkout
-- Read task-status.json to find current task and its sub-step
-- If task has tests but no implementation: launch implementer
-- If task has implementation but no review: launch reviewers
-- If task is complete: advance to next task
+**If phase = CLARIFY_IN_PROGRESS:**
+→ Re-launch clarifier (reads draft from docs/requirements/)
+
+**If phase = CLARIFY_COMPLETE:**
+→ Present REQUIREMENTS_REVIEW gate to user via AskUserQuestion
+
+**If phase = DESIGN_IN_PROGRESS:**
+→ Re-launch designer
+
+**If phase = DESIGN_COMPLETE:**
+→ Proceed to EXPLORE + PLAN
+
+**If phase = PLAN_IN_PROGRESS:**
+→ Re-launch planner with exploration context
+
+**If phase = PLAN_COMPLETE:**
+→ Present PLAN_APPROVAL gate to user via AskUserQuestion
+
+**If phase = PLAN_APPROVED:**
+→ Update phase to TICKETS_PENDING in current-phase.json, then fall through to TICKETS_PENDING
+
+**If phase = TICKETS_PENDING:**
+→ Present TICKET_SETUP gate to user via AskUserQuestion:
+  "CHECKPOINT: TICKET_SETUP — Plan has X tasks. How would you like to track them?
+  1. Linear tickets  2. Local tickets  3. No tickets — Choose [1] [2] [3]:"
+→ If Linear: ask which team, launch ticket-manager
+→ If Local: launch ticket-manager
+→ If None: record tickets.enabled = false
+→ Update phase to TICKETS_COMPLETE in current-phase.json
+→ Then fall through to TICKETS_COMPLETE
+
+**If phase = TICKETS_COMPLETE:**
+→ Check the mode field in current-phase.json:
+  - If PLAN_ONLY: present completion summary, update phase → COMPLETE, exit
+  - If FULL: proceed to BRANCH_SETUP → BUILD
+
+**If phase = BRANCH_CREATED:**
+→ Verify branch exists, proceed to BUILD
+
+**If phase = BUILD_IN_PROGRESS:**
+→ Find current task from task-status.json, resume its TDD cycle
+→ Verify feature branch exists: `git branch --list <branch>` then checkout
+→ If task has tests but no implementation: launch implementer
+→ If task has implementation but no review: launch reviewers
+→ If task is complete: advance to next task
+
+**If phase = BUILD_COMPLETE:**
+→ Proceed to COHERENCE_REVIEW
+
+**If phase = COHERENCE_REVIEW_IN_PROGRESS:**
+→ Re-launch coherence-reviewer
+
+**If phase = COHERENCE_REVIEW_COMPLETE:**
+→ Present PRE_PR gate
+
+**If phase = PR_CREATED:**
+→ Proceed to DOCUMENT
+
+**If phase = DOCUMENT_IN_PROGRESS:**
+→ Re-launch documenter
+
+**If phase = DOCUMENT_COMPLETE:**
+→ Present final summary
 
 Follow the same state machine loop, user gates, and verification scripts as
 `/lemongrab:tdd`. All checkpoints (REQUIREMENTS_REVIEW, PLAN_APPROVAL, PRE_SIMPLIFY,
@@ -66,3 +105,5 @@ CRITICAL RULES:
 - NEVER skip user gates on resume — they are just as mandatory as on first run
 - NEVER re-do completed work — check task-status.json before launching agents
 - ALWAYS verify state consistency before resuming
+- The --plan-only flag does NOT mean "the workflow is done" — it only affects behavior at TICKETS_COMPLETE
+- If the phase is TICKETS_PENDING, you MUST ask the user about ticket tracking before doing anything else
