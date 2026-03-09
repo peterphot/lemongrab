@@ -12,7 +12,7 @@ Lemongrab turns Claude Code into a disciplined engineering team. Instead of one 
 
 You type one command. Lemongrab handles the rest: asking you questions, writing tests, implementing code, running parallel reviews, simplifying, creating PRs, and documenting decisions. You stay in control through explicit approval gates at every major checkpoint.
 
-**17 agents. 20 skills. 5 slash commands. 11 automation hooks. Zero assumptions.**
+**17 agents. 20 skills. 6 slash commands. 11 automation hooks. Zero assumptions.**
 
 ---
 
@@ -176,7 +176,7 @@ What happens next:
 
 There are **three ways** to start a Lemongrab workflow:
 
-### 1. Slash Commands (5 commands)
+### 1. Slash Commands (6 commands)
 
 The most common way. Type these directly in Claude Code.
 
@@ -241,6 +241,28 @@ The most common way. Type these directly in Claude Code.
 /bootstrap react-app
 /bootstrap python-cli
 ```
+
+#### `/pr-review <PR-URL-or-number> [--base <branch>] [--fix]`
+
+**What it does:** Runs a chunked PR review as a standalone operation, outside the workflow state machine. Useful for reviewing PRs independently, recovering from a workflow that skipped PR review, or re-reviewing after manual changes.
+
+```
+# Review by PR number
+/pr-review 1
+
+# Review by URL
+/pr-review https://github.com/org/repo/pull/42
+
+# Review and offer to fix findings
+/pr-review 1 --fix
+
+# Auto-detect PR from workflow state (if docs/state/task-status.json exists)
+/pr-review
+```
+
+**How it works:** Fetches the PR diff, chunks it into logical units (~200-300 lines each), launches parallel pr-reviewer agents per chunk, then aggregates findings by severity (CRITICAL/WARNING/NIT). With `--fix`, it offers to apply fixes and re-review changed chunks (max 2 rounds).
+
+**Does NOT** modify workflow state or move Linear tickets — it operates entirely outside the state machine.
 
 #### `/resume <feature-name> [--plan-only]`
 
@@ -1134,11 +1156,12 @@ lemongrab/
 │       │   ├── documenter.md       #   Decision documenter
 │       │   ├── qa-engineer.md      #   E2E browser testing
 │       │   └── ticket-manager.md   #   Work item tracking
-│       ├── commands/               # 5 slash commands
+│       ├── commands/               # 6 slash commands
 │       │   ├── tdd.md
 │       │   ├── analyze.md
 │       │   ├── ticket.md
 │       │   ├── bootstrap.md
+│       │   ├── pr-review.md        #   Standalone PR review
 │       │   └── resume.md
 │       ├── skills/                 # 20 reusable domain skills
 │       │   ├── analyzing-codebases/
