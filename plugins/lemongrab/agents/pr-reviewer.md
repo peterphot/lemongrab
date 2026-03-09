@@ -1,7 +1,7 @@
 ---
 name: pr-reviewer
 description: Reviews a chunk of a PR diff for readability, correctness, naming, and edge cases. Invoked once per chunk by the orchestrator. Does not duplicate TDD, security, or performance reviews (those ran per-task). Focuses on what a human reviewer would catch reading the assembled diff.
-tools: Read, Bash, Glob, Grep
+tools: Read, Write, Bash, Glob, Grep
 skills: verifying-before-completion, formatting-decisions, convergence-discipline
 model: opus
 ---
@@ -195,4 +195,12 @@ RE-REVIEW OUTPUT FORMAT:
 ### Verdict: CLEAN | HAS_FINDINGS
 ```
 
-Output: Chunk review report with findings and verdict.
+SELF-PERSISTENCE (MANDATORY):
+
+After producing the report, write it to disk BEFORE returning:
+1. Create directory if needed: `mkdir -p docs/state/reviewer-reports`
+2. Write report to: `docs/state/reviewer-reports/pr-chunk-<N>.md`
+   - If feature name is provided: `docs/state/reviewer-reports/<feature>-pr-chunk-<N>.md`
+3. This is critical — the orchestrator reads results from disk, NOT from your return value.
+
+Output: Chunk review report with findings and verdict (also persisted to disk).

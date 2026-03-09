@@ -63,17 +63,24 @@ Group files into logical review chunks:
 
 STEP 5: PARALLEL CHUNK REVIEW
 
-For each chunk, launch lemongrab:pr-reviewer agent in parallel with:
+For each chunk, launch lemongrab:pr-reviewer agent in parallel using the Agent tool with:
 - Chunk number and total chunks
 - Chunk file list
-- Chunk diff (read from temp file)
+- Chunk diff (read from temp file and included in the prompt)
 - Feature name, requirements doc path, plan doc path (if available from step 2)
 
-Wait for all chunk reviewers to complete.
+Launch ALL chunk agents in a SINGLE message (parallel Agent calls). Use run_in_background: true.
+Each pr-reviewer agent self-persists its report to: docs/state/reviewer-reports/<feature>-pr-chunk-<N>.md
+(or docs/state/reviewer-reports/pr-chunk-<N>.md if no feature name).
+
+Wait for all agents to complete (you will be notified automatically).
+
+IMPORTANT: Do NOT use TaskOutput to read agent results. The agents write to disk.
 
 STEP 6: AGGREGATE AND PRESENT
 
-1. Collect all findings across chunks
+1. Read all chunk reports from docs/state/reviewer-reports/pr-chunk-*.md
+2. Collect all findings across chunks
 2. Count by severity: CRITICAL, WARNING, NIT
 3. Collect any [CROSS-REF] notes
 

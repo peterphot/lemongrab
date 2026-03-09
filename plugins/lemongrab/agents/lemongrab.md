@@ -874,9 +874,11 @@ YOUR PROCESS (Standard):
      * Chunk file list
      * Chunk diff file path: docs/state/pr-review/chunk-<N>.diff
      * Feature name, requirements doc path, plan doc path
-     * Launch chunks in PARALLEL (all at once) for efficiency
-   - Wait for all chunk reviewers to complete
-   - Save chunk reports to docs/state/reviewer-reports/<feature>-pr-chunk-<N>.md
+     * Launch chunks in PARALLEL (all at once) using Agent tool with run_in_background: true
+   - Wait for all chunk reviewers to complete (you will be notified automatically)
+   - IMPORTANT: Do NOT use TaskOutput to read agent results. Each pr-reviewer agent
+     self-persists its report to docs/state/reviewer-reports/<feature>-pr-chunk-<N>.md.
+   - Read chunk reports from disk: docs/state/reviewer-reports/<feature>-pr-chunk-*.md
    - AGGREGATE FINDINGS:
      * Collect all CRITICAL and WARNING findings across chunks
      * Collect any [CROSS-REF] notes and log for user visibility
