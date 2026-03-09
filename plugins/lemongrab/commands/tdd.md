@@ -51,7 +51,7 @@ After each Task completes, update the phase in current-phase.json, then loop bac
    Prompt: "Validate the extracted requirements in docs/requirements/<slug>.md.
    Ask the user questions about gaps, edge cases, scope boundaries, and testable criteria.
    You MUST ask at least one question via AskUserQuestion."
-4. Run: `bash plugins/lemongrab/hooks/scripts/verify-requirements.sh docs/requirements/<slug>.md`
+4. Activate the `running-verifications` skill, then run `verify-requirements.sh docs/requirements/<slug>.md`
    - If FAIL: tell user what's missing, re-launch clarifier
    - If PASS: update phase → CLARIFY_COMPLETE
 
@@ -111,7 +111,7 @@ Determine feature size from requirements (count expected tasks: SMALL=1-3, MEDIU
    Exploration context: docs/state/exploration-context.md
    [If design was run: Selected approach from docs/designs/<slug>.md]
    Write the plan to docs/plans/<slug>.md."
-5. Run: `bash plugins/lemongrab/hooks/scripts/verify-plan-structure.sh docs/plans/<slug>.md`
+5. Activate the `running-verifications` skill, then run `verify-plan-structure.sh docs/plans/<slug>.md`
    - If FAIL: re-launch planner with failure output (max 2 retries, then ask user)
    - If PASS: update phase → PLAN_COMPLETE
 
@@ -221,9 +221,9 @@ For Setup tasks:
 
 For Test/Implement tasks:
 1. Launch `lemongrab:test-writer` with task details from the plan
-2. Run: `bash plugins/lemongrab/hooks/scripts/verify-manifest-coverage.sh` (re-launch if fail)
+2. Activate the `running-verifications` skill, then run `verify-manifest-coverage.sh` (re-launch if fail)
 3. Launch `lemongrab:implementer` with task details
-4. Run: `bash plugins/lemongrab/hooks/scripts/verify-test-integrity.sh` (TDD violation if fail)
+4. Activate the `running-verifications` skill, then run `verify-test-integrity.sh` (TDD violation if fail)
 5. Launch parallel reviewers (all in one message):
    - `lemongrab:reviewer` (TDD + correctness)
    - `lemongrab:spec-reviewer` (requirements fulfillment)

@@ -1160,8 +1160,16 @@ lemongrab/
 │       │   ├── simplifying-code/
 │       │   ├── systematic-debugging/
 │       │   ├── using-git-worktrees/
-│       │   └── verifying-before-completion/
-│       ├── hooks/                  # 11 automation hooks
+│       │   ├── verifying-before-completion/
+│       │   └── running-verifications/  # Verification gate scripts
+│       │       ├── SKILL.md
+│       │       └── scripts/
+│       │           ├── verify-requirements.sh
+│       │           ├── verify-plan-structure.sh
+│       │           ├── verify-manifest-coverage.sh
+│       │           ├── verify-test-integrity.sh
+│       │           └── verify-state-consistency.sh
+│       ├── hooks/                  # 6 automation hooks
 │       │   ├── hooks.json
 │       │   └── scripts/
 │       │       ├── verify-environment.sh
@@ -1169,12 +1177,7 @@ lemongrab/
 │       │       ├── agent-boundaries.sh
 │       │       ├── phase-transition-guard.sh
 │       │       ├── auto-format.sh
-│       │       ├── checkpoint-tracker.sh
-│       │       ├── verify-requirements.sh
-│       │       ├── verify-plan-structure.sh
-│       │       ├── verify-manifest-coverage.sh
-│       │       ├── verify-test-integrity.sh
-│       │       └── verify-state-consistency.sh
+│       │       └── checkpoint-tracker.sh
 │       └── examples/
 │           ├── lemongrab-workflow-walkthrough.md
 │           ├── user-authentication-requirements.md

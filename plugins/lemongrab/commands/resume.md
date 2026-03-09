@@ -17,7 +17,7 @@ STEP 1: READ STATE
 1. Read docs/state/current-phase.json
    - If not found: tell user "No workflow to resume. Use `/lemongrab:tdd <feature>` to start."
    - If found but feature doesn't match $ARGUMENTS: warn user and confirm
-2. Run: `bash plugins/lemongrab/hooks/scripts/verify-state-consistency.sh`
+2. Activate the `running-verifications` skill, then run `verify-state-consistency.sh`
    - If FAIL: report inconsistencies to user, offer to re-run affected tasks
 3. Read docs/state/task-status.json for task progress
 4. Extract: phase, feature name, mode, workflow type

@@ -201,7 +201,7 @@ Use when the user has already written or tweaked a plan and wants to skip clarif
 phases. Jumps straight to plan validation, approval, and build.
 
 1. VALIDATE PLAN - Run plan structure verification:
-   `bash hooks/scripts/verify-plan-structure.sh <plan-path>`
+   Activate the `running-verifications` skill and run `verify-plan-structure.sh <plan-path>`
    - If verification fails: report errors to user. Options:
      (a) Fix the plan manually and retry
      (b) Launch planner to generate a compliant plan from this draft
@@ -425,7 +425,7 @@ When resuming from docs/state/current-phase.json, use this decision table:
 | DOCUMENT_COMPLETE | Resume at COMPLETION SUMMARY |
 
 STATE CONSISTENCY CHECK (run on ALL resumes before doing anything else):
-- Run: `bash hooks/scripts/verify-state-consistency.sh`
+- Activate the `running-verifications` skill, then run `verify-state-consistency.sh`
   This checks that every file claimed in task-status.json (testFiles, implementationFiles,
   manifestFile) actually exists on disk. If it fails, treat the affected tasks as incomplete
   and re-run them from the appropriate sub-step.
@@ -537,7 +537,7 @@ YOUR PROCESS (Standard):
 2. [CLARIFY] Launch the clarifier agent for the requested feature
    - Wait for it to complete (it will ask the user questions)
    - VERIFICATION GATE: Run the verification script:
-     `bash hooks/scripts/verify-requirements.sh docs/requirements/<feature>.md`
+     Activate the `running-verifications` skill, then run `verify-requirements.sh docs/requirements/<feature>.md`
      This checks: required sections (## Edge Cases, ## In Scope / Out of Scope),
      at least one testable AC, and no unresolved [ASSUMPTION:] or [DECISION: BLOCKING:] markers.
    - If verification fails → re-launch clarifier with the script's failure output specifying
@@ -602,7 +602,7 @@ YOUR PROCESS (Standard):
      - Present options to user for selection
    - Verify docs/plans/<feature>.md was created
    - PLAN STRUCTURE VERIFICATION: Run the verification script:
-     `bash hooks/scripts/verify-plan-structure.sh docs/plans/<feature>.md`
+     Activate the `running-verifications` skill, then run `verify-plan-structure.sh docs/plans/<feature>.md`
      This checks: every task has all 5 required sections (SCOPE, AC, VERIFICATION METHOD,
      DONE DEFINITION, DEPENDENCY MAP), ≤3 files per SCOPE, no banned vague phrases in ACs,
      and no unresolved [ASSUMPTION:] or [DECISION: BLOCKING:] markers.
@@ -696,13 +696,13 @@ YOUR PROCESS (Standard):
    - If it's a Test task: launch test-writer agent
      (No decision extraction — test-writer does not emit decisions by design; see test-writer.md)
    - MANIFEST COVERAGE VERIFICATION: After test-writer completes, run:
-     `bash hooks/scripts/verify-manifest-coverage.sh docs/plans/<feature>.md <task-id> docs/manifests/<feature>-<task-id>.md`
+     Activate the `running-verifications` skill, then run `verify-manifest-coverage.sh docs/plans/<feature>.md <task-id> docs/manifests/<feature>-<task-id>.md`
      If it fails (missing AC coverage) → re-launch test-writer with the failure output.
    - If it's an Implement task: launch implementer agent
    - DECISION EXTRACTION: Extract `<!-- DECISIONS -->` block from implementer output (if present)
      and append to docs/state/decisions.md under "## Implement Phase".
    - TEST FILE INTEGRITY CHECK: After implementer completes, run:
-     `bash hooks/scripts/verify-test-integrity.sh docs/state/task-status.json <task-id>`
+     Activate the `running-verifications` skill, then run `verify-test-integrity.sh docs/state/task-status.json <task-id>`
      * If it exits 1 (test files modified): automatic TDD_VIOLATION verdict.
        Do NOT launch reviewers. Restore test files: git checkout -- <test-files>
        Return to test-writer with the script's failure output.
