@@ -129,18 +129,16 @@ My assessment: [honest evaluation of plan quality, risks, over-engineering conce
 
 Options: [approve] [modify: describe changes] [reject: explain concern]"
 
-- If approved: update phase → PLAN_APPROVED, then **continue the loop** to TICKET_SETUP
-  (do NOT exit here — ticket creation comes next regardless of PLAN_ONLY mode)
+- If approved: update phase → PLAN_APPROVED, then continue the loop
 - If modify: re-launch planner with user feedback, return to PLAN_IN_PROGRESS
 - If reject: ask user what they want to change, return to CLARIFY or PLAN
 
-IMPORTANT: Plan approval is NOT the end of the workflow — even in PLAN_ONLY mode.
-After approval, always proceed to TICKET_SETUP. The PLAN_ONLY exit happens AFTER tickets.
+### Phase: PLAN_APPROVED → TICKETS_PENDING
 
-### Phase: PLAN_APPROVED — STEP 1: TICKET_SETUP (MANDATORY — runs before PLAN_ONLY check)
+Update phase → TICKETS_PENDING immediately. The phase transition guard BLOCKS any
+other transition from PLAN_APPROVED — tickets cannot be skipped.
 
-This step runs for ALL modes (FULL and PLAN_ONLY). Tickets are created BEFORE
-the PLAN_ONLY exit check. Do NOT skip this step. Do NOT check PLAN_ONLY yet.
+### Phase: TICKETS_PENDING
 
 **Gate: TICKET_SETUP**
 
@@ -172,9 +170,11 @@ Update task-status.json with:
 - tickets.linearTeam = "<team-key>" (if Linear)
 - tickets.mapping = { task-id: ticket-id } (populated by ticket-manager)
 
-### Phase: PLAN_APPROVED — STEP 2: MODE CHECK (after tickets are done)
+After ticket setup is done (or user chose "no tickets"), update phase → TICKETS_COMPLETE.
 
-NOW check the mode:
+### Phase: TICKETS_COMPLETE → MODE CHECK
+
+Check the mode:
 
 If MODE = PLAN_ONLY:
 - Present completion summary:
@@ -183,11 +183,11 @@ If MODE = PLAN_ONLY:
   * Tickets: list ticket IDs/URLs if created, or "none"
   * Design: docs/designs/<slug>.md (if applicable)
 - Tell user: "Plan-only mode complete. Run `/lemongrab:resume <slug>` to start building."
-- EXIT the loop. Do NOT proceed to BRANCH_SETUP.
+- Update phase → COMPLETE. EXIT the loop.
 
 If MODE = FULL: continue to BRANCH_SETUP below.
 
-### Phase: PLAN_APPROVED → BRANCH_SETUP (FULL mode only)
+### Phase: TICKETS_COMPLETE → BRANCH_SETUP (FULL mode only)
 
 1. Determine branch name (feat/<slug> or feat/<ticket-id>-<slug>)
 2. Run: `git checkout -b <branch-name> main`

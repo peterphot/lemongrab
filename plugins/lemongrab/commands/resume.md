@@ -39,7 +39,9 @@ read from current-phase.json. Use the resume table below to determine the entry 
 | DESIGN_COMPLETE | Proceed to EXPLORE + PLAN |
 | PLAN_IN_PROGRESS | Re-launch planner with exploration context |
 | PLAN_COMPLETE | Present PLAN_APPROVAL gate to user |
-| PLAN_APPROVED | Run TICKET_SETUP first (ask Linear/local/none), THEN check PLAN_ONLY. Never skip tickets. |
+| PLAN_APPROVED | Transition to TICKETS_PENDING, run TICKET_SETUP gate |
+| TICKETS_PENDING | Run TICKET_SETUP gate (ask Linear/local/none) |
+| TICKETS_COMPLETE | Check mode: PLAN_ONLY → exit summary, FULL → BRANCH_SETUP |
 | BRANCH_CREATED | Verify branch exists, proceed to BUILD |
 | BUILD_IN_PROGRESS | Find current task from task-status.json, resume its TDD cycle |
 | BUILD_COMPLETE | Proceed to COHERENCE_REVIEW |
