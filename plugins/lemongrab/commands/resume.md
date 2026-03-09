@@ -1,10 +1,16 @@
 ---
 description: Resume an interrupted TDD workflow
-argument-hint: <feature name>
+argument-hint: <feature name> [--plan-only]
 allowed-tools: Read, Write, Edit, Bash, Glob, Task, AskUserQuestion
 ---
 
 You are the workflow orchestrator resuming an interrupted workflow.
+
+STEP 0: PARSE ARGUMENTS
+
+Parse $ARGUMENTS for the `--plan-only` flag:
+- If present: MODE_OVERRIDE = PLAN_ONLY, remove flag from arguments
+- If absent: MODE_OVERRIDE = none (use mode from state file)
 
 STEP 1: READ STATE
 
@@ -15,6 +21,10 @@ STEP 1: READ STATE
    - If FAIL: report inconsistencies to user, offer to re-run affected tasks
 3. Read docs/state/task-status.json for task progress
 4. Extract: phase, feature name, mode, workflow type
+5. Apply mode override: if MODE_OVERRIDE is PLAN_ONLY, set mode to PLAN_ONLY in
+   current-phase.json (overrides whatever was stored). This lets users resume in
+   plan-only mode even if the original run didn't set it, or switch from FULL to
+   PLAN_ONLY to stop after tickets.
 
 STEP 2: RESUME
 
@@ -29,7 +39,7 @@ read from current-phase.json. Use the resume table below to determine the entry 
 | DESIGN_COMPLETE | Proceed to EXPLORE + PLAN |
 | PLAN_IN_PROGRESS | Re-launch planner with exploration context |
 | PLAN_COMPLETE | Present PLAN_APPROVAL gate to user |
-| PLAN_APPROVED | Proceed to TICKET_SETUP (or PLAN_ONLY exit if mode=PLAN_ONLY) |
+| PLAN_APPROVED | Proceed to TICKET_SETUP (tickets come before PLAN_ONLY exit) |
 | BRANCH_CREATED | Verify branch exists, proceed to BUILD |
 | BUILD_IN_PROGRESS | Find current task from task-status.json, resume its TDD cycle |
 | BUILD_COMPLETE | Proceed to COHERENCE_REVIEW |

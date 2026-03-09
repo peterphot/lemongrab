@@ -242,7 +242,7 @@ The most common way. Type these directly in Claude Code.
 /bootstrap python-cli
 ```
 
-#### `/resume <feature-name>`
+#### `/resume <feature-name> [--plan-only]`
 
 **What it does:** Resumes an interrupted workflow. Reads saved state from disk and picks up exactly where it left off.
 
@@ -252,9 +252,17 @@ The most common way. Type these directly in Claude Code.
 
 # Resume after a crash or session timeout
 /resume health-endpoint
+
+# Resume in plan-only mode (do tickets but don't start building)
+/resume user-authentication --plan-only
 ```
 
-**When to use:** Your Claude Code session was interrupted (timeout, crash, closed terminal) while a workflow was in progress.
+**`--plan-only` flag on resume:** Overrides the mode from the original run. Useful when:
+- The original `/tdd --plan-only` run stopped before ticket creation — resume picks up at tickets then exits
+- You started a full workflow but want to pause after planning — switch to plan-only mode
+- The original run didn't store the mode correctly — explicitly set it
+
+**When to use:** Your Claude Code session was interrupted (timeout, crash, closed terminal) while a workflow was in progress, or you need to complete remaining plan-only steps (like ticket creation) after the plan was approved.
 
 ### 2. Direct Agent Invocation (natural language)
 
@@ -579,7 +587,11 @@ You: /tdd add rate limiting to all API endpoints --plan-only
     You review plan → approve
                     |
                     v
-    TICKET MANAGER creates tickets (Linear/local/none — your choice)
+    TICKET SETUP asks: Linear tickets? Local tickets? No tickets?
+                    |
+        If Linear: Which team? (lists available teams)
+                    |
+    TICKET MANAGER creates tickets with task→ticket mapping
                     |
                     v
     DONE. Summary printed:
@@ -596,6 +608,8 @@ You: /tdd add rate limiting to all API endpoints --plan-only
 - Reviewing plans with your team before committing to implementation
 - Creating tickets for sprint planning without starting the build yet
 - Validating scope and approach before writing any code
+
+**If the workflow stopped before ticket creation:** Run `/resume <feature> --plan-only` to pick up at ticket setup, create tickets, then exit cleanly without starting the build.
 
 ---
 

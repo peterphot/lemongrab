@@ -129,20 +129,45 @@ My assessment: [honest evaluation of plan quality, risks, over-engineering conce
 
 Options: [approve] [modify: describe changes] [reject: explain concern]"
 
-- If approved: update phase → PLAN_APPROVED
+- If approved: update phase → PLAN_APPROVED, then **continue the loop** to TICKET_SETUP
+  (do NOT exit here — ticket creation comes next regardless of PLAN_ONLY mode)
 - If modify: re-launch planner with user feedback, return to PLAN_IN_PROGRESS
 - If reject: ask user what they want to change, return to CLARIFY or PLAN
+
+IMPORTANT: Plan approval is NOT the end of the workflow — even in PLAN_ONLY mode.
+After approval, always proceed to TICKET_SETUP. The PLAN_ONLY exit happens AFTER tickets.
 
 ### Phase: PLAN_APPROVED → TICKETS
 
 **Gate: TICKET_SETUP**
 
-For TICKET workflow: tickets are implicit (skip asking).
-For other workflows: Use AskUserQuestion: "Plan has X tasks. Track with:
-[Linear tickets] [local tickets] [no tickets]?"
+For TICKET workflow: tickets are implicit (skip asking, set tickets.enabled = true,
+tickets.type = "linear", store source ticket ID).
 
-If tickets requested: Launch `lemongrab:ticket-manager` in CREATE mode.
-Update task-status.json with ticket mapping.
+For all other workflows, use AskUserQuestion to offer ticket tracking:
+"CHECKPOINT: TICKET_SETUP — Plan has X tasks. How would you like to track them?
+
+1. **Linear tickets** — create issues in a Linear team
+2. **Local tickets** — create ticket files in docs/tickets/
+3. **No tickets** — skip ticket tracking
+
+Choose [1] [2] [3]:"
+
+If user chooses Linear tickets, ask a follow-up:
+"Which Linear team should the tickets be created in?
+[List teams if available, or ask user to type the team name/key]"
+
+Then launch `lemongrab:ticket-manager` in CREATE mode with:
+- Ticket type: "linear" or "local"
+- Linear team (if applicable)
+- Plan file path: docs/plans/<slug>.md
+- Feature name: <slug>
+
+Update task-status.json with:
+- tickets.enabled = true/false
+- tickets.type = "linear" | "local" | "none"
+- tickets.linearTeam = "<team-key>" (if Linear)
+- tickets.mapping = { task-id: ticket-id } (populated by ticket-manager)
 
 **PLAN_ONLY EXIT:**
 If MODE = PLAN_ONLY:

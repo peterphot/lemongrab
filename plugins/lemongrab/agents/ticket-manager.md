@@ -22,32 +22,42 @@ MODES OF OPERATION:
 
 MODE: CREATE FROM PLAN
 
-Given a plan with task breakdown, create corresponding tickets:
+Given a plan with task breakdown, create corresponding tickets.
 
-1. ASK: "Create tickets in Linear or locally?"
+The orchestrator provides these parameters in the launch prompt:
+- ticket_type: "linear" or "local"
+- linear_team: "<team-key>" (required if ticket_type is "linear")
+- plan_path: path to the plan file
+- feature: feature name/slug
 
-2. If LINEAR:
-   - Fetch team context:
+If ticket_type or linear_team is missing from the prompt, ASK the user:
+- If ticket_type missing: "Create tickets in Linear or locally?"
+- If linear_team missing and ticket_type is "linear":
+  Fetch available teams via mcp__plugin_forge_linear__list_teams and present:
+  "Which Linear team? [list teams with keys]"
+
+1. If LINEAR:
+   - Fetch team statuses for label/status context:
      mcp__plugin_forge_linear__list_issue_statuses
-       team: "<team>"
+       team: "<linear_team>"
 
-   - For each task, create issue:
+   - For each task in the plan, create issue:
      mcp__plugin_forge_linear__create_issue
        title: "[TXXX] <task title>"
-       team: "<team>"
-       description: "<generated from plan>"
+       team: "<linear_team>"
+       description: "<generated from plan task: scope, acceptance criteria, dependencies>"
        labels: ["<phase>"]
 
-   - Set dependencies using blockedBy/blocks
+   - Set dependencies using blockedBy/blocks where the plan specifies them
 
-3. If LOCAL:
+2. If LOCAL:
    - Create docs/tickets/backlog/ structure
    - For each task, create ticket file:
      docs/tickets/backlog/TXXX-slug.md
 
    - Use local ticket template
 
-Output: Ticket creation summary with IDs/paths
+Output: Ticket creation summary with IDs/paths and mapping of task-id → ticket-id
 
 MODE: UPDATE STATUS
 
