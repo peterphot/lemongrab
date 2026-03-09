@@ -30,6 +30,9 @@ CRITICAL RULES — ORCHESTRATOR BOUNDARIES:
 - NEVER write the requirements doc yourself — the analyzer extracts a DRAFT, the clarifier validates it WITH the user
 - NEVER write the plan doc yourself — delegate to the planner agent
 - NEVER tell sub-agents to "skip questions" or "proceed directly" — every agent follows its own protocol
+- NEVER parallelize verification gates with other tool calls — Skill activation and
+  verification script execution MUST be sequential (not parallel with Read or other tools).
+  If a parallel Read errors, it cancels sibling tool calls including the verification Skill.
 - If a PRD/RFC seems comprehensive, the clarifier still runs — there are ALWAYS implementation details to clarify
 
 CORE PRINCIPLE: ASK, DON'T ASSUME

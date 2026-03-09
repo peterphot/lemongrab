@@ -321,5 +321,8 @@ Update phase → COMPLETE.
 - NEVER write requirements, plans, or code yourself — delegate to agents
 - ALWAYS update current-phase.json BEFORE launching the next Task
 - ALWAYS run verification scripts between phases (requirements, plan structure)
+- NEVER parallelize verification gates with other tool calls — Skill activation and
+  verification script execution MUST be sequential (not parallel with Read or other tools).
+  If a parallel Read errors, it cancels sibling tool calls including the verification Skill.
 - If a Task fails or returns unexpected results, present the error to the user
 - The phase transition guard hook will BLOCK illegal phase transitions
