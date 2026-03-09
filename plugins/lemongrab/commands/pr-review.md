@@ -155,7 +155,7 @@ Post the aggregated review as a comment on the PR so there is a permanent record
 
 STEP 8: CLEANUP
 
-- Remove temp diff files from /tmp/pr-review-chunk-*.diff
+- Remove temp diff files: `rm /tmp/pr-review-chunk-*.diff 2>/dev/null || true`
 - If docs/state exists and is part of an active workflow, save chunk reports to
   docs/state/reviewer-reports/<feature>-pr-chunk-<N>.md
 
