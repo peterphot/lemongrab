@@ -10,21 +10,17 @@ This skill provides portable access to verification scripts used at workflow gat
 
 ## Script Directory
 
-All verification scripts live at:
-
-```
-${CLAUDE_SKILL_DIR}/scripts/
-```
+!`echo "VERIFY_SCRIPTS_DIR=${CLAUDE_SKILL_DIR}/scripts"`
 
 ## Available Scripts
 
 | Script | Purpose | Usage |
 |--------|---------|-------|
-| `verify-state-consistency.sh` | Check task-status.json files exist on disk | `bash ${CLAUDE_SKILL_DIR}/scripts/verify-state-consistency.sh` |
-| `verify-requirements.sh` | Check requirements doc completeness | `bash ${CLAUDE_SKILL_DIR}/scripts/verify-requirements.sh <requirements-file>` |
-| `verify-plan-structure.sh` | Validate plan task structure | `bash ${CLAUDE_SKILL_DIR}/scripts/verify-plan-structure.sh <plan-file>` |
-| `verify-manifest-coverage.sh` | Verify manifest covers all ACs | `bash ${CLAUDE_SKILL_DIR}/scripts/verify-manifest-coverage.sh <plan-file> <task-id> <manifest-file>` |
-| `verify-test-integrity.sh` | Check test files unchanged by implementer | `bash ${CLAUDE_SKILL_DIR}/scripts/verify-test-integrity.sh <task-status-file> <task-id>` |
+| `verify-state-consistency.sh` | Check task-status.json files exist on disk | `bash $VERIFY_SCRIPTS_DIR/verify-state-consistency.sh` |
+| `verify-requirements.sh` | Check requirements doc completeness | `bash $VERIFY_SCRIPTS_DIR/verify-requirements.sh <requirements-file>` |
+| `verify-plan-structure.sh` | Validate plan task structure | `bash $VERIFY_SCRIPTS_DIR/verify-plan-structure.sh <plan-file>` |
+| `verify-manifest-coverage.sh` | Verify manifest covers all ACs | `bash $VERIFY_SCRIPTS_DIR/verify-manifest-coverage.sh <plan-file> <task-id> <manifest-file>` |
+| `verify-test-integrity.sh` | Check test files unchanged by implementer | `bash $VERIFY_SCRIPTS_DIR/verify-test-integrity.sh <task-status-file> <task-id>` |
 
 ## When to Use
 
