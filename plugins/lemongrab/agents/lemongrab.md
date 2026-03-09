@@ -650,23 +650,45 @@ YOUR PROCESS (Standard):
    - Tell the user: "Plan-only mode complete. All artifacts are saved to disk.
      When you're ready to build, run `/resume <feature>` to start the build phase."
    - EXIT the workflow. Do NOT proceed to BRANCH_SETUP or BUILD.
-9. [BRANCH_SETUP] Create feature branch for this work:
+9. [BRANCH_SETUP] Create feature branch and choose branching strategy:
    - Determine branch name:
      a. TICKET workflow: feat/<source-ticket-id>-<slug> (e.g., feat/LIN-123-auth-flow)
      b. STANDARD/PRD/RFC: feat/<feature-slug> (e.g., feat/user-authentication)
+   - BRANCH_STRATEGY GATE: Read the plan to count tasks.
+     * For SMALL features (1-3 tasks): default to "single", skip the gate.
+     * For MEDIUM+ features (4+ tasks): present to user via AskUserQuestion:
+       "CHECKPOINT: BRANCH_STRATEGY — Plan has N tasks. Choose branching strategy:
+       1. Single branch — all tasks on one branch, one PR to main at the end
+       2. Per-task branches — each task gets its own branch + PR into an integration branch,
+          then one final PR from integration branch to main (better for review)
+       [1] [2]"
+     * Store choice in task-status.json: tickets.branching ("single" or "per-task")
    - Launch ticket-manager in CREATE BRANCH mode with:
      * Branch name
      * Base branch (main)
-   - Store in task-status.json: tickets.branch, tickets.baseBranch
+     * Branching strategy ("single" or "per-task")
+   - Store in task-status.json: tickets.branch, tickets.baseBranch, tickets.branching
+   - If branching = "per-task": push integration branch to remote immediately:
+     `git push -u origin <branch-name>`
+     This branch becomes the base for all task branches.
    - If tickets NOT enabled: still create branch (branch hygiene applies regardless)
 10. [BUILD] For each task in order (respecting dependencies):
    - Update state: currentTask = task ID
+   - PER-TASK BRANCH SETUP (if tickets.branching = "per-task"):
+     * Return to integration branch and pull latest:
+       `git checkout <tickets.branch> && git pull origin <tickets.branch>`
+     * Create task branch:
+       `git checkout -b <tickets.branch>/TXXX-<task-slug>`
+       Where <task-slug> is the task title slugified (lowercase, hyphens, max 30 chars).
+     * Store in task-status.json: tickets.taskBranches.TXXX.branch = "<branch-name>"
    - TOUCHPOINT 2 (In Progress) - If tickets.enabled: Launch ticket-manager (UPDATE STATUS →
      "In Progress") for tickets.mapping[currentTask]. For shared tickets (sourceTicket set),
      this posts a progress comment instead of changing status.
    - PARALLEL EXECUTION: If multiple [P] tasks exist with no dependencies between them,
      launch their test-writers simultaneously using parallel Task tool calls.
      Ticket-manager UPDATE STATUS calls can be launched in parallel alongside test-writers.
+     NOTE: When branching = "per-task", parallel tasks each need their own task branch.
+     Create all task branches before spawning parallel test-writers.
    - If it's a Setup task: execute it directly (create directories, install dependencies,
      generate config files, etc.) without test-writer or reviewer. Create a git checkpoint,
      mark as complete, and move to next task. LOG: Append a D-ORCH entry for skipping TDD
@@ -762,6 +784,26 @@ YOUR PROCESS (Standard):
      LINK COMMIT) in a single call with ticket ID, commit hash, and commit message. Ticket-manager
      posts a progress comment + link commit only. No status change to "Done" — that happens
      when the PR is merged.
+   - PER-TASK PR (if tickets.branching = "per-task"):
+     * Push task branch: `git push -u origin <task-branch>`
+     * Create task PR via ticket-manager in CREATE TASK PR mode with:
+       - Head branch: <task-branch>
+       - Base branch: <tickets.branch> (integration branch, NOT main)
+       - Task ID, task title, ticket ID (if tickets enabled)
+     * TASK_PR GATE: Present to user via AskUserQuestion:
+       "CHECKPOINT: TASK_PR — [TXXX] <title> complete. PR #N created against integration branch.
+       [merge and continue] [review first] [skip PR — commit directly to integration branch]"
+     * If "merge and continue":
+       - Merge task PR: `gh pr merge <PR-number> --squash --delete-branch`
+       - Return to integration branch: `git checkout <tickets.branch> && git pull origin <tickets.branch>`
+     * If "review first": pause and let user review the PR, then resume
+     * If "skip PR": merge locally instead:
+       - `git checkout <tickets.branch>`
+       - `git merge --squash <task-branch>`
+       - `git commit -m "checkpoint: [TXXX] <description>"`
+       - `git branch -D <task-branch>`
+       - `git push origin <tickets.branch>`
+     * Update task-status.json: tickets.taskBranches.TXXX.pr with URL, number, status
 11. [COHERENCE_REVIEW] After all BUILD tasks complete, before PR:
    - Launch lemongrab:coherence-reviewer agent with:
      * Feature name
@@ -777,6 +819,9 @@ YOUR PROCESS (Standard):
        The simplifier can address these. Options: [approve refinement] [skip — ship as-is] [modify: specific instructions]"
      * If user approves refinement: launch simplifier with coherence reviewer's recommendations
        as input (scope = all files flagged in the report). Run tests after. Create checkpoint.
+       If branching = "per-task": create a dedicated branch for coherence fixes:
+       `git checkout -b <tickets.branch>/coherence-fixes`, commit, push, create PR against
+       integration branch, merge, return to integration branch.
      * If user skips: proceed to PRE_PR as-is
    - If verdict is ELEGANT or ADEQUATE: proceed to PRE_PR
    - SKIP CONDITION: Skip for SMALL features (1-3 tasks). The per-task reviewer is sufficient
@@ -794,6 +839,8 @@ YOUR PROCESS (Standard):
      * Feature branch name (from task-status.json tickets.branch)
      * Base branch (main)
      * Feature name, task summary, ticket IDs
+     * Branching strategy (from task-status.json tickets.branching)
+     * Task PR list (from task-status.json tickets.taskBranches, if per-task)
    - ticket-manager creates PR via `gh pr create`
    - ticket-manager moves ALL associated tickets to "In Review"
    - Store PR URL in task-status.json: tickets.pr.url, tickets.pr.number
@@ -802,6 +849,10 @@ YOUR PROCESS (Standard):
    - Update state: phase = "PR_REVIEW"
    - SKIP CONDITION: If total diff is < 50 lines (trivially small), skip to DOCUMENT.
      Log a D-ORCH decision noting the skip.
+   - PER-TASK BRANCHING NOTE: When branching = "per-task", each task was already reviewed
+     by the per-task reviewers (TDD, spec, security, performance) and merged via its own PR.
+     The final PR review focuses on cross-task coherence rather than line-by-line correctness.
+     The chunked review still runs but findings should be weighted as coherence-level issues.
    - Get the full diff: `git diff main..HEAD`
    - Get changed files: `git diff main..HEAD --name-only`
    - CHUNK STRATEGY:
@@ -871,7 +922,12 @@ YOUR PROCESS (Standard):
      * docs/decisions/<feature>.md exists and has content
      * docs/requirements/<feature>.md contains "Status: COMPLETED" or "## Status\nCOMPLETED"
      * If verification fails: log to blockers.json, ask user how to proceed
-   - Create documentation checkpoint: git add docs/ && git commit -m "docs: document <feature> decisions"
+   - Create documentation checkpoint:
+     * If branching = "per-task": create a docs branch from integration branch:
+       `git checkout -b <tickets.branch>/docs-<feature>`
+       Commit, push, create PR against integration branch, merge, return to integration branch.
+     * If branching = "single": commit directly:
+       git add docs/ && git commit -m "docs: document <feature> decisions"
    - Update state: phase = "DOCUMENT_COMPLETE"
 16. [COMPLETION] If tickets.enabled: Launch ticket-manager (COMPLETION
    SUMMARY) with feature name, task-status.json path, plan path, and PR URL. Ticket-manager
@@ -969,9 +1025,11 @@ The task-status.json file includes a top-level tickets section:
         "enabled": true,
         "type": "linear",
         "team": "Engineering",
+        "branching": "single",
         "branch": "feat/LIN-123-auth-flow",
         "baseBranch": "main",
         "worktrees": {},
+        "taskBranches": {},
         "pr": {
           "url": null,
           "number": null,
@@ -990,11 +1048,21 @@ The task-status.json file includes a top-level tickets section:
 
 - tickets.enabled: Guards all touchpoints. If false, skip all ticket operations.
 - tickets.type: Either "linear" or "local" (determines which tools to use).
-- tickets.branch: Feature branch name. Set during BRANCH SETUP. Used for PR creation.
-- tickets.baseBranch: Base branch (typically "main"). Used for PR creation.
+- tickets.branching: "single" (default) or "per-task". When "per-task", each task gets its own
+  branch and PR merged into the integration branch. When "single", all tasks commit directly
+  to the feature branch. Set during BRANCH_STRATEGY gate.
+- tickets.branch: Feature/integration branch name. Set during BRANCH SETUP. Used for PR creation.
+  When branching = "per-task", this is the integration branch that task branches merge into.
+- tickets.baseBranch: Base branch (typically "main"). Used for final PR creation.
 - tickets.worktrees: Maps task IDs to worktree paths and branches for parallel work.
-- tickets.pr.url: PR URL after creation. null until CREATE PR step.
-- tickets.pr.number: PR number after creation. null until CREATE PR step.
+- tickets.taskBranches: Maps task IDs to per-task branch and PR info (only used when
+  branching = "per-task"). Example:
+    "T001": {
+      "branch": "feat/auth-flow/T001-setup-project",
+      "pr": { "number": 101, "url": "https://...", "status": "merged" }
+    }
+- tickets.pr.url: Final PR URL after creation. null until CREATE PR step.
+- tickets.pr.number: Final PR number after creation. null until CREATE PR step.
 - tickets.pr.reviewStatus: "pending" | "approved" | "skipped". Set during PR_REVIEW phase.
 - tickets.pr.reviewRounds: Number of PR review rounds completed (0 until PR_REVIEW runs).
 - tickets.pr.reviewChunks: Array of chunk descriptors [{files: [...], lines: N}] used during PR_REVIEW.

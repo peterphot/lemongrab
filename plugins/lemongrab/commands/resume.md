@@ -67,10 +67,11 @@ of mode.
 **If phase = TICKETS_COMPLETE:**
 → Check the mode field in current-phase.json:
   - If PLAN_ONLY: present completion summary, update phase → COMPLETE, exit
-  - If FULL: proceed to BRANCH_SETUP → BUILD
+  - If FULL: proceed to BRANCH_SETUP (including BRANCH_STRATEGY gate) → BUILD
 
 **If phase = BRANCH_CREATED:**
 → Verify branch exists, proceed to BUILD
+→ If tickets.branching = "per-task": verify integration branch exists on remote too
 
 **If phase = BUILD_IN_PROGRESS:**
 → Find current task from task-status.json, resume its TDD cycle
@@ -78,6 +79,14 @@ of mode.
 → If task has tests but no implementation: launch implementer
 → If task has implementation but no review: launch reviewers
 → If task is complete: advance to next task
+→ PER-TASK BRANCHING RESUME (if tickets.branching = "per-task"):
+  Read tickets.taskBranches from task-status.json for each task:
+  - If task branch exists but no PR created: push branch, create task PR, present TASK_PR gate
+  - If task PR exists but status != "merged": present TASK_PR gate (merge or skip)
+  - If task PR status = "merged": task is complete, advance to next task
+  - If no task branch and task is incomplete: create task branch from integration branch,
+    resume TDD cycle on that branch
+  - Always ensure correct branch is checked out before resuming work
 
 **If phase = BUILD_COMPLETE:**
 → Proceed to COHERENCE_REVIEW

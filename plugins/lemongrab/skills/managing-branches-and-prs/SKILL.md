@@ -27,10 +27,24 @@ This skill handles git branch management, pull request creation, and worktree se
 | PRD | `feat/<feature-slug>` | `feat/onboarding-wizard` |
 | RFC | `feat/<feature-slug>` | `feat/api-v2-migration` |
 
-Rules:
+**Per-task branch naming** (when `tickets.branching = "per-task"`):
+
+| Branch Type | Pattern | Example |
+|-------------|---------|---------|
+| Integration | `feat/<feature-slug>` | `feat/user-authentication` |
+| Task | `feat/<feature-slug>/TXXX-<task-slug>` | `feat/user-authentication/T001-setup-project` |
+| Coherence fixes | `feat/<feature-slug>/coherence-fixes` | `feat/user-authentication/coherence-fixes` |
+| Documentation | `feat/<feature-slug>/docs-<feature>` | `feat/user-authentication/docs-user-auth` |
+
+Task branch rules:
+- Task slug: derived from task title (lowercase, hyphens, max 30 chars)
+- Nested under integration branch name with `/` separator
+- Always branch from integration branch (not `main`)
+
+General rules:
 - Slug: lowercase, hyphens only, no special characters
-- Max 50 chars total for branch name
-- Always branch from `main` (or configured base branch)
+- Max 50 chars total for branch name (integration branch)
+- Always branch from `main` (or configured base branch) for integration branch
 
 ### Branch Creation
 
@@ -110,6 +124,71 @@ to work. If it's not available, the completion summary should note:
 - Move all associated tickets to "In Review"
 - Post PR link as comment on each ticket
 - Store PR URL in task-status.json
+
+## Per-Task Branching Strategy
+
+When `tickets.branching = "per-task"`, each task gets its own branch and PR merged into
+an integration branch. This produces small, reviewable PRs while still delivering one
+cohesive feature to `main`.
+
+### Per-Task Branch Lifecycle
+
+```
+For each task in the plan:
+  1. git checkout <integration-branch>              # Return to integration branch
+  2. git pull origin <integration-branch>            # Get latest merged task PRs
+  3. git checkout -b <integration>/TXXX-<slug>       # Create task branch
+  4. [... TDD cycle: test → implement → review ...]  # Work on task branch
+  5. git commit -m "checkpoint: [TXXX] <desc>"       # Checkpoint commit
+  6. git push -u origin <integration>/TXXX-<slug>    # Push for PR
+  7. gh pr create --base <integration> ...           # PR against integration branch
+  8. gh pr merge --squash --delete-branch            # Merge task PR
+  9. git checkout <integration> && git pull           # Pull merged changes
+  10. → Next task                                     # Repeat
+```
+
+### Per-Task State in task-status.json
+
+```json
+{
+  "tickets": {
+    "branching": "per-task",
+    "branch": "feat/user-authentication",
+    "baseBranch": "main",
+    "taskBranches": {
+      "T001": {
+        "branch": "feat/user-authentication/T001-setup-project",
+        "pr": { "number": 101, "url": "https://github.com/org/repo/pull/101", "status": "merged" }
+      },
+      "T002": {
+        "branch": "feat/user-authentication/T002-config-schemas",
+        "pr": { "number": 102, "url": "https://github.com/org/repo/pull/102", "status": "merged" }
+      },
+      "T003": {
+        "branch": "feat/user-authentication/T003-test-profiles",
+        "pr": { "number": null, "url": null, "status": "pending" }
+      }
+    }
+  }
+}
+```
+
+### Final PR (Integration → Main)
+
+After all task PRs are merged into the integration branch, one final PR goes from
+`<integration-branch>` → `main`. This PR includes a summary of all task PRs in its body.
+
+### When to Use Per-Task Branching
+
+- MEDIUM+ features (4+ tasks) where the final PR would be too large to review
+- Teams that prefer small, incremental PRs
+- When task boundaries map cleanly to reviewable units of work
+
+### When NOT to Use Per-Task Branching
+
+- SMALL features (1-3 tasks) — overhead exceeds benefit
+- Tightly coupled tasks where the intermediate states don't make sense in isolation
+- When remote push access is restricted or CI is slow (each task PR triggers CI)
 
 ## Per-Ticket Branching (MULTI_TICKET Workflow)
 
@@ -301,6 +380,15 @@ git diff HEAD~1..HEAD --name-only
 - [ ] Main is up to date (`git pull origin main`)
 - [ ] Branch name follows convention
 - [ ] No uncommitted changes on current branch
+- [ ] If per-task branching: integration branch pushed to remote
+
+### Per-Task PR (per-task branching only)
+- [ ] Task branch created from integration branch (not main)
+- [ ] Task branch name follows `<integration>/TXXX-<slug>` pattern
+- [ ] Task PR targets integration branch (not main)
+- [ ] Task PR merged via squash before starting next task
+- [ ] Integration branch pulled after merge
+- [ ] taskBranches entry updated in task-status.json
 
 ### Before Creating PR
 - [ ] All tests passing

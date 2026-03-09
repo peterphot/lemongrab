@@ -190,8 +190,16 @@ If MODE = FULL: continue to BRANCH_SETUP below.
 ### Phase: TICKETS_COMPLETE → BRANCH_SETUP (FULL mode only)
 
 1. Determine branch name (feat/<slug> or feat/<ticket-id>-<slug>)
-2. Run: `git checkout -b <branch-name> main`
-3. Update phase → BRANCH_CREATED, store branch in task-status.json
+2. **Gate: BRANCH_STRATEGY** — For MEDIUM+ features (4+ tasks), ask user:
+   "CHECKPOINT: BRANCH_STRATEGY — Plan has N tasks. Choose branching strategy:
+   1. Single branch — all tasks on one branch, one PR to main at the end
+   2. Per-task branches — each task gets its own branch + PR into integration branch
+   [1] [2]"
+   For SMALL features (1-3 tasks): default to "single", skip the gate.
+   Store choice in task-status.json: tickets.branching
+3. Run: `git checkout -b <branch-name> main`
+4. If branching = "per-task": push integration branch: `git push -u origin <branch-name>`
+5. Update phase → BRANCH_CREATED, store branch in task-status.json
 
 ### Phase: BRANCH_CREATED → BUILD
 
@@ -199,6 +207,13 @@ Update phase → BUILD_IN_PROGRESS.
 Read the plan to get the ordered task list.
 
 **BUILD LOOP — for each task in dependency order:**
+
+**Per-task branch setup (if tickets.branching = "per-task"):**
+Before each task, return to integration branch and create a task branch:
+```
+git checkout <tickets.branch> && git pull origin <tickets.branch>
+git checkout -b <tickets.branch>/TXXX-<task-slug>
+```
 
 For Setup tasks:
 - Execute directly (mkdir, config files, etc.)
@@ -223,6 +238,12 @@ For Test/Implement tasks:
 9. If approved: Launch `lemongrab:simplifier`
 10. Git checkpoint: `git commit -m "checkpoint: [TXXX] <description>"`
 11. Update task-status.json, mark task complete
+12. **Per-task PR (if tickets.branching = "per-task"):**
+    - Push task branch: `git push -u origin <task-branch>`
+    - Create task PR via ticket-manager (CREATE TASK PR mode) against integration branch
+    - **Gate: TASK_PR** — "PR #N for [TXXX] created. [merge and continue] [review first] [skip PR]"
+    - Merge: `gh pr merge <N> --squash --delete-branch`
+    - Return: `git checkout <tickets.branch> && git pull origin <tickets.branch>`
 
 **Gate: FIRST_CYCLE_REVIEW (after task 1 only)**
 Use AskUserQuestion: "CHECKPOINT: FIRST_CYCLE_REVIEW — First task complete.

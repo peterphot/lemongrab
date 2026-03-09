@@ -19,6 +19,8 @@ MODES OF OPERATION:
 7. CREATE PR - Create a pull request and move tickets to "In Review"
 8. FETCH SUB-ISSUES - Fetch sub-issues from a parent ticket (for MULTI_TICKET workflow)
 9. MERGE PR - Merge a pull request (for MULTI_TICKET auto-merge)
+10. CREATE TASK PR - Create a per-task PR against the integration branch (for per-task branching)
+11. MERGE TASK PR - Merge a per-task PR into the integration branch
 
 MODE: CREATE FROM PLAN
 
@@ -312,6 +314,13 @@ PR BODY TEMPLATE:
     - Closes LIN-123
     - Closes LIN-124
 
+    ## Task PRs (per-task branching only)
+    <If tickets.branching = "per-task", list all task PRs from tickets.taskBranches>
+    - #101 [T001] Setup project scaffolding ✓
+    - #102 [T002] Config, schemas, directory structure ✓
+    - ...
+    <If tickets.branching = "single", omit this section>
+
     ## Changes
     <Files changed summary from git diff --stat>
 
@@ -376,6 +385,67 @@ Merge a pull request. Used by MULTI_TICKET workflow when auto-merge is configure
 
 FAILURE HANDLING: Same as other modes — log error, return failure report to orchestrator.
 Do NOT retry automatically.
+
+MODE: CREATE TASK PR
+
+Create a per-task PR against the integration branch. Used when tickets.branching = "per-task".
+
+The orchestrator provides these parameters:
+- task_id: Task ID (e.g., "T001")
+- task_title: Task title
+- head_branch: The task branch (e.g., "feat/auth-flow/T001-setup-project")
+- base_branch: The integration branch (e.g., "feat/auth-flow") — NOT main
+- ticket_id: Associated ticket identifier (if tickets enabled, e.g., "LIN-456")
+
+1. Preflight: verify `gh` CLI is available
+2. Push task branch (if not already pushed):
+   git push -u origin <head_branch>
+3. Build PR title: "[<task_id>] <task_title>"
+4. Build PR body using TASK PR BODY TEMPLATE below
+5. Create PR:
+   gh pr create --base <base_branch> --head <head_branch> \
+     --title "[<task_id>] <task_title>" \
+     --body "<PR body>"
+   If `gh pr create` fails: follow same FAILURE HANDLING as CREATE PR mode.
+6. Return PR URL and number to orchestrator
+
+TASK PR BODY TEMPLATE:
+
+    ## [<task_id>] <task_title>
+
+    ### Changes
+    <output of git diff --stat <base_branch>..<head_branch>>
+
+    ### Tests
+    - Tests added/modified: <list test files>
+    - All passing
+
+    ### Linked Ticket
+    <ticket_id if available, otherwise "N/A">
+
+    Part of: <base_branch> → main
+
+    🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+MODE: MERGE TASK PR
+
+Merge a per-task PR into the integration branch. Used when tickets.branching = "per-task".
+
+1. Preflight: verify `gh` CLI is available
+2. Verify PR exists and is open:
+   gh pr view <PR-number> --json state,mergeable
+   - If state is "MERGED": return success (already merged)
+   - If state is "CLOSED": return error
+   - If mergeable is false: return error ("Task PR has merge conflicts. Resolve manually.")
+3. Merge the PR:
+   gh pr merge <PR-number> --squash --delete-branch
+   - If merge fails: return error with details
+4. Verify merge succeeded
+5. Return to integration branch and pull:
+   git checkout <integration-branch> && git pull origin <integration-branch>
+6. Return: merge status, new HEAD on integration branch
+
+FAILURE HANDLING: Same as other modes.
 
 PREREQUISITE: READ FROM DISK (MANDATORY — DO THIS FIRST)
 
