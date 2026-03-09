@@ -884,6 +884,26 @@ YOUR PROCESS (Standard):
      * Collect any [CROSS-REF] notes and log for user visibility
      * If zero CRITICAL + zero WARNING across all chunks → PR_REVIEW_PASS
      * If any CRITICAL or WARNING → PR_REVIEW_NEEDS_FIXES
+   - POST REVIEW TO PR (always, regardless of verdict):
+     * Build a comment from the aggregated findings using this format:
+       ```
+       ## PR Review Results — <PR title>
+       **<N> chunks reviewed | <F> files | <L> lines changed**
+       | Severity | Count |
+       |----------|-------|
+       | CRITICAL | <count> |
+       | WARNING  | <count> |
+       | NIT      | <count> |
+       ### Findings
+       [table of CRITICAL and WARNING findings with File:Line and Summary]
+       <details><summary>NIT findings (<count>)</summary>
+       [table of NIT findings]
+       </details>
+       ---
+       *Reviewed by lemongrab pr-reviewer (round <R>)*
+       ```
+     * Post using: `gh pr comment <PR-number> --body "<body>"` (use HEREDOC for body)
+     * For re-review rounds: post an updated comment showing RESOLVED/UNRESOLVED status
    - If PR_REVIEW_PASS:
      * Update state: tickets.pr.reviewStatus = "approved", tickets.pr.reviewRounds = 1
      * Present to user: "PR review passed (N chunks reviewed, M nits noted). Proceeding to documentation."

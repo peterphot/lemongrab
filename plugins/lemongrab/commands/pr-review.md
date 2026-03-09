@@ -109,7 +109,51 @@ If --fix flag is NOT set:
 - If yes: proceed with fix cycle as above
 - If no: done
 
-STEP 7: CLEANUP
+STEP 7: POST REVIEW TO PR
+
+Post the aggregated review as a comment on the PR so there is a permanent record:
+
+1. Build the comment body from the aggregated findings:
+   ```
+   ## PR Review Results — <PR title>
+
+   **<N> chunks reviewed | <F> files | <L> lines changed**
+
+   | Severity | Count |
+   |----------|-------|
+   | CRITICAL | <count> |
+   | WARNING  | <count> |
+   | NIT      | <count> |
+
+   ### Findings
+
+   | # | Severity | File:Line | Summary |
+   |---|----------|-----------|---------|
+   | 1 | WARNING  | src/foo.ts:42 | <one-line summary> |
+   | ... | ... | ... | ... |
+
+   <details>
+   <summary>NIT findings (<count>)</summary>
+
+   | # | File:Line | Summary |
+   |---|-----------|---------|
+   | ... | ... | ... |
+
+   </details>
+
+   ---
+   *Reviewed by lemongrab pr-reviewer (round <R>)*
+   ```
+
+2. Post using: `gh pr comment <number> --body "<body>"`
+   - Use a HEREDOC for the body to preserve formatting
+   - If the PR is closed/merged, still post (for the record)
+
+3. If a re-review round runs (fixes were applied), post an UPDATED comment for each round:
+   - Include "Round <R>" in the heading
+   - Show which previous findings were RESOLVED vs still open
+
+STEP 8: CLEANUP
 
 - Remove temp diff files from /tmp/pr-review-chunk-*.diff
 - If docs/state exists and is part of an active workflow, save chunk reports to
