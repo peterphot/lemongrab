@@ -29,11 +29,21 @@ STEP 3: INITIALIZE STATE
    `mkdir -p docs/{analysis,decisions,designs,manifests,plans,requirements,state/{reviewer-reports,archive,qa-screenshots},tickets/{backlog,active,completed}}`
 3. Check if docs/state/current-phase.json exists:
    - If YES and matches this feature: RESUME from that phase (skip to STEP 4 at the matching phase)
-   - If YES but different feature: WARN user and ask if they want to start fresh
+   - If YES but different feature:
+     a. ARCHIVE the previous feature's per-feature state (do NOT delete cumulative files):
+        - Move docs/state/current-phase.json → docs/state/archive/<old-feature>-current-phase.json
+        - Move docs/state/task-status.json → docs/state/archive/<old-feature>-task-status.json
+        - Move docs/state/reviewer-reports/*.md → docs/state/archive/ (prefix with old feature name if not already)
+        - Move docs/state/exploration-context.md → docs/state/archive/<old-feature>-exploration-context.md (if exists)
+     b. Do NOT move or delete: decisions.md, blockers.json, incidents.json (these are cumulative across features)
+     c. Create new current-phase.json with `{"phase": "CLARIFY_IN_PROGRESS", "feature": "<slug>", "mode": "$MODE", "workflow": "<type>"}`
    - If NO: Create it with `{"phase": "CLARIFY_IN_PROGRESS", "feature": "<slug>", "mode": "$MODE", "workflow": "<type>"}`
-4. Initialize docs/state/task-status.json if not present
-5. Initialize docs/state/decisions.md with feature header if not present
-6. Initialize docs/state/blockers.json with `{"blockers":[]}` if not present
+4. Initialize docs/state/task-status.json if not present (per-feature, was archived above if switching features)
+5. Append a new feature section to docs/state/decisions.md (do NOT overwrite existing content):
+   - If file does not exist: create it with `# Decision Log` header, then the feature section
+   - If file exists: append `\n---\n\n## Feature: <slug>\n_Started: <timestamp>_\n`
+   This preserves the full decision history across all features.
+6. Initialize docs/state/blockers.json with `{"blockers":[], "resolved":[]}` if not present (cumulative across features — each blocker entry includes a "feature" field)
 
 STEP 4: STATE MACHINE LOOP
 

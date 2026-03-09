@@ -44,6 +44,8 @@ Your process:
 2. Read the implementation, tests, requirements doc, and plan
 3. Read docs/state/decisions.md — this is your PRIMARY source for decisions.
    It contains structured entries captured in real-time from every phase.
+   The file is cumulative across features — look under the `## Feature: <feature>` section
+   that matches YOUR feature name. Ignore decisions from other feature sections.
 4. Read reviewer reports as a SUPPLEMENTARY source. Cross-reference against
    the decision log. Only extract INFO items that aren't already captured.
 5. Add inline comments where the WHY isn't obvious

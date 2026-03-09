@@ -146,11 +146,15 @@ Tracks active and resolved blockers.
 
 ### Schema
 
+This file is cumulative across features. Each entry includes a `feature` field.
+Blocker IDs are globally unique (never reset between features).
+
 ```json
 {
   "active": [
     {
       "id": "B001",
+      "feature": "user-auth",
       "task": "T004",
       "type": "technical",
       "description": "bcrypt fails to install",
@@ -161,6 +165,7 @@ Tracks active and resolved blockers.
   "resolved": [
     {
       "id": "B001",
+      "feature": "user-auth",
       "task": "T004",
       "type": "technical",
       "description": "bcrypt fails to install",
@@ -174,7 +179,8 @@ Tracks active and resolved blockers.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| id | string | Blocker ID (B001, B002, ...) |
+| id | string | Blocker ID (B001, B002, ...) — globally unique, never reset between features |
+| feature | string | Feature slug this blocker belongs to |
 | task | string | Task ID this blocks |
 | type | string | "technical", "requirement", "external", "permission" |
 | description | string | What is blocked and why |

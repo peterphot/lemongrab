@@ -444,11 +444,18 @@ For BUILD phase resumes:
 
 On initialization, ensure all runtime output directories exist:
 mkdir -p docs/analysis/ docs/decisions/ docs/manifests/ docs/plans/ docs/requirements/ docs/state/reviewer-reports/ docs/state/archive/ docs/state/qa-screenshots/ docs/tickets/backlog/ docs/tickets/active/ docs/tickets/completed/
-Initialize docs/state/incidents.json with `{"incidents":[]}` if it does not exist.
-Initialize docs/state/decisions.md with feature header if it does not exist:
+Initialize docs/state/incidents.json with `{"incidents":[]}` if it does not exist (cumulative — each incident includes a "feature" field).
+Append a new feature section to docs/state/decisions.md (NEVER overwrite existing content):
+- If file does not exist: create with `# Decision Log` header, then the feature section
+- If file exists: append a new feature section below existing content:
 
-    # Decision Log: <feature>
-    _Initialized: <timestamp>_
+    ---
+
+    ## Feature: <feature>
+    _Started: <timestamp>_
+
+This preserves the full decision history across all features. Decision IDs are scoped per feature
+to avoid collisions (e.g., D-CLARIFY-001 under each feature section is distinct).
 
 ORCHESTRATION PATTERNS:
 
@@ -962,8 +969,16 @@ YOUR PROCESS (Standard):
    posts the completion summary with PR link. Does NOT set any tickets to "Done" — that happens
    automatically when the PR is merged (via Linear's GitHub integration or manually).
    Summary includes: "PR created: <url>. Merge the PR to complete this work."
-17. [CLEANUP] Clean up state files: move docs/state/decisions.md to docs/state/archive/<feature>-decisions.md
-    (or delete it). This prevents ID collisions if the next feature reuses IDs like D-CLARIFY-001.
+17. [CLEANUP] Archive per-feature state files (keep cumulative files intact):
+    - Move docs/state/current-phase.json → docs/state/archive/<feature>-current-phase.json
+    - Move docs/state/task-status.json → docs/state/archive/<feature>-task-status.json
+    - Move docs/state/exploration-context.md → docs/state/archive/<feature>-exploration-context.md (if exists)
+    - Move docs/state/reviewer-reports/*.md → docs/state/archive/ (prefix with feature name if not already)
+    - Do NOT move or delete docs/state/decisions.md — it is cumulative across features.
+      Decision IDs are scoped per feature section, so D-CLARIFY-001 under "## Feature: foo" is
+      distinct from D-CLARIFY-001 under "## Feature: bar". No collision risk.
+    - Do NOT move or delete docs/state/blockers.json or docs/state/incidents.json — they are cumulative.
+      Each entry includes a "feature" field for filtering.
 18. [REPORT] Report completion to user
 
 ENHANCED TASK STATUS SCHEMA:
@@ -1360,29 +1375,36 @@ to docs/state/decisions.md. Also log your own orchestrator decisions.
 EXTRACTION PROCEDURE:
 1. Check agent output for `<!-- DECISIONS ... DECISIONS -->` block
 2. If present, parse each `- decision:` entry
-3. Append to docs/state/decisions.md in human-readable format:
+3. Append to docs/state/decisions.md UNDER the current feature's section (`## Feature: <slug>`).
+   Use phase sub-headers (### <Phase> Phase) within the feature section:
 
-       ## <Phase> Phase
+       ### <Phase> Phase
        _Captured: <timestamp>_
 
-       ### D-CLARIFY-001: <what>
+       #### D-CLARIFY-001: <what>
        - **Who decided**: user
        - **What**: <what>
        - **Why**: <why>
        - **Alternatives**: <alternatives>
        - **Context**: <context>
 
+   The file is cumulative across features. Always append at the END of the current feature's
+   section (before any `---` separator or at end of file). Never modify other features' sections.
+
 4. If no DECISIONS block is present, skip (no error)
 5. If the block is present but malformed (missing fields, broken indentation), append it
-   raw under a `## Parse Error (<Phase> Phase)` heading and continue — do not block the workflow.
-6. DEDUPLICATION: On agent retries, check for existing IDs before appending. If an ID
-   (e.g., D-CLARIFY-001) already exists in decisions.md, skip that entry to avoid duplicates.
+   raw under a `### Parse Error (<Phase> Phase)` heading and continue — do not block the workflow.
+6. DEDUPLICATION: On agent retries, check for existing IDs within the CURRENT FEATURE SECTION
+   only before appending. If an ID (e.g., D-CLARIFY-001) already exists under the current
+   feature's section, skip that entry to avoid duplicates. IDs from other feature sections are
+   irrelevant — D-CLARIFY-001 under "Feature: foo" does not conflict with D-CLARIFY-001 under
+   "Feature: bar".
    When re-launching an agent, include existing decision IDs for that phase in the retry prompt
    so the agent starts numbering after the highest existing ID (e.g., "Previous decisions
    D-CLARIFY-001 through D-CLARIFY-003 are already captured. Start new IDs at D-CLARIFY-004.").
-7. HEADER IDEMPOTENCY: Before creating a `## <Phase> Phase` header, check if one already
-   exists in decisions.md (e.g., from a prior retry). If it does, append new entries under
-   the existing header instead of creating a duplicate.
+7. HEADER IDEMPOTENCY: Before creating a `### <Phase> Phase` header, check if one already
+   exists under the current feature section (e.g., from a prior retry). If it does, append new
+   entries under the existing header instead of creating a duplicate.
 
 ORCHESTRATOR'S OWN DECISIONS TO LOG (use D-ORCH-NNN IDs):
 - Scale assessment (SMALL/MEDIUM/LARGE) and why
@@ -1448,11 +1470,12 @@ escalation) during a single workflow run:
 INCIDENT LOG:
 
 On ANY failure (test failure, reviewer rejection, agent error, MCP failure, rollback):
-1. Append to docs/state/incidents.json:
+1. Append to docs/state/incidents.json (cumulative across features):
    {
      "incidents": [
        {
          "id": "INC-001",
+         "feature": "<feature-slug>",
          "timestamp": "<ISO 8601>",
          "task": "<TXXX>",
          "phase": "<phase>",
@@ -1463,9 +1486,11 @@ On ANY failure (test failure, reviewer rejection, agent error, MCP failure, roll
        }
      ]
    }
-2. This log survives context compaction and session interruption
-3. On resume, read incidents.json to understand failure history and avoid repeating failed approaches
-4. Initialize incidents.json with empty array on workflow start if it doesn't exist
+   Incident IDs are globally unique (never reset between features). When starting a new feature,
+   read existing incidents to determine the next ID (e.g., if INC-007 exists, start at INC-008).
+2. This log survives context compaction, session interruption, AND feature transitions
+3. On resume, read incidents.json and filter by current feature to understand failure history
+4. Initialize incidents.json with empty array if it doesn't exist (do NOT reinitialize between features)
 
 ROLLBACK PROCEDURE:
 
