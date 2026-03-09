@@ -86,6 +86,7 @@ You approve at every major checkpoint. Nothing proceeds without your explicit "y
 | Adding authentication to an app | Yes | Security review catches auth issues early |
 | Implementing a feature from a Linear ticket | Yes | `/ticket LIN-123` extracts requirements automatically |
 | Exploring an unfamiliar codebase | Yes | `/analyze` maps architecture and patterns |
+| Planning a feature for team review before building | Yes | `/tdd --plan-only` creates plan + tickets without writing code |
 | Quick one-line bug fix | No | Overkill — just fix it directly |
 | Writing a bash script for personal use | No | No need for TDD on throwaway code |
 | Prototyping an idea rapidly | No | Process overhead slows exploration |
@@ -179,7 +180,7 @@ There are **three ways** to start a Lemongrab workflow:
 
 The most common way. Type these directly in Claude Code.
 
-#### `/tdd <feature description>`
+#### `/tdd <feature description> [--plan-only]`
 
 **What it does:** Runs the full TDD workflow — clarify, plan, build, document.
 
@@ -192,7 +193,12 @@ The most common way. Type these directly in Claude Code.
 
 # Vague feature (the clarifier will ask you to be specific)
 /tdd make the app faster
+
+# Plan-only mode: stop after plan approval and ticket creation (no code written)
+/tdd add pagination to the /users endpoint --plan-only
 ```
+
+**`--plan-only` flag:** Runs CLARIFY → DESIGN → PLAN → PLAN APPROVAL → TICKETS, then exits with a summary of all artifacts. No branches are created and no code is written. Review the plan and tickets at your own pace, then run `/resume <feature>` when ready to build.
 
 #### `/analyze [path]`
 
@@ -541,6 +547,56 @@ You: /resume user-authentication
     [continues workflow from that exact point]
 ```
 
+### Workflow 9: Plan-Only Mode (`/tdd --plan-only`)
+
+**Scenario:** You want to clarify requirements, create a plan, and generate tickets — but review everything before any code is written. Build later on your own schedule.
+
+```
+/tdd add rate limiting to all API endpoints --plan-only
+```
+
+**Full flow:**
+
+```
+You: /tdd add rate limiting to all API endpoints --plan-only
+                    |
+                    v
+    CLARIFIER asks questions (same as full /tdd)
+                    |
+        You answer each question
+                    |
+                    v
+    You review requirements doc → approve
+                    |
+                    v
+    DESIGNER explores approaches (if medium+ feature)
+                    |
+        You pick an approach
+                    |
+                    v
+    PLANNER creates task breakdown
+                    |
+    You review plan → approve
+                    |
+                    v
+    TICKET MANAGER creates tickets (Linear/local/none — your choice)
+                    |
+                    v
+    DONE. Summary printed:
+        - Requirements: docs/requirements/rate-limiting.md
+        - Plan: docs/plans/rate-limiting.md (6 tasks, 12 files, 24 ACs)
+        - Tickets: LIN-201, LIN-202, LIN-203, LIN-204, LIN-205, LIN-206
+                    |
+    No branches created. No code written.
+                    |
+    Later: /resume rate-limiting → picks up at BUILD phase
+```
+
+**When to use:** You want to front-load all the thinking (requirements, design, planning, tickets) and decouple it from the build phase. Useful for:
+- Reviewing plans with your team before committing to implementation
+- Creating tickets for sprint planning without starting the build yet
+- Validating scope and approach before writing any code
+
 ---
 
 ## The Complete Workflow Explained
@@ -602,7 +658,16 @@ This is the full lifecycle that `/tdd` runs. Other workflows join at different p
 │  If yes: Ticket Manager creates tickets from the plan                │
 └──────────────────────────────────┬───────────────────────────────────┘
                                    │
-                                   v
+                          ┌────────┴────────┐
+                          │  --plan-only?   │
+                          └───┬─────────┬───┘
+                           NO │         │ YES
+                              │         v
+                              │  ┌──────────────────────────────────┐
+                              │  │  EXIT: Summary of artifacts      │
+                              │  │  Resume later: /resume <feature> │
+                              │  └──────────────────────────────────┘
+                              v
 ┌──────────────────────────────────────────────────────────────────────┐
 │  PHASE 3: BUILD (repeats for each task in dependency order)          │
 │                                                                      │

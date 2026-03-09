@@ -61,6 +61,13 @@ Detect the workflow from the user's request:
 10. "implement tickets <LIN-1>, <LIN-2>, ..." → MULTI_TICKET WORKFLOW (sequential per-ticket PRs)
 11. "implement sub-issues of <LIN-123>" → MULTI_TICKET WORKFLOW (fetch sub-issues from parent)
 
+MODE FLAGS (apply to any workflow):
+
+- `--plan-only` or `mode=PLAN_ONLY`: Run CLARIFY → DESIGN → PLAN → PLAN APPROVAL → TICKETS,
+  then EXIT with a summary. Does not create branches or write any code.
+  Use case: review the plan and tickets before committing to the build phase.
+  Resume later with `/resume <feature>` to start BUILD.
+
 WORKFLOW: STANDARD (Greenfield Feature)
 
 1. CLARIFY - Gather requirements (will ask user questions)
@@ -68,6 +75,7 @@ WORKFLOW: STANDARD (Greenfield Feature)
 3. PLAN - Create technical design with public interfaces and complexity expectations
 4. PLAN APPROVAL - Present plan to user for confirmation
 5. TICKETS (opt-in) - Offer ticket tracking after plan is ready
+5a. PLAN_ONLY EXIT - If mode=PLAN_ONLY, present summary and stop (see PLAN_ONLY MODE below)
 6. BRANCH SETUP - Create feature branch from main
 7. BUILD - For each task in the plan:
    a. TICKET UPDATE - Mark "In Progress" (if tickets enabled)
@@ -610,6 +618,16 @@ YOUR PROCESS (Standard):
      If yes: Launch ticket-manager in CREATE mode. Store mapping in task-status.json.
    - If declined or not applicable: Set tickets.enabled = false in task-status.json.
      All subsequent touchpoints are guarded by this flag.
+8a. [PLAN_ONLY EXIT] If mode=PLAN_ONLY:
+   - Update state: phase = "PLAN_APPROVED" in current-phase.json
+   - Present a completion summary to the user:
+     * Requirements: docs/requirements/<feature>.md
+     * Plan: docs/plans/<feature>.md (task count, file count, AC count)
+     * Tickets: list ticket IDs/URLs if created, or "none" if declined
+     * Design: docs/designs/<feature>.md (if design phase ran)
+   - Tell the user: "Plan-only mode complete. All artifacts are saved to disk.
+     When you're ready to build, run `/resume <feature>` to start the build phase."
+   - EXIT the workflow. Do NOT proceed to BRANCH_SETUP or BUILD.
 9. [BRANCH_SETUP] Create feature branch for this work:
    - Determine branch name:
      a. TICKET workflow: feat/<source-ticket-id>-<slug> (e.g., feat/LIN-123-auth-flow)

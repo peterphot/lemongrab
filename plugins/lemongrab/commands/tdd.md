@@ -1,10 +1,14 @@
 ---
 description: Run full TDD workflow (clarify, plan, build, document)
-argument-hint: <feature description>
+argument-hint: <feature description> [--plan-only]
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Task, AskUserQuestion
 ---
 
-Use the lemongrab agent to implement $ARGUMENTS
+Parse $ARGUMENTS for the `--plan-only` flag:
+- If `--plan-only` is present: strip it from the feature description and pass mode=PLAN_ONLY to the lemongrab agent
+- Otherwise: mode=FULL (default)
+
+Use the lemongrab agent to implement $ARGUMENTS (with mode=$MODE)
 
 The lemongrab agent MUST follow this exact flow with user gates at each stage:
 
@@ -39,6 +43,20 @@ The lemongrab agent MUST follow this exact flow with user gates at each stage:
    - User may: [approve], [modify: describe changes], or [reject: explain concern]
    - If user requests changes, re-run the planner and present the revised plan
    - No code, branches, or tickets are created until the user says "approve"
+
+## PHASE 2.5: TICKET CREATION (after plan approval)
+
+After plan approval, offer ticket tracking (Linear, local, or none).
+If tickets are requested, create them from the plan.
+
+**If mode=PLAN_ONLY:** After ticket creation (or after plan approval if no tickets),
+stop the workflow and present a summary:
+- Link to requirements doc (docs/requirements/<feature>.md)
+- Link to plan doc (docs/plans/<feature>.md)
+- Links to created tickets (if any)
+- Set phase to PLAN_APPROVED in docs/state/current-phase.json
+- Tell the user: "Plan-only mode complete. Run `/resume <feature>` to start the build phase."
+- EXIT — do not proceed to BUILD
 
 ## PHASE 3: BUILD (per task, in dependency order)
 
