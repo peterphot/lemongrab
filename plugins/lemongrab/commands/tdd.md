@@ -218,7 +218,8 @@ git checkout -b <tickets.branch>/TXXX-<task-slug>
 For Setup tasks:
 - If tickets enabled: Launch `lemongrab:ticket-manager` in UPDATE STATUS mode — mark task "In Progress"
 - Execute directly (mkdir, config files, etc.)
-- Git checkpoint, mark complete
+- Git checkpoint, push to remote: `git commit ... && git push -u origin HEAD`
+- Mark complete in task-status.json
 - If tickets enabled: Launch `lemongrab:ticket-manager` in TASK COMPLETE + LINK COMMIT mode
 - Continue
 
@@ -241,10 +242,11 @@ For Test/Implement tasks:
    [Warnings: list / None]. Options: [approve] [skip] [modify: instructions]"
 9. If approved: Launch `lemongrab:simplifier`
 10. Git checkpoint: `git commit -m "checkpoint: [TXXX] <description>"`
-11. Update task-status.json, mark task complete
-12. **Ticket update (if tickets enabled):** Launch `lemongrab:ticket-manager` in TASK COMPLETE + LINK COMMIT mode — post progress comment with commit hash
-13. **Per-task PR (if tickets.branching = "per-task"):**
-    - Push task branch: `git push -u origin <task-branch>`
+11. Push the current branch to remote: `git push -u origin HEAD`
+    (MANDATORY — every task checkpoint must be pushed so remote stays in sync.)
+12. Update task-status.json, mark task complete
+13. **Ticket update (if tickets enabled):** Launch `lemongrab:ticket-manager` in TASK COMPLETE + LINK COMMIT mode — post progress comment with commit hash
+14. **Per-task PR (if tickets.branching = "per-task"):**
     - Create task PR via ticket-manager (CREATE TASK PR mode) against integration branch
     - **Gate: TASK_PR** — "PR #N for [TXXX] created. [merge and continue] [review first] [skip PR]"
     - Merge: `gh pr merge <N> --squash --delete-branch`
@@ -259,7 +261,10 @@ Does the quality bar look right? [continue] [adjust approach: describe]"
 **Gate: MILESTONE_REVIEW (every 4th task for MEDIUM, 3rd for LARGE)**
 Brief status update via AskUserQuestion.
 
-After all tasks: update phase → BUILD_COMPLETE
+After all tasks:
+1. Push the feature branch to remote: `git push -u origin <branch-name>`
+   (This ensures code is on the remote even if subsequent phases are interrupted.)
+2. Update phase → BUILD_COMPLETE
 
 ### Phase: BUILD_COMPLETE → COHERENCE_REVIEW
 
