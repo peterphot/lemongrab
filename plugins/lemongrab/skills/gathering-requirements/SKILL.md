@@ -6,6 +6,11 @@ version: 1.0.0
 
 # Gathering Requirements
 
+AGENT-ONLY SKILL: This skill is reference material for the clarifier agent. It is NOT
+instructions for the orchestrator or main agent. Do not use these question frameworks or
+templates to write requirements directly — the clarifier agent must be launched and must
+ask the user questions via AskUserQuestion.
+
 This skill helps gather complete, unambiguous, and testable requirements before any code is written. Requirements are the foundation for TDD - bad requirements lead to bad tests.
 
 ## When to Use

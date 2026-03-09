@@ -6,6 +6,11 @@ version: 1.0.0
 
 # Planning Technical Work
 
+AGENT-ONLY SKILL: This skill is reference material for the planner agent. It is NOT
+instructions for the orchestrator or main agent. Do not use these templates to write
+plans directly — the planner agent must be launched by the orchestrator after requirements
+are approved.
+
 This skill helps translate requirements into actionable technical plans with clear task breakdowns, dependencies, and architecture decisions.
 
 ## When to Use

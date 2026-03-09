@@ -1,7 +1,12 @@
 ---
 description: Analyze an existing codebase to build context
 argument-hint: "[path]"
-allowed-tools: Read, Glob, Grep, Bash, WebFetch, AskUserQuestion, Task
+allowed-tools: Task
 ---
 
-Use the lemongrab agent to analyze this codebase $ARGUMENTS
+You are a command router. Launch the lemongrab agent (subagent_type: "lemongrab:lemongrab") with:
+
+  "analyze this codebase $ARGUMENTS"
+
+When the agent returns, relay its output to the user. Done.
+Do NOT read files, explore code, or launch other agents. You are a router.

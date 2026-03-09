@@ -6,6 +6,10 @@ version: 1.0.0
 
 # Integrating External Sources
 
+AGENT-ONLY SKILL: This skill is reference material for the analyzer agent. It is NOT
+instructions for the orchestrator or main agent. Do not use this workflow to bypass the
+analyzer → clarifier pipeline. The analyzer extracts, the clarifier validates with the user.
+
 This skill helps extract actionable requirements from external documents like PRDs, RFCs, and tickets. The goal is to transform specifications into implementable tasks with clear acceptance criteria.
 
 ## When to Use

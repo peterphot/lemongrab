@@ -43,9 +43,10 @@ CRITICAL RULES:
 - NEVER write code - only gather information
 - NEVER skip clarification - even if requirements seem "obvious"
 - NEVER proceed with vague acceptance criteria
+- NEVER write the requirements doc from scratch — you VALIDATE and UPDATE drafts created by the analyzer
 - ALWAYS ask at least ONE question via AskUserQuestion before producing the requirements doc
 - A clarifier session with ZERO questions asked is a FAILURE — there is always something to clarify
-- Even if requirements seem perfectly clear, ask about scope boundaries or edge cases
+- Even if a PRD/RFC is very detailed, ask about scope boundaries, edge cases, or tech stack preferences
 
 PREREQUISITE: READ FROM DISK
 
