@@ -63,35 +63,35 @@ is_docs_file() {
 case "$AGENT" in
   test-writer)
     if ! is_test_file "$REL_PATH"; then
-      echo "BLOCKED: test-writer agent cannot modify non-test file: $REL_PATH"
-      echo "Only test/spec files are allowed during the RED phase."
-      exit 1
+      echo "BLOCKED: test-writer agent cannot modify non-test file: $REL_PATH" >&2
+      echo "Only test/spec files are allowed during the RED phase." >&2
+      exit 2
     fi
     ;;
   implementer)
     if is_test_file "$REL_PATH"; then
-      echo "BLOCKED: implementer agent cannot modify test file: $REL_PATH"
-      echo "Tests are written by test-writer. Implementer only writes production code."
-      exit 1
+      echo "BLOCKED: implementer agent cannot modify test file: $REL_PATH" >&2
+      echo "Tests are written by test-writer. Implementer only writes production code." >&2
+      exit 2
     fi
     ;;
   reviewer|security-reviewer|performance-reviewer)
-    echo "BLOCKED: $AGENT agent is read-only and cannot modify: $REL_PATH"
-    echo "Reviewers analyze code but do not modify it."
-    exit 1
+    echo "BLOCKED: $AGENT agent is read-only and cannot modify: $REL_PATH" >&2
+    echo "Reviewers analyze code but do not modify it." >&2
+    exit 2
     ;;
   simplifier)
     if is_test_file "$REL_PATH"; then
-      echo "BLOCKED: simplifier agent cannot modify test file: $REL_PATH"
-      echo "Simplifier refactors production code only. Tests must stay unchanged."
-      exit 1
+      echo "BLOCKED: simplifier agent cannot modify test file: $REL_PATH" >&2
+      echo "Simplifier refactors production code only. Tests must stay unchanged." >&2
+      exit 2
     fi
     ;;
   documenter)
     if ! is_docs_file "$REL_PATH"; then
-      echo "BLOCKED: documenter agent cannot modify non-docs file: $REL_PATH"
-      echo "Documenter only writes to docs/ directory."
-      exit 1
+      echo "BLOCKED: documenter agent cannot modify non-docs file: $REL_PATH" >&2
+      echo "Documenter only writes to docs/ directory." >&2
+      exit 2
     fi
     ;;
   # clarifier, planner, analyzer, qa-engineer, ticket-manager, lemongrab — no file write restrictions

@@ -3,7 +3,7 @@
 # Intercepts Write/Edit to current-phase.json and validates:
 #   1. The transition is in the allowed transition table
 #   2. Required artifacts exist before key phases (e.g., requirements before planning)
-# Exit 0 to allow, exit 1 to block.
+# Exit 0 to allow, exit 2 to block (stderr = reason shown to Claude).
 set -euo pipefail
 
 INPUT="${CLAUDE_TOOL_INPUT:-}"
@@ -42,9 +42,9 @@ if [ ! -f "$STATE_FILE" ]; then
       exit 0
       ;;
     *)
-      echo "BLOCKED: First phase of a new workflow must be CLARIFY_IN_PROGRESS, MULTI_TICKET_SETUP, or PLAN_IMPORT_VALIDATING (got $NEW_PHASE)"
-      echo "Every workflow starts with requirements gathering. No shortcuts."
-      exit 1
+      echo "BLOCKED: First phase of a new workflow must be CLARIFY_IN_PROGRESS, MULTI_TICKET_SETUP, or PLAN_IMPORT_VALIDATING (got $NEW_PHASE)" >&2
+      echo "Every workflow starts with requirements gathering. No shortcuts." >&2
+      exit 2
       ;;
   esac
 fi
@@ -117,12 +117,12 @@ if ! echo "$TRANSITIONS" | grep -qx "$KEY"; then
   # Build list of valid targets for the error message
   VALID_TARGETS=$(echo "$TRANSITIONS" | grep "^${CURRENT_PHASE}>" | sed "s/^${CURRENT_PHASE}>//" | tr '\n' ', ' | sed 's/,$//')
 
-  echo "BLOCKED: Illegal phase transition: $CURRENT_PHASE → $NEW_PHASE"
-  echo "Valid transitions from $CURRENT_PHASE: ${VALID_TARGETS:-none}"
-  echo ""
-  echo "The workflow requires phases to proceed in order. You cannot skip phases."
-  echo "If you need to restart, delete docs/state/current-phase.json first."
-  exit 1
+  echo "BLOCKED: Illegal phase transition: $CURRENT_PHASE → $NEW_PHASE" >&2
+  echo "Valid transitions from $CURRENT_PHASE: ${VALID_TARGETS:-none}" >&2
+  echo "" >&2
+  echo "The workflow requires phases to proceed in order. You cannot skip phases." >&2
+  echo "If you need to restart, delete docs/state/current-phase.json first." >&2
+  exit 2
 fi
 
 # --- ARTIFACT PRECONDITIONS ---
@@ -132,17 +132,17 @@ case "$NEW_PHASE" in
     if [ -n "$FEATURE" ]; then
       REQ_FILE="$PROJECT_ROOT/docs/requirements/${FEATURE}.md"
       if [ ! -f "$REQ_FILE" ]; then
-        echo "BLOCKED: Cannot enter PLAN_IN_PROGRESS — requirements file missing: docs/requirements/${FEATURE}.md"
-        echo "The clarifier must produce a requirements document before planning can begin."
-        exit 1
+        echo "BLOCKED: Cannot enter PLAN_IN_PROGRESS — requirements file missing: docs/requirements/${FEATURE}.md" >&2
+        echo "The clarifier must produce a requirements document before planning can begin." >&2
+        exit 2
       fi
       # Run verification script
       VERIFY_OUTPUT=$("$VERIFY_DIR/verify-requirements.sh" "$REQ_FILE" 2>&1) || {
-        echo "BLOCKED: Cannot enter PLAN_IN_PROGRESS — requirements verification failed:"
-        echo "$VERIFY_OUTPUT"
-        echo ""
-        echo "Fix the requirements document before proceeding to planning."
-        exit 1
+        echo "BLOCKED: Cannot enter PLAN_IN_PROGRESS — requirements verification failed:" >&2
+        echo "$VERIFY_OUTPUT" >&2
+        echo "" >&2
+        echo "Fix the requirements document before proceeding to planning." >&2
+        exit 2
       }
     fi
     ;;
@@ -151,17 +151,17 @@ case "$NEW_PHASE" in
     if [ -n "$FEATURE" ]; then
       PLAN_FILE="$PROJECT_ROOT/docs/plans/${FEATURE}.md"
       if [ ! -f "$PLAN_FILE" ]; then
-        echo "BLOCKED: Cannot enter PLAN_APPROVED — plan file missing: docs/plans/${FEATURE}.md"
-        echo "The planner must produce a plan document before approval."
-        exit 1
+        echo "BLOCKED: Cannot enter PLAN_APPROVED — plan file missing: docs/plans/${FEATURE}.md" >&2
+        echo "The planner must produce a plan document before approval." >&2
+        exit 2
       fi
       # Run verification script
       VERIFY_OUTPUT=$("$VERIFY_DIR/verify-plan-structure.sh" "$PLAN_FILE" 2>&1) || {
-        echo "BLOCKED: Cannot enter PLAN_APPROVED — plan structure verification failed:"
-        echo "$VERIFY_OUTPUT"
-        echo ""
-        echo "Fix the plan document before seeking approval."
-        exit 1
+        echo "BLOCKED: Cannot enter PLAN_APPROVED — plan structure verification failed:" >&2
+        echo "$VERIFY_OUTPUT" >&2
+        echo "" >&2
+        echo "Fix the plan document before seeking approval." >&2
+        exit 2
       }
     fi
     ;;
@@ -175,9 +175,9 @@ case "$NEW_PHASE" in
     fi
     if [ -n "$BRANCH" ]; then
       if ! git branch --list "$BRANCH" 2>/dev/null | grep -q .; then
-        echo "BLOCKED: Cannot enter BUILD_IN_PROGRESS — branch '$BRANCH' does not exist"
-        echo "Create the feature branch before starting the build phase."
-        exit 1
+        echo "BLOCKED: Cannot enter BUILD_IN_PROGRESS — branch '$BRANCH' does not exist" >&2
+        echo "Create the feature branch before starting the build phase." >&2
+        exit 2
       fi
     fi
     ;;
