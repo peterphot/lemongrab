@@ -128,14 +128,14 @@ run_tests
 run_lint
 
 if [ ${#ERRORS[@]} -gt 0 ]; then
-  echo ""
-  echo "BLOCKED: Commit blocked by pre-commit guard."
+  echo "" >&2
+  echo "BLOCKED: Commit blocked by pre-commit guard." >&2
   for err in "${ERRORS[@]}"; do
-    echo "  - $err"
+    echo "  - $err" >&2
   done
-  echo ""
-  echo "Fix the failures above before committing."
-  exit 1
+  echo "" >&2
+  echo "Fix the failures above before committing." >&2
+  exit 2
 fi
 
-echo "Pre-commit checks passed."
+echo "Pre-commit checks passed." >&2
