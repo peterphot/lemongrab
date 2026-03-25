@@ -21,7 +21,7 @@ if [ -z "$PROJECT_ROOT" ]; then
   exit 0
 fi
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+VERIFY_DIR="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}/skills/running-verifications/scripts"
 STATE_FILE="$PROJECT_ROOT/docs/state/current-phase.json"
 
 # Extract NEW phase from tool input
@@ -135,7 +135,7 @@ case "$NEW_PHASE" in
         exit 1
       fi
       # Run verification script
-      VERIFY_OUTPUT=$("$SCRIPT_DIR/verify-requirements.sh" "$REQ_FILE" 2>&1) || {
+      VERIFY_OUTPUT=$("$VERIFY_DIR/verify-requirements.sh" "$REQ_FILE" 2>&1) || {
         echo "BLOCKED: Cannot enter PLAN_IN_PROGRESS — requirements verification failed:"
         echo "$VERIFY_OUTPUT"
         echo ""
@@ -154,7 +154,7 @@ case "$NEW_PHASE" in
         exit 1
       fi
       # Run verification script
-      VERIFY_OUTPUT=$("$SCRIPT_DIR/verify-plan-structure.sh" "$PLAN_FILE" 2>&1) || {
+      VERIFY_OUTPUT=$("$VERIFY_DIR/verify-plan-structure.sh" "$PLAN_FILE" 2>&1) || {
         echo "BLOCKED: Cannot enter PLAN_APPROVED — plan structure verification failed:"
         echo "$VERIFY_OUTPUT"
         echo ""
