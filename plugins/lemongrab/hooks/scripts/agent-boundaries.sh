@@ -40,7 +40,7 @@ if [ -z "$AGENT" ]; then
 fi
 
 # Extract file path from tool input
-FILE_PATH=$(echo "$INPUT" | grep -oE '"file_path"\s*:\s*"[^"]+"' | head -1 | sed 's/.*: *"//;s/"$//')
+FILE_PATH=$(echo "$INPUT" | grep -oE '"file_path"\s*:\s*"[^"]+"' | head -1 | sed 's/.*: *"//;s/"$//' || true)
 if [ -z "$FILE_PATH" ]; then
   exit 0
 fi
