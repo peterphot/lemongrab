@@ -9,7 +9,7 @@ set -euo pipefail
 INPUT="${CLAUDE_TOOL_INPUT:-}"
 
 # Extract file_path from tool input
-FILE_PATH=$(echo "$INPUT" | grep -oE '"file_path"\s*:\s*"[^"]+"' | head -1 | sed 's/.*: *"//;s/"$//')
+FILE_PATH=$(echo "$INPUT" | grep -oE '"file_path"\s*:\s*"[^"]+"' | head -1 | sed 's/.*: *"//;s/"$//' || true)
 
 # Only guard current-phase.json writes — fast exit for everything else
 if [[ "$FILE_PATH" != *current-phase.json ]]; then
@@ -28,7 +28,7 @@ STATE_FILE="$PROJECT_ROOT/docs/state/current-phase.json"
 # For Write: full content contains "phase": "X" (may be escaped as \"phase\": \"X\")
 # For Edit: new_string contains "phase": "X" (appears after old_string, so tail -1 gets it)
 # Handle both escaped and unescaped JSON quotes by matching the pattern, then extracting uppercase value
-NEW_PHASE=$(echo "$INPUT" | grep -oE '(\\?"|")phase(\\?"|")\s*:\s*(\\?"|")[A-Z_]+(\\?"|")' | tail -1 | grep -oE '[A-Z][A-Z_]+[A-Z]')
+NEW_PHASE=$(echo "$INPUT" | grep -oE '(\\?"|")phase(\\?"|")\s*:\s*(\\?"|")[A-Z_]+(\\?"|")' | tail -1 | grep -oE '[A-Z][A-Z_]+[A-Z]' || true)
 
 if [ -z "$NEW_PHASE" ]; then
   # Can't determine new phase (maybe updating a non-phase field) — allow
@@ -115,7 +115,7 @@ KEY="${CURRENT_PHASE}>${NEW_PHASE}"
 
 if ! echo "$TRANSITIONS" | grep -qx "$KEY"; then
   # Build list of valid targets for the error message
-  VALID_TARGETS=$(echo "$TRANSITIONS" | grep "^${CURRENT_PHASE}>" | sed "s/^${CURRENT_PHASE}>//" | tr '\n' ', ' | sed 's/,$//')
+  VALID_TARGETS=$(echo "$TRANSITIONS" | grep "^${CURRENT_PHASE}>" | sed "s/^${CURRENT_PHASE}>//" | tr '\n' ', ' | sed 's/,$//' || true)
 
   echo "BLOCKED: Illegal phase transition: $CURRENT_PHASE → $NEW_PHASE" >&2
   echo "Valid transitions from $CURRENT_PHASE: ${VALID_TARGETS:-none}" >&2
