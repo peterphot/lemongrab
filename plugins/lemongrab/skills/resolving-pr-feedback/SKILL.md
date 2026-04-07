@@ -95,13 +95,31 @@ gh pr view {N} --json number,title,headRefName,baseRefName,url,reviewDecision
 # Filter out bot comments (in the command's classification step)
 # Check: comment.user.type == "Bot" → skip
 # Check: comment.user.login ends with "[bot]" → skip
-
-# Filter resolved threads (review comments only)
-# A thread is resolved if the review thread has been marked as resolved on GitHub
-# Use: gh api repos/{owner}/{repo}/pulls/{N}/comments
-# Check if the comment's thread is resolved via the GraphQL API or by checking
-# if a "resolved" event exists in the timeline
 ```
+
+To filter resolved threads, query the GraphQL API for review thread resolution status:
+
+```bash
+gh api graphql -f query='
+  query($owner: String!, $repo: String!, $pr: Int!) {
+    repository(owner: $owner, name: $repo) {
+      pullRequest(number: $pr) {
+        reviewThreads(first: 100) {
+          nodes {
+            isResolved
+            comments(first: 1) {
+              nodes { databaseId }
+            }
+          }
+        }
+      }
+    }
+  }
+' -f owner='{owner}' -f repo='{repo}' -F pr={N}
+```
+
+Match `comments.nodes[0].databaseId` against review comment IDs. If `isResolved` is
+true for a thread, filter out all comments belonging to that thread.
 
 ### Posting Replies
 

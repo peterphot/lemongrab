@@ -105,7 +105,7 @@ For each comment in the unified list, classify as one of:
 |---------------|----------|
 | **FIX** | Comment requests a code change: bug report, refactor suggestion, missing handling, GitHub suggestion block (` ```suggestion `), "please change", "this should be", "missing", "wrong", "bug" |
 | **RESPOND** | Comment asks a question or raises a concern that warrants explanation: "why", "what about", architectural disagreement, scope question, "I'm not sure about", "have you considered" |
-| **ACK** | Comment is praise, agreement, or informational: "LGTM", "nice", "good", "makes sense", "nit:" with no actionable code change, already addressed elsewhere |
+| **ACK** | Comment is praise, agreement, or informational: "LGTM", "nice", "good", "makes sense", purely observational nit with no specific change requested, already addressed elsewhere |
 | **DEFER** | Comment suggests a valid improvement that's out of scope: "in a follow-up", "separate PR", references files/modules not in this PR, would significantly expand scope |
 
 Classification rules:
@@ -115,6 +115,7 @@ Classification rules:
 - If a comment references a file that was deleted in this PR → ACK with note
 - If a comment references a line that no longer exists (stale) → attempt to map to new
   line via diff context. If cannot map, classify as FIX but flag as "stale_reference"
+- If a comment starts with "nit:" but includes a specific code change suggestion → classify as FIX
 - If ambiguous, prefer FIX over RESPOND (err on the side of action)
 
 STEP 4: TRIAGE PRESENTATION
@@ -156,12 +157,16 @@ gh pr comment {N} --body "Acknowledged — thanks. (Re: @{author}'s comment)"
 ```
 
 **DEFER comments:**
-For each DEFER comment, post a deferral reply:
+For each review-type DEFER comment, post a deferral reply:
 ```bash
 gh api repos/{OWNER_REPO}/pulls/{N}/comments \
   --method POST \
   --field body="Noted — deferring to a follow-up PR. This change would expand the scope of this PR." \
   --field in_reply_to_id={comment_id}
+```
+For issue-type DEFER comments:
+```bash
+gh pr comment {N} --body "Noted — deferring to a follow-up PR. This change would expand the scope of this PR. (Re: @{author}'s comment)"
 ```
 
 STEP 6: DRAFT AND POST RESPOND REPLIES
@@ -311,7 +316,7 @@ update the skill's phase table in a follow-up.
 - decision:
     id: D-FEEDBACK-001
     phase: feedback
-    who: resolve-feedback
+    who: claude
     what: "Resolved N comments, responded to M, deferred W on PR #<number>"
     why: "Automated PR feedback resolution"
     context: "PR #<number> review feedback from <authors>"

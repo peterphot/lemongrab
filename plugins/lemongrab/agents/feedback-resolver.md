@@ -57,7 +57,7 @@ PROCESS:
 2. **Read test file** — understand existing test coverage for this file
 3. **Run existing tests** — establish baseline (all should pass before you start)
    If tests are already failing, note this in the report and proceed with caution.
-4. **For each comment in the group (in line-number order):**
+4. **For each comment in the group (in line-number order; null-line comments processed last):**
    a. Read the comment body and diff_hunk to understand what the reviewer wants
    b. If the comment contains a GitHub suggestion block (` ```suggestion `), extract
       the suggested code. Evaluate whether the suggestion is correct — apply if so,
@@ -90,7 +90,7 @@ OUTPUT FORMAT:
 
 | # | Comment ID | Author | Line | Status | Summary |
 |---|-----------|--------|------|--------|---------|
-| 1 | <id> | <author> | <line> | RESOLVED/UNRESOLVED | <what was done or why not> |
+| 1 | <id> | <author> | <line> | RESOLVED/UNRESOLVED/SKIPPED | <what was done or why not> |
 | 2 | ... | ... | ... | ... | ... |
 
 ### Resolution Details
@@ -116,6 +116,11 @@ OUTPUT FORMAT:
 [List any comments that could not be fixed, with reasons]
 
 ### Verdict: ALL_RESOLVED | PARTIAL | NONE_RESOLVED
+
+Verdict rules:
+- ALL_RESOLVED: Every FIX comment was resolved. SKIPPED comments do not count against this.
+- PARTIAL: At least one FIX comment resolved, at least one UNRESOLVED.
+- NONE_RESOLVED: No FIX comments were resolved.
 ```
 
 SELF-PERSISTENCE (MANDATORY):
