@@ -8,11 +8,11 @@
 
 **A TDD Multi-Agent Workflow Plugin for Claude Code**
 
-Lemongrab turns Claude Code into a disciplined engineering team. Instead of one agent doing everything, 17 specialized agents collaborate through a strict test-driven development workflow — clarifying requirements before writing code, writing tests before implementation, reviewing before shipping, and documenting before closing.
+Lemongrab turns Claude Code into a disciplined engineering team. Instead of one agent doing everything, 18 specialized agents collaborate through a strict test-driven development workflow — clarifying requirements before writing code, writing tests before implementation, reviewing before shipping, and documenting before closing.
 
 You type one command. Lemongrab handles the rest: asking you questions, writing tests, implementing code, running parallel reviews, simplifying, creating PRs, and documenting decisions. You stay in control through explicit approval gates at every major checkpoint.
 
-**17 agents. 20 skills. 6 slash commands. 11 automation hooks. Zero assumptions.**
+**18 agents. 22 skills. 7 slash commands. 11 automation hooks. Zero assumptions.**
 
 ---
 
@@ -97,7 +97,7 @@ You approve at every major checkpoint. Nothing proceeds without your explicit "y
 ## When Should You NOT Use This?
 
 - **When speed matters more than correctness.** Lemongrab adds process overhead (questions, approvals, reviews). If you need something fast and dirty, skip it.
-- **When the task is trivial.** Fixing a typo or updating a version number doesn't need 17 agents.
+- **When the task is trivial.** Fixing a typo or updating a version number doesn't need 18 agents.
 - **When you don't want tests.** Lemongrab is fundamentally test-driven. You cannot skip the test phase.
 - **When you're not ready to answer questions.** The clarifier will ask you things. If you don't have answers yet, you'll block the workflow.
 
@@ -176,7 +176,7 @@ What happens next:
 
 There are **three ways** to start a Lemongrab workflow:
 
-### 1. Slash Commands (6 commands)
+### 1. Slash Commands (7 commands)
 
 The most common way. Type these directly in Claude Code.
 
@@ -261,6 +261,28 @@ The most common way. Type these directly in Claude Code.
 ```
 
 **How it works:** Fetches the PR diff, chunks it into logical units (~200-300 lines each), launches parallel pr-reviewer agents per chunk, then aggregates findings by severity (CRITICAL/WARNING/NIT). With `--fix`, it offers to apply fixes and re-review changed chunks (max 2 rounds).
+
+**Does NOT** modify workflow state or move Linear tickets — it operates entirely outside the state machine.
+
+#### `/resolve-feedback [PR-URL-or-number] [--auto]`
+
+**What it does:** Resolves PR review feedback from human reviewers — fetches comments, classifies them, presents a triage table, dispatches parallel agents to fix code issues, and posts replies to comment threads.
+
+```
+# Resolve feedback on a specific PR
+/resolve-feedback 17
+
+# Resolve by URL
+/resolve-feedback https://github.com/org/repo/pull/42
+
+# Auto-detect PR from workflow state and skip triage approval
+/resolve-feedback --auto
+
+# Auto-detect PR from docs/state/task-status.json
+/resolve-feedback
+```
+
+**How it works:** Fetches inline review comments and issue comments via `gh api`, filters out bots and resolved threads, classifies each as FIX/RESPOND/ACK/DEFER, presents a triage table for approval, then resolves each category: posts ACK/DEFER replies, drafts RESPOND replies, and dispatches parallel feedback-resolver agents for FIX comments (one per file group). Commits fixes, pushes, and posts reply threads with commit references. Circuit breaker limits to 2 fix rounds.
 
 **Does NOT** modify workflow state or move Linear tickets — it operates entirely outside the state machine.
 
@@ -861,11 +883,12 @@ This is the full lifecycle that `/tdd` runs. Other workflows join at different p
 | **Documenter** | Documents the "what" and "why." Adds inline comments for non-obvious logic, creates decision logs, updates project docs. | After all tasks complete |
 | **QA Engineer** | Black-box browser testing using Chrome DevTools MCP. Navigates UI, performs actions, verifies outcomes, generates Playwright tests. Falls back gracefully if Chrome DevTools MCP is unavailable. | After review, if the app has a UI |
 
-### PR Review (1 agent)
+### PR Review and Feedback (2 agents)
 
 | Agent | What It Does | When It Runs |
 |-------|-------------|-------------|
 | **PR Reviewer** | Reads the assembled code diff as a human reviewer would on GitHub. Checks readability, correctness, edge cases, naming, API ergonomics, dead code. Does NOT re-check TDD/security/performance (already done per-task). | After all tasks, before PR merge |
+| **Feedback Resolver** | Resolves grouped PR feedback comments for a single file. Reads source + test files, applies minimal TDD-compliant fixes, produces resolution reports, and self-persists results. Invoked once per file group by the `/resolve-feedback` command. | During `/resolve-feedback`, one per file group |
 
 ---
 
@@ -895,6 +918,7 @@ Skills are reusable domain knowledge that agents load automatically. You don't i
 | `using-git-worktrees` | Git worktree creation and management for parallel work | Lemongrab |
 | `managing-branches-and-prs` | Branch naming, PR lifecycle, merge strategy | Ticket Manager |
 | `reviewing-spec-compliance` | Requirements traceability, acceptance criteria validation | Spec Reviewer |
+| `resolving-pr-feedback` | Comment type interpretation, GitHub API patterns, reply etiquette, escalation rules | Feedback Resolver |
 
 ---
 
@@ -1138,7 +1162,7 @@ lemongrab/
 │   └── lemongrab/
 │       ├── .claude-plugin/
 │       │   └── plugin.json         # Plugin metadata
-│       ├── agents/                 # 17 agent definitions
+│       ├── agents/                 # 18 agent definitions
 │       │   ├── lemongrab.md        #   Orchestrator
 │       │   ├── analyzer.md         #   Context builder
 │       │   ├── clarifier.md        #   Requirements analyst
@@ -1155,15 +1179,17 @@ lemongrab/
 │       │   ├── simplifier.md       #   REFACTOR phase
 │       │   ├── documenter.md       #   Decision documenter
 │       │   ├── qa-engineer.md      #   E2E browser testing
-│       │   └── ticket-manager.md   #   Work item tracking
-│       ├── commands/               # 6 slash commands
+│       │   ├── ticket-manager.md   #   Work item tracking
+│       │   └── feedback-resolver.md#   PR feedback fixer
+│       ├── commands/               # 7 slash commands
 │       │   ├── tdd.md
 │       │   ├── analyze.md
 │       │   ├── ticket.md
 │       │   ├── bootstrap.md
 │       │   ├── pr-review.md        #   Standalone PR review
+│       │   ├── resolve-feedback.md #   PR feedback resolution
 │       │   └── resume.md
-│       ├── skills/                 # 20 reusable domain skills
+│       ├── skills/                 # 22 reusable domain skills
 │       │   ├── analyzing-codebases/
 │       │   ├── auditing-tdd-compliance/
 │       │   ├── brainstorming/
@@ -1184,6 +1210,7 @@ lemongrab/
 │       │   ├── systematic-debugging/
 │       │   ├── using-git-worktrees/
 │       │   ├── verifying-before-completion/
+│       │   ├── resolving-pr-feedback/  # PR feedback resolution reference
 │       │   └── running-verifications/  # Verification gate scripts
 │       │       ├── SKILL.md
 │       │       └── scripts/
@@ -1265,7 +1292,7 @@ These unlock additional workflow types but are NOT required for core functionali
 | **Requires your attention** | Approval gates mean you can't just fire and forget. You need to answer questions and approve things. |
 | **Opinionated workflow** | TDD is mandatory. You can't skip tests. If you don't want TDD, this isn't for you. |
 | **Context window pressure** | Large features with many tasks consume context. Very large features (10+ tasks) may need multi-ticket workflow. |
-| **Overkill for small tasks** | One-line bug fixes don't need 17 agents. Use Claude Code directly for trivial changes. |
+| **Overkill for small tasks** | One-line bug fixes don't need 18 agents. Use Claude Code directly for trivial changes. |
 | **Learning curve** | Understanding the phases, gates, and agents takes a few runs to internalize. |
 | **No partial TDD** | You can't skip the test phase for "just this one function." TDD is all-or-nothing. |
 
@@ -1307,7 +1334,7 @@ These unlock additional workflow types but are NOT required for core functionali
 
 **"What is Lemongrab?"**
 
-A Claude Code plugin that enforces test-driven development through 17 specialized agents. Instead of one agent doing everything, each agent has a specific role (clarify requirements, write tests, implement code, review, simplify, document) and strict boundaries about what it can do.
+A Claude Code plugin that enforces test-driven development through 18 specialized agents. Instead of one agent doing everything, each agent has a specific role (clarify requirements, write tests, implement code, review, simplify, document) and strict boundaries about what it can do.
 
 **"Do I need to learn TDD to use this?"**
 
