@@ -63,10 +63,10 @@ Fetch both types of comments:
 
 ```bash
 # Inline review comments (on specific lines)
-gh api repos/{OWNER_REPO}/pulls/{N}/comments --paginate > /tmp/pr-review-comments.json
+gh api repos/{OWNER_REPO}/pulls/{N}/comments --paginate > /tmp/pr-${N}-review-comments.json
 
 # General issue comments (top-level)
-gh api repos/{OWNER_REPO}/issues/{N}/comments --paginate > /tmp/pr-issue-comments.json
+gh api repos/{OWNER_REPO}/issues/{N}/comments --paginate > /tmp/pr-${N}-issue-comments.json
 ```
 
 Filter out:
@@ -105,7 +105,7 @@ For each comment in the unified list, classify as one of:
 |---------------|----------|
 | **FIX** | Comment requests a code change: bug report, refactor suggestion, missing handling, GitHub suggestion block (` ```suggestion `), "please change", "this should be", "missing", "wrong", "bug" |
 | **RESPOND** | Comment asks a question or raises a concern that warrants explanation: "why", "what about", architectural disagreement, scope question, "I'm not sure about", "have you considered" |
-| **ACK** | Comment is praise, agreement, or informational: "LGTM", "nice", "good", "makes sense", "nit:" with no code suggestion, already addressed elsewhere |
+| **ACK** | Comment is praise, agreement, or informational: "LGTM", "nice", "good", "makes sense", "nit:" with no actionable code change, already addressed elsewhere |
 | **DEFER** | Comment suggests a valid improvement that's out of scope: "in a follow-up", "separate PR", references files/modules not in this PR, would significantly expand scope |
 
 Classification rules:
@@ -214,7 +214,10 @@ Feature context:
 - Plan: docs/plans/<feature>.md (if exists)
 
 Apply minimal fixes, verify tests pass, self-persist report to
-docs/state/feedback-resolutions/<pr-number>-<file-slug>.md"
+docs/state/feedback-resolutions/<pr-number>-<file-slug>.md
+
+IMPORTANT: Do NOT run git add, git commit, or git push. Only modify files and write
+your report. The orchestrator handles all git operations."
 ```
 
 Launch ALL file group agents in a SINGLE message (parallel Agent calls).
@@ -222,23 +225,7 @@ Wait for all agents to complete (you will be notified automatically).
 
 IMPORTANT: Do NOT use TaskOutput to read agent results. The agents write to disk.
 
-STEP 8: COLLECT RESULTS AND POST FIX REPLIES
-
-1. Read all resolution reports from docs/state/feedback-resolutions/<pr-number>-*.md
-2. For each resolved comment:
-   - Get the commit SHA from git log (the latest commit touching the file)
-   - Post a reply to the comment thread:
-     ```bash
-     COMMIT_SHORT=$(git log -1 --format='%h' -- <file-path>)
-     gh api repos/{OWNER_REPO}/pulls/{N}/comments \
-       --method POST \
-       --field body="Fixed in ${COMMIT_SHORT}. <brief description of change>" \
-       --field in_reply_to_id={comment_id}
-     ```
-3. For each unresolved comment:
-   - Note it for the summary (do not post a reply yet — user may want to handle manually)
-
-STEP 9: COMMIT AND PUSH
+STEP 8: COMMIT AND PUSH
 
 For each file group that had resolved fixes:
 1. Stage the modified files:
@@ -256,6 +243,22 @@ For each file group that had resolved fixes:
    ```bash
    git push origin HEAD
    ```
+
+STEP 9: COLLECT RESULTS AND POST FIX REPLIES
+
+1. Read all resolution reports from docs/state/feedback-resolutions/<pr-number>-*.md
+2. For each resolved comment:
+   - Get the commit SHA from git log (the latest commit touching the file, after STEP 8)
+   - Post a reply to the comment thread:
+     ```bash
+     COMMIT_SHORT=$(git log -1 --format='%h' -- <file-path>)
+     gh api repos/{OWNER_REPO}/pulls/{N}/comments \
+       --method POST \
+       --field body="Fixed in ${COMMIT_SHORT}. <brief description of change>" \
+       --field in_reply_to_id={comment_id}
+     ```
+3. For each unresolved comment:
+   - Note it for the summary (do not post a reply yet — user may want to handle manually)
 
 STEP 10: CIRCUIT BREAKER AND SUMMARY
 
@@ -290,12 +293,16 @@ Unresolved items need manual attention:
   [retry] — re-run feedback resolution on unresolved items only
   [skip] — leave unresolved items for manual handling
   [discuss] — let's look at the unresolved items together"
-- If retry: re-run STEP 7-9 with only unresolved comments (round 2)
+- If retry: re-run STEP 7-9 with only unresolved comments (round 2, where STEP 7 = dispatch, 8 = commit, 9 = post replies)
 - Maximum 2 fix rounds. After round 2, present remaining unresolved items and stop.
 
 STEP 11: DECISION CAPTURE
 
-If docs/state/decisions.md exists, append feedback resolution decisions:
+If docs/state/decisions.md exists, append feedback resolution decisions.
+
+Note: D-FEEDBACK is a new decision prefix specific to this command. It is not yet
+registered in the formatting-decisions skill. If this prefix is adopted project-wide,
+update the skill's phase table in a follow-up.
 
 ```markdown
 ### Phase: FEEDBACK

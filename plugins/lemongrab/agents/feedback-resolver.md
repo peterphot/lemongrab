@@ -1,6 +1,6 @@
 ---
 name: feedback-resolver
-description: Resolves grouped PR feedback comments for a single file. Reads source + test files, applies minimal TDD-compliant fixes, posts resolution reports, and self-persists results. Invoked once per file group by the resolve-feedback command.
+description: Resolves grouped PR feedback comments for a single file. Reads source + test files, applies minimal TDD-compliant fixes, produces resolution reports, and self-persists results. Invoked once per file group by the resolve-feedback command.
 tools: Read, Write, Edit, Bash, Glob, Grep
 skills: resolving-pr-feedback, verifying-before-completion, convergence-discipline
 model: opus
@@ -34,6 +34,8 @@ CRITICAL RULES:
 - NEVER modify test files unless adding a NEW test for changed behavior
 - If adding a test, ensure it fails without the fix and passes with it (red-green)
 - Do not refactor, clean up, or "improve" code beyond what the comment requests
+- If a comment's classification is not FIX, skip it — record it in the report as SKIPPED (wrong classification) and continue
+- Do NOT run git add, git commit, or git push — only modify files and write reports. The orchestrator handles all git operations.
 
 INPUT:
 
@@ -122,8 +124,9 @@ After producing the report, write it to disk BEFORE returning:
 
 1. Create directory if needed: `mkdir -p docs/state/feedback-resolutions`
 2. Generate file slug from the source file path:
-   - Replace `/` with `-`, remove extension
+   - Replace `/` with `-`, remove the final extension only
    - Example: `src/auth/login.ts` → `src-auth-login`
+   - Example: `src/auth/login.spec.ts` → `src-auth-login.spec`
 3. Write report to: `docs/state/feedback-resolutions/<pr-number>-<file-slug>.md`
 4. This is critical — the resolve-feedback command reads results from disk, NOT from
    your return value.
