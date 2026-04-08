@@ -218,7 +218,9 @@ Branch: <head-branch>
 
 Comments to resolve:
 1. [ID: <id>] Line <line>: <body> (by @<author>)
+   Diff context: <diff_hunk if available, or 'none'>
 2. [ID: <id>] Line <line>: <body> (by @<author>)
+   Diff context: <diff_hunk if available, or 'none'>
 ...
 
 Feature context:
@@ -239,6 +241,8 @@ IMPORTANT: Do NOT use TaskOutput to read agent results. The agents write to disk
 
 STEP 8: COMMIT AND PUSH
 
+If READ_ONLY mode: skip this step (no code changes to commit).
+
 For each file group that had resolved fixes:
 1. Stage the modified files:
    ```bash
@@ -257,6 +261,8 @@ For each file group that had resolved fixes:
    ```
 
 STEP 9: COLLECT RESULTS AND POST FIX REPLIES
+
+If READ_ONLY mode: skip this step (no fixes were applied, no fix replies to post).
 
 1. Read all resolution reports from docs/state/feedback-resolutions/<pr-number>-*.md
 2. For each resolved comment:

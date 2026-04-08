@@ -142,25 +142,9 @@ After producing the report, write it to disk BEFORE returning:
 
 COMPLETION:
 
-After self-persisting, update docs/state/task-status.json (if it exists) with your
-resolution status:
+Do NOT update docs/state/task-status.json — the orchestrator (resolve-feedback command)
+aggregates all per-file reports from docs/state/feedback-resolutions/ after all agents
+complete and writes task-status.json in a single operation. This avoids race conditions
+when multiple feedback-resolver agents run in parallel.
 
-```json
-{
-  "lastAgent": "feedback-resolver",
-  "lastSubstep": "<file-path>",
-  "lastUpdated": "<ISO timestamp>",
-  "feedbackResolution": {
-    "<file-slug>": {
-      "status": "ALL_RESOLVED|PARTIAL|NONE_RESOLVED|ALL_SKIPPED",
-      "resolved": <count>,
-      "unresolved": <count>,
-      "testsAdded": <count>
-    }
-  }
-}
-```
-
-Use a read-modify-write pattern — read the existing file, merge your data, write back.
-
-Output: Resolution report with per-comment status and verdict (also persisted to disk).
+Output: Resolution report with per-comment status and verdict (persisted to disk).
