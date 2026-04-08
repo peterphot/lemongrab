@@ -164,6 +164,11 @@ The orchestrator will route cross-refs to the appropriate chunk reviewer.
 
 RE-REVIEW MODE:
 
+IMPORTANT: Only enter re-review mode when the orchestrator's prompt EXPLICITLY says
+"Re-review round N" or includes previous findings inline. Do NOT auto-detect re-review
+mode from existing report files on disk — those may be stale from a previous run.
+If the orchestrator prompt does not mention a re-review round, this is a fresh review.
+
 When invoked for a re-review (round 2+), the orchestrator provides:
 1. The original findings for this chunk
 2. The new diff showing only what changed since the last review
