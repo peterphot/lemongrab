@@ -48,7 +48,7 @@ The resolve-feedback command provides:
    - `author`: who wrote the comment
    - `body`: the comment text
    - `diff_hunk`: surrounding diff context (for inline comments)
-   - `classification`: FIX (the command pre-classified these)
+   - `classification`: FIX expected (the command pre-filters to FIX, but verify — skip non-FIX as a defensive guard)
 4. Repository context: owner/repo string
 
 PROCESS:

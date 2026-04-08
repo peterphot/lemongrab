@@ -80,6 +80,16 @@ jq empty /tmp/pr-${N}-review-comments.json 2>/dev/null || { echo "ERROR: Failed 
 jq empty /tmp/pr-${N}-issue-comments.json 2>/dev/null || { echo "ERROR: Failed to fetch issue comments (check auth/network)"; exit 1; }
 ```
 
+Validate response shape (guard against API error objects parsed as arrays of strings):
+```bash
+jq -e '.[0].id // empty' /tmp/pr-${N}-review-comments.json >/dev/null 2>&1 || \
+  jq -e 'length == 0' /tmp/pr-${N}-review-comments.json >/dev/null 2>&1 || \
+  { echo "ERROR: Unexpected response format for review comments"; exit 1; }
+jq -e '.[0].id // empty' /tmp/pr-${N}-issue-comments.json >/dev/null 2>&1 || \
+  jq -e 'length == 0' /tmp/pr-${N}-issue-comments.json >/dev/null 2>&1 || \
+  { echo "ERROR: Unexpected response format for issue comments"; exit 1; }
+```
+
 Filter out:
 - **Bot comments**: where `user.type == "Bot"` or `user.login` ends with `[bot]`
 - **Resolved threads**: review comments where the thread has been marked resolved
@@ -151,6 +161,9 @@ If `--auto` flag was set: skip this gate, proceed directly.
 If user provides overrides, apply them to the classification list.
 
 STEP 5: RESOLVE ACK AND DEFER COMMENTS
+
+Note: Reply posting (Steps 5-6) proceeds even in READ_ONLY mode (closed/merged PRs).
+Only code changes (Steps 7-9) are skipped in READ_ONLY mode.
 
 Before dispatching agents, handle the simple categories:
 
