@@ -68,10 +68,10 @@ Fetch both types of comments:
 
 ```bash
 # Inline review comments (on specific lines)
-gh api repos/{OWNER_REPO}/pulls/{N}/comments --paginate > /tmp/pr-${N}-review-comments.json
+gh api repos/{OWNER_REPO}/pulls/{N}/comments --paginate --jq '.[]' | jq -s '.' > /tmp/pr-${N}-review-comments.json
 
 # General issue comments (top-level)
-gh api repos/{OWNER_REPO}/issues/{N}/comments --paginate > /tmp/pr-${N}-issue-comments.json
+gh api repos/{OWNER_REPO}/issues/{N}/comments --paginate --jq '.[]' | jq -s '.' > /tmp/pr-${N}-issue-comments.json
 ```
 
 Filter out:
@@ -285,6 +285,7 @@ Count results across all file groups:
 - RESPONDED: comments where we posted a RESPOND reply
 - ACKED: comments where we posted an ACK reply
 - DEFERRED: comments where we posted a DEFER reply
+- SKIPPED (read-only): FIX comments not applied because PR is closed/merged
 
 Present summary to user:
 ```
@@ -297,6 +298,13 @@ PR FEEDBACK RESOLUTION COMPLETE — PR #N
 | ACKNOWLEDGED | Z |
 | DEFERRED | W |
 | UNRESOLVED | U |
+| SKIPPED (read-only) | S |
+
+[If READ_ONLY mode and FIX items exist:]
+These FIX items were not applied because the PR is closed/merged:
+| # | File:Line | Comment | Author |
+|---|-----------|---------|--------|
+| 1 | src/foo.ts:42 | <summary> | @reviewer |
 
 [If UNRESOLVED > 0:]
 Unresolved items need manual attention:

@@ -152,7 +152,7 @@ resolution status:
   "lastUpdated": "<ISO timestamp>",
   "feedbackResolution": {
     "<file-slug>": {
-      "status": "ALL_RESOLVED|PARTIAL|NONE_RESOLVED",
+      "status": "ALL_RESOLVED|PARTIAL|NONE_RESOLVED|ALL_SKIPPED",
       "resolved": <count>,
       "unresolved": <count>,
       "testsAdded": <count>
