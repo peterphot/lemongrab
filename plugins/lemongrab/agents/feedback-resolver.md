@@ -115,12 +115,13 @@ OUTPUT FORMAT:
 
 [List any comments that could not be fixed, with reasons]
 
-### Verdict: ALL_RESOLVED | PARTIAL | NONE_RESOLVED
+### Verdict: ALL_RESOLVED | PARTIAL | NONE_RESOLVED | ALL_SKIPPED
 
 Verdict rules:
 - ALL_RESOLVED: Every FIX comment was resolved. SKIPPED comments do not count against this.
 - PARTIAL: At least one FIX comment resolved, at least one UNRESOLVED.
-- NONE_RESOLVED: No FIX comments were resolved.
+- NONE_RESOLVED: No FIX comments were resolved (but at least one FIX comment existed).
+- ALL_SKIPPED: Every comment was SKIPPED (no FIX comments in this group). No code changes made.
 ```
 
 SELF-PERSISTENCE (MANDATORY):
@@ -132,6 +133,9 @@ After producing the report, write it to disk BEFORE returning:
    - Replace `/` with `-`, remove the final extension only
    - Example: `src/auth/login.ts` → `src-auth-login`
    - Example: `src/auth/login.spec.ts` → `src-auth-login.spec`
+   - No extension (e.g., `Makefile`): use full filename → `Makefile`
+   - Dotfiles (e.g., `.eslintrc`): use full filename → `.eslintrc`
+   - Multiple dots: remove only the last `.ext` segment
 3. Write report to: `docs/state/feedback-resolutions/<pr-number>-<file-slug>.md`
 4. This is critical — the resolve-feedback command reads results from disk, NOT from
    your return value.

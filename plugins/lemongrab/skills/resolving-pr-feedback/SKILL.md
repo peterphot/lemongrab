@@ -111,6 +111,7 @@ gh api graphql -f query='
               nodes { databaseId }
             }
           }
+          pageInfo { hasNextPage endCursor }
         }
       }
     }
@@ -121,16 +122,19 @@ gh api graphql -f query='
 Match `comments.nodes[0].databaseId` against review comment IDs. If `isResolved` is
 true for a thread, filter out all comments belonging to that thread.
 
+> **Note:** `first: 100` covers most PRs. For PRs with more than 100 review threads,
+> use the `pageInfo { hasNextPage endCursor }` fields and paginate with `after:` cursor.
+
 ### Posting Replies
 
 ```bash
 # Reply to an inline review comment (creates a reply in the thread)
-gh api repos/{owner}/{repo}/pulls/{N}/comments \
+# Uses the dedicated /replies sub-resource — only requires body
+gh api repos/{owner}/{repo}/pulls/{N}/comments/{comment_id}/replies \
   --method POST \
-  --field body="<reply text>" \
-  --field in_reply_to_id={comment_id}
+  --field body="<reply text>"
 
-# Post a general comment on the PR
+# Post a general comment on the PR (for issue-type comments)
 gh pr comment {N} --body "<comment text>"
 ```
 

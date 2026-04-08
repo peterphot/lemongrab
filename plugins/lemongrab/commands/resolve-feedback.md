@@ -59,6 +59,11 @@ STEP 1: GATHER PR CONTEXT
 
 STEP 2: FETCH COMMENTS
 
+Clean up any stale temp files from previous runs before fetching:
+```bash
+rm -f /tmp/pr-${N}-review-comments.json /tmp/pr-${N}-issue-comments.json
+```
+
 Fetch both types of comments:
 
 ```bash
@@ -144,29 +149,27 @@ STEP 5: RESOLVE ACK AND DEFER COMMENTS
 Before dispatching agents, handle the simple categories:
 
 **ACK comments:**
-For each ACK comment, post a brief reply:
+For each review-type ACK comment, post a brief reply:
 ```bash
-gh api repos/{OWNER_REPO}/pulls/{N}/comments \
+gh api repos/{OWNER_REPO}/pulls/{N}/comments/{comment_id}/replies \
   --method POST \
-  --field body="Acknowledged — thanks." \
-  --field in_reply_to_id={comment_id}
+  --field body="Acknowledged — thanks."
 ```
 For issue-type ACK comments:
 ```bash
-gh pr comment {N} --body "Acknowledged — thanks. (Re: @{author}'s comment)"
+gh pr comment {N} --body "Acknowledged — thanks. (Re: @{author}'s [comment]({comment_url}))"
 ```
 
 **DEFER comments:**
 For each review-type DEFER comment, post a deferral reply:
 ```bash
-gh api repos/{OWNER_REPO}/pulls/{N}/comments \
+gh api repos/{OWNER_REPO}/pulls/{N}/comments/{comment_id}/replies \
   --method POST \
-  --field body="Noted — deferring to a follow-up PR. This change would expand the scope of this PR." \
-  --field in_reply_to_id={comment_id}
+  --field body="Noted — deferring to a follow-up PR. This change would expand the scope of this PR."
 ```
 For issue-type DEFER comments:
 ```bash
-gh pr comment {N} --body "Noted — deferring to a follow-up PR. This change would expand the scope of this PR. (Re: @{author}'s comment)"
+gh pr comment {N} --body "Noted — deferring to a follow-up PR. This change would expand the scope of this PR. (Re: @{author}'s [comment]({comment_url}))"
 ```
 
 STEP 6: DRAFT AND POST RESPOND REPLIES
@@ -176,11 +179,15 @@ For each RESPOND comment:
 2. Read requirements docs if available (docs/requirements/*.md)
 3. Draft a contextual reply explaining the decision or answering the question
 4. Post the reply immediately (no user approval):
+   For review-type RESPOND comments:
    ```bash
-   gh api repos/{OWNER_REPO}/pulls/{N}/comments \
+   gh api repos/{OWNER_REPO}/pulls/{N}/comments/{comment_id}/replies \
      --method POST \
-     --field body="<drafted reply>" \
-     --field in_reply_to_id={comment_id}
+     --field body="<drafted reply>"
+   ```
+   For issue-type RESPOND comments:
+   ```bash
+   gh pr comment {N} --body "<drafted reply> (Re: @{author}'s [comment]({comment_url}))"
    ```
 
 Keep RESPOND replies:
@@ -255,12 +262,17 @@ STEP 9: COLLECT RESULTS AND POST FIX REPLIES
 2. For each resolved comment:
    - Get the commit SHA from git log (the latest commit touching the file, after STEP 8)
    - Post a reply to the comment thread:
+     For review-type comments:
      ```bash
      COMMIT_SHORT=$(git log -1 --format='%h' -- <file-path>)
-     gh api repos/{OWNER_REPO}/pulls/{N}/comments \
+     gh api repos/{OWNER_REPO}/pulls/{N}/comments/{comment_id}/replies \
        --method POST \
-       --field body="Fixed in ${COMMIT_SHORT}. <brief description of change>" \
-       --field in_reply_to_id={comment_id}
+       --field body="Fixed in ${COMMIT_SHORT}. <brief description of change>"
+     ```
+     For issue-type comments:
+     ```bash
+     COMMIT_SHORT=$(git log -1 --format='%h' -- <file-path>)
+     gh pr comment {N} --body "Fixed in ${COMMIT_SHORT}. <brief description of change> (Re: @{author}'s [comment]({comment_url}))"
      ```
 3. For each unresolved comment:
    - Note it for the summary (do not post a reply yet — user may want to handle manually)
@@ -321,6 +333,13 @@ update the skill's phase table in a follow-up.
     why: "Automated PR feedback resolution"
     context: "PR #<number> review feedback from <authors>"
 DECISIONS -->
+```
+
+STEP 12: CLEANUP
+
+Remove temp files created during this run:
+```bash
+rm -f /tmp/pr-${N}-review-comments.json /tmp/pr-${N}-issue-comments.json
 ```
 
 CRITICAL RULES:
