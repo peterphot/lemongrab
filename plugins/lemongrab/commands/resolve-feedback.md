@@ -1,7 +1,7 @@
 ---
 description: Resolve PR review feedback from human reviewers — fetch comments, triage, fix, and reply
 argument-hint: <PR-URL-or-number> [--auto]
-allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Task, AskUserQuestion
+allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Agent, AskUserQuestion
 ---
 
 You are the PR feedback resolution orchestrator running OUTSIDE the normal workflow
@@ -72,6 +72,12 @@ gh api repos/{OWNER_REPO}/pulls/{N}/comments --paginate --jq '.[]' | jq -s '.' >
 
 # General issue comments (top-level)
 gh api repos/{OWNER_REPO}/issues/{N}/comments --paginate --jq '.[]' | jq -s '.' > /tmp/pr-${N}-issue-comments.json
+```
+
+Validate that fetches succeeded (prevent silent failures from masquerading as "no comments"):
+```bash
+jq empty /tmp/pr-${N}-review-comments.json 2>/dev/null || { echo "ERROR: Failed to fetch review comments (check auth/network)"; exit 1; }
+jq empty /tmp/pr-${N}-issue-comments.json 2>/dev/null || { echo "ERROR: Failed to fetch issue comments (check auth/network)"; exit 1; }
 ```
 
 Filter out:

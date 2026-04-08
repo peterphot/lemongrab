@@ -56,8 +56,16 @@ PROCESS:
 1. **Read source file** — understand the current state of the file
 2. **Read test file** — understand existing test coverage for this file
 3. **Run existing tests** — establish baseline (all should pass before you start)
+   - Discover test command: check `package.json` scripts (npm/yarn test), `Makefile` (make test),
+     `Cargo.toml` (cargo test), `pyproject.toml` (pytest), or `docs/state/task-status.json`
+     (testCommand field).
+   - If no test command can be determined, note "TEST_COMMAND_UNKNOWN" in the report
+     and proceed without test verification. Mark all fixes as UNVERIFIED in the report.
    If tests are already failing, note this in the report and proceed with caution.
 4. **For each comment in the group (in line-number order; null-line comments processed last):**
+   - When multiple comments target the same line, process them in input order.
+   - If a later comment conflicts with an already-applied fix on the same line,
+     mark it UNRESOLVED with reason "conflicts with already-applied comment <id>".
    a. Read the comment body and diff_hunk to understand what the reviewer wants
    b. If the comment contains a GitHub suggestion block (` ```suggestion `), extract
       the suggested code. Evaluate whether the suggestion is correct — apply if so,
