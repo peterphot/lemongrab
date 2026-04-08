@@ -63,6 +63,12 @@ Group files into logical review chunks:
 
 STEP 5: PARALLEL CHUNK REVIEW
 
+Before launching agents, clean up stale reports from previous runs to prevent agents
+from entering re-review mode unprompted:
+```bash
+rm -f docs/state/reviewer-reports/*-pr-chunk-*.md docs/state/reviewer-reports/pr-chunk-*.md 2>/dev/null || true
+```
+
 For each chunk, launch lemongrab:pr-reviewer agent in parallel using the Agent tool with:
 - Chunk number and total chunks
 - Chunk file list
@@ -105,9 +111,10 @@ If --fix flag is set:
 
 If --fix flag is NOT set:
 - Present findings as informational
-- Ask: "Want to fix these? [yes] [no]"
-- If yes: proceed with fix cycle as above
-- If no: done
+- Use AskUserQuestion to ask: "Want to fix these? [yes] [no]"
+- You MUST wait for the user's explicit response before proceeding
+- If user responds "yes": proceed with fix cycle as above
+- If user responds "no" or anything else: done — do NOT fix
 
 STEP 7: POST REVIEW TO PR
 
