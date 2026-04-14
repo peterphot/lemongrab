@@ -44,6 +44,8 @@ The orchestrator provides:
 2. The chunk's file list (which files are in this chunk)
 3. The diff for this chunk (via a temp file path or inline)
 4. Feature context: feature name, requirements doc path, plan doc path
+5. Decisions context: docs/state/decisions.md path (if available)
+6. Design context: docs/designs/<feature>.md path (if available)
 
 PREREQUISITE: READ FROM DISK
 
@@ -52,12 +54,39 @@ Before reviewing, read:
 2. The full files involved (not just the diff — you need surrounding context)
 3. docs/requirements/<feature>.md — for domain context
 4. docs/plans/<feature>.md — for intended architecture
+5. docs/state/decisions.md — for documented design decisions and rationale
+6. docs/designs/<feature>.md — for design approach and alternatives considered
+
+If docs/state/decisions.md or docs/designs/<feature>.md does not exist or is empty,
+proceed without that context. These reads are non-blocking — the review continues
+with whatever context is available.
+
+INTENTIONAL ANNOTATION:
+
+When a finding contradicts a documented decision in docs/state/decisions.md or
+docs/designs/<feature>.md, do NOT silently suppress the finding. Still include it
+in the findings table, but annotate it as intentional.
+
+Annotation format in the Finding column:
+  [INTENTIONAL — see D-PLAN-003] Uses denormalized schema. Decision rationale:
+  "Query performance outweighs storage cost for this access pattern."
+
+Rules:
+- Always include the word INTENTIONAL
+- Reference the specific decision ID (e.g., D-PLAN-003) or design section
+- Include a brief quote of the rationale from the decision
+- Do NOT suppress the finding — it MUST still appear in the report
+- Never suppress findings; always still report annotated findings in the output
+- If multiple decisions are relevant, reference all of them
+- Deferred decisions ([DECISION: DEFERRED:]) are NOT treated as settled — flag these
+  findings normally without INTENTIONAL annotation
+- Severity for INTENTIONAL findings: use NIT (the decision was already made)
 
 PROCESS:
 
 1. Read the chunk's diff to understand what changed
 2. Read the full files for context around the changes
-3. Skim requirements and plan for domain understanding
+3. Skim requirements, plan, decisions log, and design doc for domain understanding
 4. Review each change against the checklist below
 5. Produce findings with file:line references and fix suggestions
 
