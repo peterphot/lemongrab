@@ -44,6 +44,8 @@ Try to find feature context for richer reviews:
 2. If docs/requirements/<feature>.md exists → use as requirements context
 3. If docs/plans/<feature>.md exists → use as plan context
 4. If none found: proceed without — the reviewer works with just the diff
+5. If docs/state/decisions.md exists → use as decisions context
+6. If docs/designs/<feature>.md exists → use as designs context
 
 STEP 3: GET THE DIFF
 
@@ -74,6 +76,8 @@ For each chunk, launch lemongrab:pr-reviewer agent in parallel using the Agent t
 - Chunk file list
 - Chunk diff (read from temp file and included in the prompt)
 - Feature name, requirements doc path, plan doc path (if available from step 2)
+- Decisions doc path: docs/state/decisions.md (if detected in step 2)
+- Designs doc path: docs/designs/<feature>.md (if detected in step 2)
 
 Launch ALL chunk agents in a SINGLE message (parallel Agent calls). Use run_in_background: true.
 Each pr-reviewer agent self-persists its report to: docs/state/reviewer-reports/<feature>-pr-chunk-<N>.md
