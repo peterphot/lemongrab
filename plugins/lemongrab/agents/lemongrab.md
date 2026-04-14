@@ -884,6 +884,8 @@ YOUR PROCESS (Standard):
      * Chunk file list
      * Chunk diff file path: docs/state/pr-review/chunk-<N>.diff
      * Feature name, requirements doc path, plan doc path
+     * Decisions doc path: docs/state/decisions.md
+     * Designs doc path: docs/designs/<feature>.md
      * Launch chunks in PARALLEL (all at once) using Agent tool with run_in_background: true
    - Wait for all chunk reviewers to complete (you will be notified automatically)
    - IMPORTANT: Do NOT use TaskOutput to read agent results. Each pr-reviewer agent
