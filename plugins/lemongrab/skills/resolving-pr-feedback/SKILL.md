@@ -20,7 +20,7 @@ replies, and decide when to fix, push back, or defer.
 
 ## Sources of Feedback
 
-`/lemongrab:resolve-feedback` actions four distinct sources, all flowing through the
+`/lemongrab:resolve-feedback` handles four distinct sources, all flowing through the
 same GitHub API surface:
 
 | Source | How to identify | Trust level |
@@ -96,7 +96,7 @@ query($owner: String!, $repo: String!, $number: Int!) {
       }
     }
   }
-}' -F owner=OWNER -F repo=REPO -F number=NUMBER
+}' -f owner="$OWNER" -f repo="$REPO_NAME" -F number="$PR"
 ```
 
 Build map: `first_comment_databaseId → {thread_id, isResolved}`.
@@ -108,7 +108,7 @@ mutation($threadId: ID!) {
   resolveReviewThread(input: { threadId: $threadId }) {
     thread { isResolved }
   }
-}' -F threadId="<thread_graphql_id>"
+}' -f threadId="$THREAD_ID"
 ```
 
 **When to resolve:**

@@ -181,6 +181,8 @@ VERDICT RULES:
 
 - CLEAN: Zero CRITICAL or WARNING findings. NITs only (or no findings at all).
 - HAS_FINDINGS: One or more CRITICAL or WARNING findings that should be addressed.
+- Suppressed findings do NOT count toward either verdict — they are informational only,
+  surfaced to the user but not posted to the PR.
 
 The orchestrator aggregates chunk verdicts across all chunks to decide whether to
 enter a fix cycle.
@@ -194,8 +196,11 @@ The orchestrator will route cross-refs to the appropriate chunk reviewer.
 
 SELF-CHECK BEFORE EMITTING FINDINGS:
 
-Before finalizing your report, re-read your own findings against the decision docs you
-loaded. For each finding, ask: "Does a documented decision already settle this?"
+If you loaded zero decision docs in PREREQUISITE (none exist in this repo), skip this
+section: write "None." under Suppressed Findings and proceed.
+
+If you did load decision docs, re-read your own findings against them. For each
+finding, ask: "Does a documented decision already settle this?"
 
 - If yes and the change respects the decision → drop the finding, move to Suppressed.
 - If yes and the change contradicts the decision → keep the finding but raise it as

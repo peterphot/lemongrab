@@ -57,10 +57,19 @@ and user-approved them. A `source: "marker"` comment from `/lemongrab:pr-review`
 authored by the current gh user but represents a real finding — treat it identically to
 a human reviewer's comment.
 
-If while implementing a fix you discover the comment conflicts with a documented decision
-(check docs/state/decisions.md, docs/decisions/, docs/adr/), STOP. Mark the comment
-UNRESOLVED with reason "doc-conflict: <doc-path>". Do not override a decision — surface
-it back to the orchestrator via the report.
+The `source` field is INFORMATIONAL ONLY. Do NOT vary your code-fixing behavior based
+on it. (Reply tone is managed by the orchestrator, not you — you only write fixes and
+resolution reports; the orchestrator reads the reports and posts replies.)
+
+If while implementing a fix for one comment you discover it conflicts with a documented
+decision (check docs/state/decisions.md, docs/decisions/, docs/adr/), follow these
+steps — do NOT halt the whole run:
+
+1. Revert partial edits for THIS comment: `git checkout -- <file-path>` (or manually
+   undo the specific change if other comments already modified the file).
+2. Mark this comment UNRESOLVED in the report with reason `doc-conflict: <doc-path>`.
+3. Continue to the next comment in the group. Do not skip siblings that are unaffected.
+4. The orchestrator sees the UNRESOLVED entry and escalates to the user.
 
 PROCESS:
 

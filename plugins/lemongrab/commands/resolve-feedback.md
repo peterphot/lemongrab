@@ -19,7 +19,7 @@ Feedback sources actioned:
 
 Operates on the PR for the CURRENT branch only. One PR per run.
 
-STEP 0: PARSE ARGUMENTS
+STEP 0: PARSE ARGUMENTS AND DETECT PR
 
 Parse $ARGUMENTS:
 - `--pr <number>`: override the auto-detected PR (use only when working on a PR without
@@ -27,59 +27,72 @@ Parse $ARGUMENTS:
 - `--auto`: skip the triage approval gate — trust recommended actions. `--auto` is
   IGNORED (gate is forced) when any finding is classified NEEDS_HUMAN after validation.
 
-Detect the PR (when no `--pr` given):
+Resolve the PR and assign shell variables used by every subsequent `gh api` call:
 
 ```bash
-PR_JSON=$(gh pr view --json number,title,headRefName,baseRefName,state,url,reviewDecision 2>/dev/null)
-if [ -z "$PR_JSON" ]; then
-  echo "ERROR: No open PR for current branch. Push and open a PR, or pass --pr <N>."
-  exit 1
+# --pr override takes precedence
+if [ -n "$PR_OVERRIDE" ]; then
+  PR="$PR_OVERRIDE"
+  PR_JSON=$(gh pr view "$PR" --json number,title,headRefName,baseRefName,state,url,reviewDecision)
+else
+  PR_JSON=$(gh pr view --json number,title,headRefName,baseRefName,state,url,reviewDecision 2>/dev/null) || {
+    echo "ERROR: No open PR for current branch. Push and open a PR, or pass --pr <N>." >&2
+    exit 1
+  }
+  PR=$(echo "$PR_JSON" | jq -r .number)
 fi
+
+REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+OWNER=$(echo "$REPO" | cut -d/ -f1)
+REPO_NAME=$(echo "$REPO" | cut -d/ -f2)
+ME=$(gh api user --jq .login)
+STATE=$(echo "$PR_JSON" | jq -r .state)
+HEAD_REF=$(echo "$PR_JSON" | jq -r .headRefName)
 ```
 
-Extract PR number, title, URL, head/base branches, state.
+`$PR`, `$REPO`, `$OWNER`, `$REPO_NAME`, `$ME`, `$STATE`, `$HEAD_REF` are used throughout;
+NEVER use literal `{N}` or `{OWNER_REPO}` placeholders.
 
-If PR is closed/merged: set `READ_ONLY=true`, warn the user. Replies and thread
-resolution still work; code changes are skipped.
+If `$STATE` is CLOSED or MERGED: set `READ_ONLY=true`, warn the user. Replies and
+thread resolution still work; code changes are skipped.
 
 STEP 1: GATHER REPO CONTEXT
 
-```bash
-REMOTE_URL=$(git remote get-url origin)
-OWNER_REPO=$(echo "$REMOTE_URL" | sed -E 's|.*github\.com[:/](.+/.+?)(.git)?$|\1|')
-ME=$(gh api user --jq .login)
-```
-
 Check out the head branch (unless READ_ONLY and not already there). If branch missing
-locally: `git fetch origin <head-branch> && git checkout <head-branch>`.
+locally: `git fetch origin "$HEAD_REF" && git checkout "$HEAD_REF"`.
 
 STEP 2: FETCH FEEDBACK
 
 Clean scratch:
 ```bash
-rm -f /tmp/pr-${N}-review-comments.json /tmp/pr-${N}-issue-comments.json /tmp/pr-${N}-reviews.json
+rm -f /tmp/pr-$PR-review-comments.json /tmp/pr-$PR-issue-comments.json \
+      /tmp/pr-$PR-reviews.json /tmp/pr-$PR-threads.json
 ```
 
 Fetch three sources:
 
 ```bash
 # Inline review comments (anchored to lines; these carry pr-review findings too)
-gh api repos/${OWNER_REPO}/pulls/${N}/comments --paginate --jq '.[]' | jq -s '.' > /tmp/pr-${N}-review-comments.json
+gh api "repos/$REPO/pulls/$PR/comments" --paginate --jq '.[]' | jq -s '.' > /tmp/pr-$PR-review-comments.json
 
 # General issue comments
-gh api repos/${OWNER_REPO}/issues/${N}/comments --paginate --jq '.[]' | jq -s '.' > /tmp/pr-${N}-issue-comments.json
+gh api "repos/$REPO/issues/$PR/comments" --paginate --jq '.[]' | jq -s '.' > /tmp/pr-$PR-issue-comments.json
 
 # Review objects (needed for review bodies — pr-review puts non-anchored findings there)
-gh api repos/${OWNER_REPO}/pulls/${N}/reviews --paginate --jq '.[]' | jq -s '.' > /tmp/pr-${N}-reviews.json
+gh api "repos/$REPO/pulls/$PR/reviews" --paginate --jq '.[]' | jq -s '.' > /tmp/pr-$PR-reviews.json
 ```
 
 Validate each fetch succeeded (jq empty + shape check). On failure, exit with a clear error.
 
 Detect pr-review-authored reviews by scanning review bodies for the marker
-`<!-- lemongrab-pr-review -->`. Capture their review IDs — inline comments with
-`pull_request_review_id` matching these IDs are "marker comments."
+`<!-- lemongrab-pr-review -->`. Capture ONLY THE LATEST such review by `created_at`
+per author — prior runs may have posted multiple markers (Step 7 of pr-review supersedes
+by deleting inline comments, but old review bodies remain in history). Inline comments
+with `pull_request_review_id` matching the latest marker review ID are "marker comments."
+The non-anchored findings parsed from `review_body` come ONLY from this latest review.
 
-Fetch thread resolution state via GraphQL (best-effort — degrade to heuristic on failure):
+Fetch thread resolution state + full comment lists via GraphQL so replies can be mapped
+back to their thread (best-effort — degrade to heuristic on failure):
 
 ```bash
 gh api graphql -f query='
@@ -90,15 +103,16 @@ query($owner: String!, $repo: String!, $number: Int!) {
         nodes {
           id
           isResolved
-          comments(first: 1) { nodes { id databaseId } }
+          comments(first: 50) { nodes { id databaseId } }
         }
       }
     }
   }
-}' -F owner="<owner>" -F repo="<repo>" -F number=${N} > /tmp/pr-${N}-threads.json
+}' -f owner="$OWNER" -f repo="$REPO_NAME" -F number="$PR" > /tmp/pr-$PR-threads.json
 ```
 
-Build a map `comment_id → {thread_id, isResolved}` from the first comment of each thread.
+Build a map `databaseId → {thread_id, isResolved}` from EVERY comment in each thread
+(not just the first) — reviewer replies must resolve back to their thread too.
 
 FILTERING RULES:
 
@@ -122,9 +136,14 @@ Unified comment shape:
 }
 ```
 
-Also add "review_body" entries for marker-review bodies — the body holds non-anchored
-findings that need triage. Parse out `**[SEVERITY]** file — body` lines and synthesize
-one entry per parsed finding.
+Also add "review_body" entries for the LATEST marker review's body — it holds
+non-anchored findings that need triage. Parse out `**[SEVERITY]** file — body` lines
+and synthesize one entry per parsed finding.
+
+**Deduplicate** across sources: if a marker-review inline comment at `path:line` has
+the same severity and first-sentence body as a review_body finding referencing the
+same file, drop the review_body version (the inline comment wins — it has a resolvable
+thread).
 
 If the unified list is empty after filtering: tell the user "No actionable feedback on
 PR #N." Exit.
@@ -187,9 +206,15 @@ suggestion is substantive, lean toward MISSING_CONTEXT or NEEDS_HUMAN rather tha
 Self-source bias: trust your own comments — always VALID unless the content is clearly
 self-correcting ("scratch that, ADR-007 says otherwise").
 
-PR-description bias: if the PR title/body mentions "migration", "refactor", "replace X
-with Y", relax CONFLICTS detection — the PR exists specifically to change the prior
-decision. Flag as NEEDS_HUMAN instead of auto-CONFLICTS.
+PR-description bias: relax CONFLICTS → NEEDS_HUMAN ONLY when the PR description
+explicitly names the decision being reversed. Signals that count:
+- A doc path in the PR title or body (e.g., "reverses docs/decisions/D-007")
+- An ADR/decision ID (e.g., "supersedes ADR-007", "replaces D-FEEDBACK-003")
+- Explicit "intentionally reverses <specific doc/decision>" language
+
+Generic words like "refactor", "migration", "replace X with Y" WITHOUT a specific
+citation do NOT trigger the bias — nearly every PR contains those words, and applying
+the bias broadly would disable CONFLICTS detection entirely.
 
 For CONFLICTS and MISSING_CONTEXT, capture the `citation` — the doc path and one-line
 quote that proves the conflict/missing context. Replies will include this citation.
@@ -208,12 +233,17 @@ Default-action rules:
 | WARNING | CONFLICTS | RESPOND | Cite the doc |
 | WARNING | MISSING_CONTEXT | RESPOND | Provide context |
 | WARNING | NEEDS_HUMAN | **gate-only** | User decides |
+| (any classified as RESPOND) | any | RESPOND | Question or concern; reply with explanation |
 | NIT | any | SKIP (silently — no reply, no thread resolution) | Noise reduction |
 | (ACK as classified) | any | ACK-reply | Unchanged |
 | (DEFER as classified) | any | DEFER-reply | Unchanged |
 
 "gate-only" means: do NOT default to any action. Always surface to the user for a
-decision, even with `--auto`.
+decision, even with `--auto`. If the user selects `approve` at the gate without
+overriding gate-only rows explicitly, those rows default to **RESPOND** with body
+"Needs your input — skipping automatic action. Please review this one manually." and
+are NOT fixed. No code change ever happens on a gate-only row unless the user
+explicitly overrides it to FIX.
 
 Build the triage table:
 
@@ -271,31 +301,38 @@ REPLY HELPERS:
 
 For inline review comments (type == "review"):
 ```bash
-gh api repos/${OWNER_REPO}/pulls/${N}/comments/${comment_id}/replies \
+gh api "repos/$REPO/pulls/$PR/comments/$COMMENT_ID/replies" \
   --method POST --field body="<text>"
 ```
 
 For issue comments:
 ```bash
-gh pr comment ${N} --body "<text> (Re: @<author>'s [comment](<url>))"
+gh pr comment "$PR" --body "<text> (Re: @<author>'s [comment](<url>))"
 ```
 
 For review_body findings (non-anchored pr-review findings): post a top-level issue
 comment referencing the original review:
 ```bash
-gh pr comment ${N} --body "<text> (Re: pr-review finding: <short description>)"
+gh pr comment "$PR" --body "<text> (Re: pr-review finding: <short description>)"
 ```
 
 THREAD RESOLUTION (after reply, except for NIT-silent-skip):
 
+Only inline review comments have threads. Issue comments and review_body findings do
+NOT — skip the mutation for those. Look up the `thread_id` in the map built in Step 2;
+if the comment ID is not in the map (issue/review_body source, or API error), skip:
+
 ```bash
-# Need the thread GraphQL ID from the /tmp/pr-${N}-threads.json map
-gh api graphql -f query='
-mutation($threadId: ID!) {
-  resolveReviewThread(input: { threadId: $threadId }) {
-    thread { isResolved }
-  }
-}' -F threadId="<thread_graphql_id>" 2>/dev/null || true
+# Only for type == "review"
+THREAD_ID=$(jq -r --argjson cid "$COMMENT_ID" '.[$cid | tostring].thread_id // empty' /tmp/pr-$PR-thread-map.json)
+if [ -n "$THREAD_ID" ]; then
+  gh api graphql -f query='
+  mutation($threadId: ID!) {
+    resolveReviewThread(input: { threadId: $threadId }) {
+      thread { isResolved }
+    }
+  }' -f threadId="$THREAD_ID" 2>/dev/null || true
+fi
 ```
 
 If GraphQL resolution fails (permissions, API error): degrade to reply-only and note in
@@ -367,11 +404,11 @@ Read all reports from docs/state/feedback-resolutions/<pr-number>-*.md.
 
 For each RESOLVED comment:
 ```bash
-COMMIT_SHORT=$(git log -1 --format='%h' -- <file-path>)
+COMMIT_SHORT=$(git log -1 --format='%h' -- "<file-path>")
 # inline:
-gh api repos/${OWNER_REPO}/pulls/${N}/comments/${comment_id}/replies \
+gh api "repos/$REPO/pulls/$PR/comments/$COMMENT_ID/replies" \
   --method POST --field body="Fixed in ${COMMIT_SHORT}. <brief description>"
-# then resolve the thread (GraphQL mutation above)
+# then resolve the thread (GraphQL mutation above — inline only)
 ```
 
 For issue/review_body fixes: use `gh pr comment` with citation link.
@@ -427,8 +464,8 @@ DECISIONS -->
 STEP 11: CLEANUP
 
 ```bash
-rm -f /tmp/pr-${N}-review-comments.json /tmp/pr-${N}-issue-comments.json \
-      /tmp/pr-${N}-reviews.json /tmp/pr-${N}-threads.json
+rm -f /tmp/pr-$PR-review-comments.json /tmp/pr-$PR-issue-comments.json \
+      /tmp/pr-$PR-reviews.json /tmp/pr-$PR-threads.json /tmp/pr-$PR-thread-map.json
 ```
 
 CRITICAL RULES:

@@ -1,7 +1,7 @@
 ---
 description: Run chunked PR review and post findings to the PR as a GitHub review (read-only; never modifies code)
-argument-hint: <PR-URL-or-number> [--base <branch>]
-allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Task, AskUserQuestion
+argument-hint: [<PR-URL-or-number>] [--base <branch>]
+allowed-tools: Read, Bash, Glob, Grep, Task, AskUserQuestion
 ---
 
 You are the PR review orchestrator running OUTSIDE the normal workflow state machine.
@@ -13,7 +13,7 @@ the responsibility of `/lemongrab:resolve-feedback`.
 
 Use this when:
 - You want a PR reviewed and findings posted so they can be actioned later via resolve-feedback
-- You want to re-review a PR after fixes were applied (this command dismisses its own prior review first)
+- You want to re-review a PR after fixes were applied (this command supersedes its own prior review first — see Step 7)
 
 STEP 0: PARSE ARGUMENTS
 
@@ -23,13 +23,27 @@ Parse $ARGUMENTS:
   - Plain number like "1" or "#1" → use directly
 - `--base <branch>`: base branch for diff (default: auto-detect from PR)
 
-If no PR arg provided, detect from the current branch:
+If no PR arg provided, detect from the current branch; distinguish "no PR for branch"
+(exit code non-zero) from "PR exists but is closed":
+
 ```bash
-gh pr view --json number,title,headRefName,baseRefName,state,url
+if ! PR_META=$(gh pr view --json number,title,headRefName,baseRefName,state,url 2>/dev/null); then
+  # No PR for current branch — try fallback
+  if [ -f docs/state/task-status.json ] && jq -e '.tickets.pr.number' docs/state/task-status.json >/dev/null 2>&1; then
+    PR=$(jq -r '.tickets.pr.number' docs/state/task-status.json)
+    PR_META=$(gh pr view "$PR" --json number,title,headRefName,baseRefName,state,url)
+  else
+    echo "ERROR: No PR detected. Pass a PR number or open a PR for the current branch." >&2
+    exit 1
+  fi
+fi
+PR=$(echo "$PR_META" | jq -r .number)
+REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 ```
-If no open PR exists for the current branch AND docs/state/task-status.json has
-tickets.pr.number, use that as a fallback. Otherwise error out:
-"No PR detected. Pass a PR number or open a PR for the current branch."
+
+If the PR arg WAS provided, skip the fallback and just fetch metadata for that PR. Assign
+`PR` and `REPO` shell variables — ALL subsequent `gh api` calls use `$PR` and `$REPO`,
+never literal `{N}` or `{OWNER_REPO}` placeholders.
 
 STEP 1: GATHER PR CONTEXT
 
@@ -92,7 +106,7 @@ IMPORTANT: Do NOT use TaskOutput to read agent results. The agents write to disk
 
 STEP 6: AGGREGATE
 
-1. Read all chunk reports from docs/state/reviewer-reports/*pr-chunk-*.md
+1. Read all chunk reports matching `docs/state/reviewer-reports/pr-chunk-[0-9]*.md` and `docs/state/reviewer-reports/*-pr-chunk-[0-9]*.md` (tight globs — avoid matching unrelated files like `old-pr-chunk-notes.md`)
 2. Collect findings across chunks
 3. Count by severity: CRITICAL, WARNING, NIT
 4. Collect "Suppressed Findings" sections (findings the agent dropped because they
@@ -118,28 +132,44 @@ STEP 7: POST REVIEW TO PR
 Post findings as a single GitHub PR review (one review containing all inline comments
 and a summary body). This lets resolve-feedback pick them up uniformly.
 
-First, dismiss any prior lemongrab reviews on this PR (idempotency on re-run):
+### Supersede prior lemongrab reviews (idempotency on re-run)
+
+GitHub's `/reviews/{id}/dismissals` endpoint only accepts reviews in state `APPROVED`
+or `CHANGES_REQUESTED`. Since this command posts with `event: "COMMENT"`, dismissal is
+not available. Instead, to keep re-runs idempotent:
+
+1. Find prior marker reviews authored by the current user.
+2. Delete all inline comments belonging to those prior reviews (DELETE
+   `/repos/{owner}/{repo}/pulls/comments/{id}`). This leaves the old review objects as
+   empty shells in PR history but removes them from the current review surface.
+3. Leave the prior review bodies in place (GitHub does not allow editing submitted
+   review bodies). The new review becomes the latest by `created_at`, so
+   resolve-feedback picks it up and ignores older ones.
 
 ```bash
 ME=$(gh api user --jq .login)
-PRIOR=$(gh api repos/{OWNER_REPO}/pulls/{N}/reviews --paginate \
-  --jq ".[] | select(.user.login==\"$ME\") | select(.body | contains(\"lemongrab-pr-review\")) | select(.state != \"DISMISSED\") | .id")
-for id in $PRIOR; do
-  gh api repos/{OWNER_REPO}/pulls/{N}/reviews/$id/dismissals -X PUT \
-    -f message="Superseded by re-review" 2>/dev/null || true
+PRIOR_REVIEW_IDS=$(gh api "repos/$REPO/pulls/$PR/reviews" --paginate \
+  --jq ".[] | select(.user.login==\"$ME\") | select(.body | contains(\"lemongrab-pr-review\")) | .id")
+
+for rid in $PRIOR_REVIEW_IDS; do
+  CIDS=$(gh api "repos/$REPO/pulls/$PR/comments" --paginate \
+    --jq ".[] | select(.pull_request_review_id==$rid) | .id")
+  for cid in $CIDS; do
+    gh api "repos/$REPO/pulls/comments/$cid" -X DELETE 2>/dev/null || true
+  done
 done
 ```
 
-Note: dismissing only works on reviews the current gh user authored. If a different
-account posted the prior review, the loop is a no-op — the new review will stack.
+If a different gh account authored prior marker reviews, the loop is a no-op — their
+comments are left untouched (we only delete our own).
 
-Build the review payload:
+### Build the review payload
 
 - **Summary body**: severity table + any findings without clean line anchors. MUST contain
   the marker `<!-- lemongrab-pr-review -->` on its own line so resolve-feedback can detect
   origin. Include a `**[SEVERITY]**` prefix on each non-anchored finding.
 
-  ```markdown
+  ~~~markdown
   <!-- lemongrab-pr-review -->
   ## PR Review — <title>
 
@@ -165,43 +195,56 @@ Build the review payload:
 
   ---
   *Posted by lemongrab pr-review*
-  ```
+  ~~~
 
 - **Inline comments array**: one per finding with a clean `path:line`. Each body MUST
   start with a severity prefix so resolve-feedback's classifier can read it:
 
-  ```
+  ~~~
   **[CRITICAL]** <one-line title>
 
   <explanation>
 
-  **Suggestion:**
-  ```<lang>
-  <code>
-  ```
-  ```
+  **Suggestion:** `<fenced code with a language tag>`
+  ~~~
 
-Post the review:
+### Pre-validate line anchors
+
+Before posting, filter inline comments to only those whose `path:line` lies inside the
+current PR diff. This prevents the whole `POST /reviews` from failing atomically on a
+single stale anchor. Build the set of valid `(path, new_line)` pairs from
+`pulls/$PR/files` patches:
 
 ```bash
-gh api repos/{OWNER_REPO}/pulls/{N}/reviews -X POST \
-  --input - <<'JSON'
-{
-  "event": "COMMENT",
-  "body": "<summary body with marker>",
-  "comments": [
-    {"path": "src/foo.ts", "line": 42, "body": "**[CRITICAL]** ..."},
-    ...
-  ]
-}
-JSON
+gh api "repos/$REPO/pulls/$PR/files" --paginate > /tmp/pr-$PR-files.json
+# (parser extracts @@ -a,b +c,d @@ hunks and records all `+` and ` ` (context) new_line numbers)
 ```
 
-Use `event: "COMMENT"` (not REQUEST_CHANGES or APPROVE) — this is an observation, not a
-gate. If the PR is closed/merged, still post (for the record).
+Any finding whose anchor is NOT valid becomes a non-anchored finding appended to the
+summary body with `**[SEVERITY]** <file>:<line> — <body>`.
 
-If the review API returns an error for any inline comment (e.g., stale line reference),
-move that finding into the summary body and retry without it. Do NOT fail the whole post.
+### Build JSON safely and post
+
+NEVER embed finding bodies into a heredoc — bodies may contain `"` and triple-backticks
+that would produce invalid JSON. Use `jq` to build the payload so every string is
+properly escaped:
+
+```bash
+jq -n \
+  --rawfile body /tmp/pr-$PR-summary-body.md \
+  --slurpfile comments /tmp/pr-$PR-inline-comments.json \
+  '{event: "COMMENT", body: $body, comments: $comments[0]}' \
+  > /tmp/pr-$PR-payload.json
+
+gh api "repos/$REPO/pulls/$PR/reviews" -X POST --input /tmp/pr-$PR-payload.json
+```
+
+Use `event: "COMMENT"` (not REQUEST_CHANGES or APPROVE) — this is an observation, not
+a gate. If the PR is closed/merged, still post (for the record).
+
+If the POST still returns a non-2xx (e.g., unforeseen validation error), fall back to
+posting with zero inline comments — fold ALL findings into the summary body and retry
+once. Do NOT fail the whole command.
 
 STEP 8: CLEANUP
 
@@ -218,8 +261,9 @@ CRITICAL RULES:
 - The only external write is `gh api ... /reviews` posting a GitHub PR review.
 - This command does NOT modify current-phase.json — it operates outside the state machine.
 - This command does NOT move Linear tickets.
-- Re-running the command dismisses prior lemongrab-authored reviews on the PR and posts a
-  fresh one. Reviews authored by other accounts are left alone and will stack.
+- Re-running the command supersedes prior lemongrab-authored reviews by deleting their
+  inline comments (see Step 7). Review body objects stay in PR history; the latest
+  marker review (by `created_at`) is what resolve-feedback picks up.
 - If the PR is closed/merged, review is still posted (as a record).
 - The review body MUST contain the `<!-- lemongrab-pr-review -->` marker.
 - Inline comment bodies MUST begin with `**[CRITICAL]**`, `**[WARNING]**`, or `**[NIT]**`.
