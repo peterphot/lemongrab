@@ -18,6 +18,109 @@ replies, and decide when to fix, push back, or defer.
 - Deciding whether to fix code or push back on feedback
 - Posting resolution updates to GitHub PRs
 
+## Sources of Feedback
+
+`/lemongrab:resolve-feedback` handles four distinct sources, all flowing through the
+same GitHub API surface:
+
+| Source | How to identify | Trust level |
+|---|---|---|
+| `human` | Author is not the current gh user and not a bot | High — direct human signal |
+| `bot` | `user.type == "Bot"` or `login` ends with `[bot]` (CodeRabbit, Sourcery, etc.) | Medium — validate strictly against docs |
+| `self` | Author is the current gh user, NOT in a marker review | High — intentional self-review note |
+| `marker` | Inline comment in a review whose body contains `<!-- lemongrab-pr-review -->` | High — from `/lemongrab:pr-review` |
+
+**Identifying marker reviews:**
+```bash
+gh api repos/$OWNER/$REPO_NAME/pulls/$PR/reviews --paginate --jq \
+  '.[] | select(.body | contains("lemongrab-pr-review")) | .id'
+```
+Inline comments with `pull_request_review_id` matching one of these IDs are marker comments.
+
+**Never filter by author alone.** Previous replies from this command (identified by
+`in_reply_to_id` set AND author == current user) are the only "own comments" to filter.
+
+## Validating Findings Against Project Decisions
+
+Not every comment deserves an action. A reviewer — especially a bot — may lack context
+about documented decisions. Before triaging findings, validate each against project docs.
+
+**Docs to consult:**
+- `docs/requirements/*.md` — what we agreed to build
+- `docs/plans/*.md` — chosen architecture
+- `docs/state/decisions.md` — per-feature decision log (lemongrab writes to this)
+- `docs/decisions/*.md` — project decision records
+- `docs/adr/*.md` — architecture decision records
+- `docs/architecture/*.md` — architecture notes
+
+**Validation verdicts:**
+
+| Verdict | Meaning | Default reply approach |
+|---|---|---|
+| `VALID` | No doc conflict, or docs are silent | Proceed with classification |
+| `CONFLICTS_WITH_DECISION` | Doc explicitly contradicts the suggestion | RESPOND, cite doc, do NOT fix |
+| `MISSING_CONTEXT` | Reviewer is plausible but missing context docs provide | RESPOND, explain with citation |
+| `NEEDS_HUMAN` | Ambiguous (e.g., during an intentional migration) | Gate to user, do not auto-act |
+
+**Bias by source:**
+- `bot` findings get stricter validation — lean toward MISSING_CONTEXT / NEEDS_HUMAN
+  when docs touch the subsystem
+- `self` findings are trusted — default VALID unless self-correcting
+- If PR description mentions "migration", "refactor", "replace X", a CONFLICTS verdict
+  becomes NEEDS_HUMAN (the PR exists to change the prior decision)
+
+**Citation format** when replying to CONFLICTS / MISSING_CONTEXT:
+```
+This was decided in docs/decisions/D-007.md: "Use Postgres LISTEN/NOTIFY for pub/sub,
+not Redis — keeps the infra surface to one datastore." If you'd like to revisit, let's
+open a follow-up.
+```
+
+## Thread Resolution via GraphQL
+
+Replying and resolving the conversation thread are separate operations. The REST API
+posts the reply; GraphQL resolves the thread.
+
+**Fetch thread IDs** (once per run, cache the map):
+```bash
+gh api graphql -f query='
+query($owner: String!, $repo: String!, $number: Int!) {
+  repository(owner: $owner, name: $repo) {
+    pullRequest(number: $number) {
+      reviewThreads(first: 100) {
+        nodes {
+          id
+          isResolved
+          comments(first: 1) { nodes { databaseId } }
+        }
+      }
+    }
+  }
+}' -f owner="$OWNER" -f repo="$REPO_NAME" -F number="$PR"
+```
+
+Build map: `first_comment_databaseId → {thread_id, isResolved}`.
+
+**Resolve a thread** (after posting a reply that addresses the issue):
+```bash
+gh api graphql -f query='
+mutation($threadId: ID!) {
+  resolveReviewThread(input: { threadId: $threadId }) {
+    thread { isResolved }
+  }
+}' -f threadId="$THREAD_ID"
+```
+
+**When to resolve:**
+- FIX (after commit+reply): yes
+- RESPOND for CONFLICTS/MISSING_CONTEXT: yes (the citation closes it)
+- ACK / DEFER: yes
+- SKIP for WARNING: yes (the "considered, skipping" reply closes it)
+- SKIP for NIT: **no reply, no resolution** — silent pass
+
+If GraphQL fails (permissions, API error), degrade gracefully: reply-only, note in the
+run summary.
+
 ## Comment Types
 
 GitHub PRs have several distinct comment types. Understanding the type determines how to
@@ -37,7 +140,7 @@ feedback.
 | `body` | The comment text |
 | `diff_hunk` | The surrounding diff context |
 
-**API endpoint:** `GET /repos/{owner}/{repo}/pulls/{N}/comments`
+**API endpoint:** `GET /repos/$OWNER/$REPO_NAME/pulls/$PR/comments`
 
 ### General Issue Comments
 
@@ -50,7 +153,7 @@ questions, or approval notes.
 | `user.login` | Who wrote it |
 | `created_at` | When it was posted |
 
-**API endpoint:** `GET /repos/{owner}/{repo}/issues/{N}/comments`
+**API endpoint:** `GET /repos/$OWNER/$REPO_NAME/issues/$PR/comments`
 
 ### GitHub Suggestion Blocks
 
@@ -80,13 +183,13 @@ The resolve-feedback command should note the verdict but focus on individual com
 
 ```bash
 # Fetch inline review comments
-gh api repos/{owner}/{repo}/pulls/{N}/comments --paginate
+gh api repos/$OWNER/$REPO_NAME/pulls/$PR/comments --paginate
 
 # Fetch general issue comments
-gh api repos/{owner}/{repo}/issues/{N}/comments --paginate
+gh api repos/$OWNER/$REPO_NAME/issues/$PR/comments --paginate
 
 # Get PR details (for owner/repo extraction from URL)
-gh pr view {N} --json number,title,headRefName,baseRefName,url,reviewDecision
+gh pr view $PR --json number,title,headRefName,baseRefName,url,reviewDecision
 ```
 
 ### Filtering
@@ -116,7 +219,7 @@ gh api graphql -f query='
       }
     }
   }
-' -f owner='{owner}' -f repo='{repo}' -F pr={N}
+' -f owner="$OWNER" -f repo="$REPO_NAME" -F pr="$PR"
 ```
 
 Match `comments.nodes[0].databaseId` against review comment IDs. If `isResolved` is
@@ -130,12 +233,12 @@ true for a thread, filter out all comments belonging to that thread.
 ```bash
 # Reply to an inline review comment (creates a reply in the thread)
 # Uses the dedicated /replies sub-resource — only requires body
-gh api repos/{owner}/{repo}/pulls/{N}/comments/{comment_id}/replies \
+gh api repos/$OWNER/$REPO_NAME/pulls/$PR/comments/$COMMENT_ID/replies \
   --method POST \
   --field body="<reply text>"
 
 # Post a general comment on the PR (for issue-type comments)
-gh pr comment {N} --body "<comment text>"
+gh pr comment $PR --body "<comment text>"
 ```
 
 ### Extracting Owner/Repo
@@ -211,6 +314,24 @@ Noted — deferring to a follow-up. This refactoring would affect 3 other module
 - RESPOND replies can be longer when explaining architectural decisions
 - Never be dismissive of feedback, even when pushing back
 - If the reviewer is wrong, explain gently with evidence
+
+### Marker Source Replies
+
+Comments from `source: "marker"` (findings posted by `/lemongrab:pr-review`) don't have
+a human waiting on tone. Terse is fine:
+
+```
+Fixed in a1b2c3d.
+```
+
+No need to acknowledge tradeoffs or thank the "reviewer." The thread resolution itself
+is the main signal.
+
+### NIT Silent-Skip
+
+NITs do not get a reply or a thread resolution by default. They are acknowledged by
+absence. If a nit is worth addressing, upgrade it to FIX via triage override — don't
+post "thanks for the nit, skipping."
 
 ## Escalation Rules
 

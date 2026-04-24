@@ -276,3 +276,44 @@ for (const batch of chunk(users, 100)) { ... }
 - [ ] Trade-offs explicit (limitations known)
 - [ ] Alternatives mentioned (context for decision)
 - [ ] Recreatable (could rebuild from docs)
+
+## Reading Decisions During Review
+
+Decision docs are not just a write-only log — they are the reference used by
+`/lemongrab:pr-review` (chunk review) and `/lemongrab:resolve-feedback` (validation step)
+to keep feedback aligned with prior choices.
+
+**Where decisions live (read order):**
+1. `docs/state/decisions.md` — per-feature decision log written during TDD workflow
+2. `docs/decisions/*.md` — project-wide decision records
+3. `docs/adr/*.md` — architecture decision records (if the project uses this convention)
+4. `docs/architecture/*.md`, `docs/plans/*.md`, `docs/requirements/*.md` — supporting context
+
+**When reviewing code (pr-reviewer agent):**
+- Skim titles and summaries for all decision entries
+- Deep-read only entries that touch files in the current chunk or subsystems the diff
+  interacts with
+- Before emitting a finding, ask: "Does a documented decision already settle this?"
+  - If yes and the change respects it → drop the finding (list under "Suppressed")
+  - If yes and the change contradicts it → raise CRITICAL with explicit "conflicts with
+    `<doc-path>`" framing, ask whether reversal is intentional
+  - If no decision applies → finding stands on its own merits
+
+**When validating PR feedback (resolve-feedback):**
+- For each comment requesting a change, check the relevant decision docs
+- If a decision contradicts the request → mark `CONFLICTS_WITH_DECISION`, reply with a
+  citation, do NOT fix
+- If the reviewer clearly lacks context the docs provide → mark `MISSING_CONTEXT`,
+  reply with a citation
+- If the PR is a planned migration/rewrite that reverses the decision → mark
+  `NEEDS_HUMAN` rather than CONFLICTS; let the user confirm the reversal is in scope
+
+**Citation format** (both review and resolve-feedback):
+```
+Conflicts with docs/decisions/D-007.md — chose Postgres LISTEN/NOTIFY over Redis to
+keep infra surface minimal. If reversing, update the decision record first.
+```
+
+A decision doc is only as valuable as the review discipline that references it.
+Suppressing repetitive findings based on decisions is how the team stops relitigating
+settled questions in every PR.
