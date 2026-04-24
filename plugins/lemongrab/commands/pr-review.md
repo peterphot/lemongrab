@@ -135,10 +135,8 @@ STEP 6: AGGREGATE
 
 1. Read all chunk reports matching `docs/state/reviewer-reports/pr-chunk-[0-9]*.md` and `docs/state/reviewer-reports/*-pr-chunk-[0-9]*.md` (tight globs — avoid matching unrelated files like `old-pr-chunk-notes.md`)
 2. Collect findings across chunks
-3. Count by severity: CRITICAL, WARNING, NIT
-4. Collect "Suppressed Findings" sections (findings the agent dropped because they
-   contradicted a documented decision — these are reported but NOT posted to the PR)
-5. Collect any [CROSS-REF] notes
+3. Count by severity: CRITICAL, WARNING, NIT. Findings annotated `[INTENTIONAL — per <doc>:<line>]` count at their original severity (they are NOT suppressed).
+4. Collect any [CROSS-REF] notes
 
 Present a brief summary to the user:
 ```
@@ -149,7 +147,6 @@ PR REVIEW complete — PR #N
 | CRITICAL | <c> |
 | WARNING  | <w> |
 | NIT      | <n> |
-| Suppressed (contradicts docs) | <s> |
 ```
 
 Do NOT ask the user whether to fix. This command does not fix. Proceed to posting.
@@ -225,13 +222,6 @@ comments are left untouched (we only delete our own).
 
   - **[WARNING]** <file> — <finding body>
   - **[NIT]** <file> — <finding body>
-
-  <details>
-  <summary>Suppressed findings (contradict documented decisions)</summary>
-
-  - <file:line> — <finding> (suppressed: conflicts with `<doc-path>`)
-
-  </details>
 
   ---
   *Posted by lemongrab pr-review*
