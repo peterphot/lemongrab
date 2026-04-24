@@ -66,19 +66,36 @@ Try to find feature context for richer reviews:
 1. If docs/state/task-status.json exists → read feature name
 2. If docs/requirements/<feature>.md exists → use as requirements context
 3. If docs/plans/<feature>.md exists → use as plan context
-4. If none found: proceed without — the reviewer works with just the diff
+4. If docs/state/decisions.md exists → use as decisions context (cumulative, not per-feature)
+5. If docs/designs/<feature>.md exists → use as designs context (optional, per-feature)
+6. If none found: proceed without — the reviewer works with just the diff
 
-The chunk agents will also read design-decision docs directly (see pr-reviewer agent
-PREREQUISITE). No need for the orchestrator to preload those here.
+Record whichever of these paths exist into shell variables (e.g., `REQ_DOC`, `PLAN_DOC`,
+`DECISIONS_DOC`, `DESIGNS_DOC`); empty string if absent. These are passed into each
+pr-reviewer agent's prompt in STEP 5.
+
+The chunk agents will also re-read these docs directly (see pr-reviewer agent
+PREREQUISITE) so the orchestrator only needs to surface the paths.
 
 STEP 3: GET THE DIFF
 
-1. Full diff: `git diff "origin/$BASE"..HEAD`
-2. Changed files: `git diff "origin/$BASE"..HEAD --name-only`
-3. Total lines: `git diff "origin/$BASE"..HEAD --stat | tail -1`
+Use `origin/$HEAD` (the remote tip of the PR branch), NOT local `HEAD`, so that the diff
+matches what the PR actually shows on GitHub and what Step 7's anchor validator checks
+against (`pulls/$PR/files`). This prevents silent divergence where unpushed local commits
+would produce findings on lines the PR doesn't contain, then get dropped as orphaned.
+
+Ensure both refs are fresh first:
+```bash
+git fetch origin "$BASE" "$HEAD"
+```
+
+1. Full diff: `git diff "origin/$BASE".."origin/$HEAD"`
+2. Changed files: `git diff "origin/$BASE".."origin/$HEAD" --name-only`
+3. Total lines: `git diff "origin/$BASE".."origin/$HEAD" --stat | tail -1`
 4. If total diff is < 50 lines: tell user "Diff is trivially small (N lines). Reviewing as single chunk." and skip chunking.
 
-(Ensure `origin/$BASE` is up to date first: `git fetch origin "$BASE"`.)
+If `origin/$HEAD` differs from local `HEAD`, warn the user that unpushed commits will not
+be reviewed (they are not on the PR).
 
 STEP 4: CHUNK THE DIFF
 
@@ -86,7 +103,7 @@ Group files into logical review chunks:
 - Co-locate source + test files together (e.g., src/auth/login.ts + tests/auth/login.test.ts)
 - Target ~200-300 diff lines per chunk
 - If a single file exceeds 300 diff lines, it becomes its own chunk
-- Save each chunk's diff: `git diff "origin/$BASE"..HEAD -- "$file1" "$file2" > "/tmp/pr-review-chunk-$N.diff"` (substitute the chunk's file list and chunk index `$N` at shell-expansion time)
+- Save each chunk's diff: `git diff "origin/$BASE".."origin/$HEAD" -- "$file1" "$file2" > "/tmp/pr-review-chunk-$N.diff"` (substitute the chunk's file list and chunk index `$N` at shell-expansion time)
 
 STEP 5: PARALLEL CHUNK REVIEW
 
@@ -100,6 +117,8 @@ For each chunk, launch `lemongrab:pr-reviewer` in parallel via the Agent tool wi
 - Chunk file list
 - Chunk diff (read from temp file and included in the prompt)
 - Feature name, requirements doc path, plan doc path (if available from step 2)
+- Decisions doc path (`docs/state/decisions.md`) if it exists — pass empty string otherwise
+- Designs doc path (`docs/designs/<feature>.md`) if it exists — pass empty string otherwise
 
 Launch ALL chunk agents in a SINGLE message (parallel Agent calls) with `run_in_background: true`.
 Each pr-reviewer agent self-persists its report to:
@@ -229,6 +248,29 @@ comments are left untouched (we only delete our own).
   **Suggestion:** `<fenced code with a language tag>`
   ~~~
 
+### Aggregate inline findings into a raw JSON array
+
+Before anchor validation, aggregate all inline-eligible findings from the per-chunk
+reports (read in STEP 6) into a single JSON array at
+`/tmp/pr-$PR-inline-comments-raw.json`. Each element MUST have this shape:
+
+```json
+{
+  "path": "<file path relative to repo root>",
+  "line": <integer, 1-based line number on the RIGHT side of the diff>,
+  "side": "RIGHT",
+  "severity": "CRITICAL" | "WARNING" | "NIT",
+  "body": "**[SEVERITY]** <one-line title>\n\n<explanation>\n\n**Suggestion:** ..."
+}
+```
+
+Only findings with a concrete `path` AND numeric `line` go into this file. Non-anchored
+findings (no line, or file-level) go directly into the summary body and are NOT included
+here. The orchestrator builds this file by parsing the structured "Inline Findings"
+sections of each chunk report under `docs/state/reviewer-reports/`.
+
+If no inline-eligible findings exist, write an empty array: `echo '[]' > /tmp/pr-$PR-inline-comments-raw.json`.
+
 ### Pre-validate line anchors
 
 Before posting, filter inline comments to only those whose `path:line` lies inside the
@@ -304,8 +346,26 @@ Use `event: "COMMENT"` (not REQUEST_CHANGES or APPROVE) — this is an observati
 a gate. If the PR is closed/merged, still post (for the record).
 
 If the POST still returns a non-2xx (e.g., unforeseen validation error), fall back to
-posting with zero inline comments — fold ALL findings into the summary body and retry
-once. Do NOT fail the whole command.
+posting with zero inline comments. The retry MUST rebuild the payload with
+`comments: []` (summary-body only) — do NOT re-POST the rejected payload. Fold ALL
+previously-inline findings into the summary body first, then rebuild:
+
+```bash
+# Append all previously-inline findings to the summary body as non-anchored entries.
+jq -r '.[] | "- **[\(.severity // "WARNING" | ascii_upcase)]** \(.path):\(.line) — \(.body)"' \
+  /tmp/pr-$PR-inline-comments.json >> /tmp/pr-$PR-summary-body.md
+
+# Rebuild payload with an empty comments array.
+jq -n \
+  --rawfile body /tmp/pr-$PR-summary-body.md \
+  '{event: "COMMENT", body: $body, comments: []}' \
+  > /tmp/pr-$PR-payload.json
+
+gh api "repos/$REPO/pulls/$PR/reviews" -X POST --input /tmp/pr-$PR-payload.json
+```
+
+Do NOT fail the whole command if this fallback succeeds. If the fallback ALSO fails,
+surface the error and exit non-zero.
 
 STEP 8: CLEANUP
 

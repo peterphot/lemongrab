@@ -53,7 +53,9 @@ Before reviewing, read:
 2. The full files involved (not just the diff — you need surrounding context)
 3. docs/requirements/<feature>.md — for domain context
 4. docs/plans/<feature>.md — for intended architecture
-5. Documented decisions (if any of these exist):
+5. docs/designs/<feature>.md — for design rationale (optional; may not exist).
+   Attempt to read it; if the file is missing or empty, proceed without it.
+6. Documented decisions (if any of these exist):
    - docs/state/decisions.md — per-feature decision log
    - docs/decisions/*.md — project decision records
    - docs/adr/*.md — architecture decision records
@@ -160,23 +162,10 @@ For each CRITICAL or WARNING finding, expand:
 // suggested fix
 ```
 
-### Suppressed Findings
-
-Findings you considered but dropped because a documented decision contradicts them.
-List these for transparency — the orchestrator surfaces them to the user but does NOT
-post them to the PR.
-
-| # | File:Line | Would-be finding | Contradicting doc |
-|---|-----------|------------------|-------------------|
-| 1 | src/db.ts:12 | "Should use Redis for pub/sub" | docs/decisions/D-007.md — chose Postgres LISTEN/NOTIFY |
-
-If none, write "None."
-
 ### Summary
 
 - Files reviewed: N
 - Findings: X critical, Y warnings, Z nits
-- Suppressed (doc conflicts): S
 - Verdict: CLEAN | HAS_FINDINGS
 ```
 
@@ -184,8 +173,9 @@ VERDICT RULES:
 
 - CLEAN: Zero CRITICAL or WARNING findings. NITs only (or no findings at all).
 - HAS_FINDINGS: One or more CRITICAL or WARNING findings that should be addressed.
-- Suppressed findings do NOT count toward either verdict — they are informational only,
-  surfaced to the user but not posted to the PR.
+- `[INTENTIONAL — per <doc>:<line>]`-annotated findings remain in the findings table
+  at their original severity and DO count toward the verdict. The annotation surfaces
+  the doc citation so the reviewer/user can decide; it does not drop the finding.
 
 The orchestrator aggregates chunk verdicts across all chunks to decide whether to
 enter a fix cycle.
@@ -200,7 +190,7 @@ The orchestrator will route cross-refs to the appropriate chunk reviewer.
 SELF-CHECK BEFORE EMITTING FINDINGS:
 
 If you loaded zero decision docs in PREREQUISITE (none exist in this repo), skip this
-section: write "None." under Suppressed Findings and proceed.
+section and proceed — no annotations are applied.
 
 If you did load decision docs, re-read your own findings against them. For each
 finding, ask: "Does a documented decision already settle this?"
