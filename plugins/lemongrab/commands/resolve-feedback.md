@@ -30,6 +30,31 @@ Parse $ARGUMENTS:
 Resolve the PR and assign shell variables used by every subsequent `gh api` call:
 
 ```bash
+# Parse $ARGUMENTS into $PR_OVERRIDE and $AUTO
+PR_OVERRIDE=""
+AUTO="false"
+# shellcheck disable=SC2086
+set -- $ARGUMENTS
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --pr)
+      PR_OVERRIDE="$2"
+      shift 2
+      ;;
+    --pr=*)
+      PR_OVERRIDE="${1#--pr=}"
+      shift
+      ;;
+    --auto)
+      AUTO="true"
+      shift
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+
 # --pr override takes precedence
 if [ -n "$PR_OVERRIDE" ]; then
   PR="$PR_OVERRIDE"
@@ -58,8 +83,21 @@ thread resolution still work; code changes are skipped.
 
 STEP 1: GATHER REPO CONTEXT
 
-Check out the head branch (unless READ_ONLY and not already there). If branch missing
-locally: `git fetch origin "$HEAD_REF" && git checkout "$HEAD_REF"`.
+Check out the head branch (unless READ_ONLY and not already there). Before any
+checkout, guard against a dirty worktree:
+
+```bash
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+if [ "$CURRENT_BRANCH" != "$HEAD_REF" ]; then
+  if [ -n "$(git status --porcelain)" ]; then
+    echo "ERROR: Worktree is dirty. Commit or stash changes before running this command." >&2
+    git status --short >&2
+    exit 1
+  fi
+  git fetch origin "$HEAD_REF" 2>/dev/null || true
+  git checkout "$HEAD_REF"
+fi
+```
 
 STEP 2: FETCH FEEDBACK
 
@@ -112,15 +150,29 @@ query($owner: String!, $repo: String!, $number: Int!) {
 ```
 
 Build a map `databaseId → {thread_id, isResolved}` from EVERY comment in each thread
-(not just the first) — reviewer replies must resolve back to their thread too.
+(not just the first) — reviewer replies must resolve back to their thread too. Write
+it to `/tmp/pr-$PR-thread-map.json` so Step 5 can look up threads by comment ID:
+
+```bash
+jq '
+  [ .data.repository.pullRequest.reviewThreads.nodes[]
+    | . as $t
+    | .comments.nodes[]
+    | { key: (.databaseId | tostring),
+        value: { thread_id: $t.id, isResolved: $t.isResolved } }
+  ] | from_entries
+' /tmp/pr-$PR-threads.json > /tmp/pr-$PR-thread-map.json
+```
 
 FILTERING RULES:
 
 - **Bot comments** (author `type == "Bot"` or login ends with `[bot]`): keep but tag
   `source: "bot"` — they get stricter validation later.
 - **Resolved threads**: skip (isResolved == true).
-- **Own replies** (authored by `$ME` AND `in_reply_to_id` is set): skip — these are
-  this command's prior replies.
+- **Own prior replies** (body contains `<!-- lemongrab-resolve-feedback-reply -->`):
+  skip — these are this command's prior replies, identified by the hidden marker.
+  This is the sole filter for prior replies; do NOT filter by `$ME + in_reply_to_id`
+  because the user's own substantive replies must still be picked up.
 - **Own top-level / inline comments**: KEEP. These may be your self-review notes OR
   pr-review findings (which are authored by $ME via the gh user). Tag
   `source: "marker"` if the comment is from a marker review, else `source: "self"`.
@@ -132,13 +184,17 @@ Unified comment shape:
   id, thread_id (nullable), type ("review"|"issue"|"review_body"),
   author, source ("human"|"bot"|"self"|"marker"),
   body, path (nullable), line (nullable),
-  diff_hunk (nullable), created_at, in_reply_to_id (nullable), url
+  diff_hunk (nullable), created_at, in_reply_to_id (nullable),
+  url (nullable — may fall back to the parent review's html_url for synthesized
+        review_body entries, which lack per-finding URLs)
 }
 ```
 
 Also add "review_body" entries for the LATEST marker review's body — it holds
 non-anchored findings that need triage. Parse out `**[SEVERITY]** file — body` lines
-and synthesize one entry per parsed finding.
+and synthesize one entry per parsed finding. For these synthesized entries set `url`
+to the parent review's `html_url` (or null if unavailable); there is no per-finding
+URL.
 
 **Deduplicate** across sources: if a marker-review inline comment at `path:line` has
 the same severity and first-sentence body as a review_body finding referencing the
@@ -162,7 +218,9 @@ Severity extraction:
   - "bug", "broken", "crash", "security" → CRITICAL
   - "should", "missing", "add", specific change requests → WARNING
   - "nit:", "consider", "maybe", "style", "typo" → NIT
-  - Questions only, no change request → WARNING (for classification purposes)
+  - Questions only, no change request → `Q` (displayed as `Q` in the triage table;
+    classification routes to RESPOND — do NOT set severity to WARNING, as that
+    misleads the user into thinking a change is being requested)
 
 Classification:
 | Classification | Criteria |
@@ -284,7 +342,7 @@ Iterate the approved action list. Actions map to concrete steps:
 
 **FIX**: queue for Step 6 parallel dispatch (grouped by file).
 
-**RESPOND**: draft a reply. For CONFLICTS/MISSING_CONTEXT, cite the doc. Post now (see reply helpers below). Keep under 3 sentences; factual, not defensive.
+**RESPOND**: draft a reply. For CONFLICTS/MISSING_CONTEXT, cite the doc. Post now (see reply helpers below). Keep under 3 sentences; factual, not defensive. RESPOND leaves the thread OPEN — the reviewer decides whether the explanation is sufficient.
 
 **ACK**: post a brief acknowledgment reply. After posting, resolve the thread.
 
@@ -299,21 +357,29 @@ Iterate the approved action list. Actions map to concrete steps:
 
 REPLY HELPERS:
 
+Every reply posted by this command MUST begin with the hidden marker
+`<!-- lemongrab-resolve-feedback-reply -->` so subsequent runs can filter out prior
+replies without relying on authorship (which would also drop the user's substantive
+replies).
+
 For inline review comments (type == "review"):
 ```bash
 gh api "repos/$REPO/pulls/$PR/comments/$COMMENT_ID/replies" \
-  --method POST --field body="<text>"
+  --method POST --field body="<!-- lemongrab-resolve-feedback-reply -->
+<text>"
 ```
 
 For issue comments:
 ```bash
-gh pr comment "$PR" --body "<text> (Re: @<author>'s [comment](<url>))"
+gh pr comment "$PR" --body "<!-- lemongrab-resolve-feedback-reply -->
+<text> (Re: @<author>'s [comment](<url>))"
 ```
 
 For review_body findings (non-anchored pr-review findings): post a top-level issue
 comment referencing the original review:
 ```bash
-gh pr comment "$PR" --body "<text> (Re: pr-review finding: <short description>)"
+gh pr comment "$PR" --body "<!-- lemongrab-resolve-feedback-reply -->
+<text> (Re: pr-review finding: <short description>)"
 ```
 
 THREAD RESOLUTION (after reply, except for NIT-silent-skip):
@@ -404,10 +470,18 @@ Read all reports from docs/state/feedback-resolutions/<pr-number>-*.md.
 
 For each RESOLVED comment:
 ```bash
-COMMIT_SHORT=$(git log -1 --format='%h' -- "<file-path>")
+# Prefer the most recent commit that touched the file; fall back to HEAD when the
+# finding has no path (review_body / general comments).
+if [ -n "<file-path>" ] && [ "<file-path>" != "null" ]; then
+  COMMIT_SHORT=$(git log -1 --format='%h' -- "<file-path>")
+fi
+if [ -z "$COMMIT_SHORT" ]; then
+  COMMIT_SHORT=$(git rev-parse --short HEAD)
+fi
 # inline:
 gh api "repos/$REPO/pulls/$PR/comments/$COMMENT_ID/replies" \
-  --method POST --field body="Fixed in ${COMMIT_SHORT}. <brief description>"
+  --method POST --field body="<!-- lemongrab-resolve-feedback-reply -->
+Fixed in ${COMMIT_SHORT}. <brief description>"
 # then resolve the thread (GraphQL mutation above — inline only)
 ```
 
@@ -479,8 +553,10 @@ CRITICAL RULES:
 - NITs are SKIPPED silently by default: no reply, no thread resolution.
 - Never filter comments by author alone — pr-review marker comments are authored by the
   current user and must be picked up.
-- Previous replies by the current user (identified by `in_reply_to_id`) ARE filtered to
-  avoid self-loops.
+- Previous replies posted by this command (identified by the hidden marker
+  `<!-- lemongrab-resolve-feedback-reply -->` in the body) ARE filtered to avoid
+  self-loops. Authorship alone is NEVER used as a filter, since the user may post
+  substantive replies from the same account.
 - If PR is closed/merged, run READ_ONLY: replies and thread resolution still run, code
   changes do not.
 - Bot-authored comments get stricter validation bias toward NEEDS_HUMAN / MISSING_CONTEXT

@@ -114,8 +114,11 @@ REVIEW CHECKLIST — apply to each change in the chunk:
 - Does it contradict any documented decision (ADR, decision log entry)?
 - If a decision is being intentionally reversed, is the PR description clear about that?
 - If the reviewer's instinct is "this should be done differently," check: does a
-  documented decision already answer the question? If yes, the decision wins — do NOT
-  flag the change. Record the finding under "Suppressed Findings" instead.
+  documented decision already answer the question? If yes, do NOT silently suppress
+  the finding. Instead, keep it in the findings table at its original severity and
+  annotate it as intentional with a reference to the specific decision. Example:
+  `[INTENTIONAL — per docs/decisions/D-007.md:12] Uses Postgres LISTEN/NOTIFY instead of Redis pub/sub.`
+  The finding is surfaced with the doc citation so the reviewer/user can decide.
 
 SEVERITY LEVELS:
 
@@ -202,13 +205,19 @@ section: write "None." under Suppressed Findings and proceed.
 If you did load decision docs, re-read your own findings against them. For each
 finding, ask: "Does a documented decision already settle this?"
 
-- If yes and the change respects the decision → drop the finding, move to Suppressed.
-- If yes and the change contradicts the decision → keep the finding but raise it as
-  CRITICAL with explicit wording: "This change conflicts with `<doc-path>` — confirm
-  the decision is being reversed intentionally."
+- If yes and the change respects the decision → keep the finding in the findings
+  table at its original severity and annotate it with
+  `[INTENTIONAL — per <doc-path>:<line>]` plus the rationale from the decision.
+  Do NOT silently suppress it; still report it so the reviewer/user has visibility.
+- If yes and the change contradicts the decision → keep the finding at its original
+  severity and annotate it with `[INTENTIONAL — per <doc-path>:<line>]` plus a note
+  that the change appears to reverse the decision. Do NOT escalate severity; the
+  annotation surfaces the conflict with the doc citation so the reviewer/user can
+  decide whether the reversal is intentional.
 - If no decision applies → keep the finding as scored.
 
-This self-check is what keeps reviews aligned with the team's prior choices.
+This self-check is what keeps reviews aligned with the team's prior choices while
+preserving visibility into every finding.
 
 SELF-PERSISTENCE (MANDATORY):
 

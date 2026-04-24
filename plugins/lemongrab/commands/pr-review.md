@@ -39,20 +39,26 @@ if ! PR_META=$(gh pr view --json number,title,headRefName,baseRefName,state,url 
 fi
 PR=$(echo "$PR_META" | jq -r .number)
 REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+BASE=$(echo "$PR_META" | jq -r .baseRefName)
+HEAD=$(echo "$PR_META" | jq -r .headRefName)
 ```
 
 If the PR arg WAS provided, skip the fallback and just fetch metadata for that PR. Assign
-`PR` and `REPO` shell variables — ALL subsequent `gh api` calls use `$PR` and `$REPO`,
-never literal `{N}` or `{OWNER_REPO}` placeholders.
+`PR`, `REPO`, `BASE`, and `HEAD` shell variables — ALL subsequent `gh api`, `git`, and
+similar calls use `$PR`, `$REPO`, `$BASE`, `$HEAD`, never literal `{N}`, `{OWNER_REPO}`,
+`<number>`, `<base-branch>`, or `<head-branch>` placeholders.
+
+If `--base <branch>` was passed on the command line, it overrides `$BASE` here.
 
 STEP 1: GATHER PR CONTEXT
 
-1. Verify PR exists: `gh pr view <number> --json number,title,headRefName,baseRefName,state,url`
+1. PR metadata was already fetched into `$PR_META` in Step 0; re-verify if needed:
+   `gh pr view "$PR" --json number,title,headRefName,baseRefName,state,url`
 2. If PR is closed/merged, warn user but continue (review is still useful as a record)
-3. Extract: PR number, title, URL, head branch, base branch
+3. `$PR`, `$REPO`, `$BASE`, and `$HEAD` are already assigned from Step 0; also extract title/URL as needed.
 4. Check out the head branch locally:
-   - If already on it, skip
-   - If branch doesn't exist locally: `git fetch origin <head-branch> && git checkout <head-branch>`
+   - If already on `$HEAD`, skip
+   - If branch doesn't exist locally: `git fetch origin "$HEAD" && git checkout "$HEAD"`
 
 STEP 2: DETECT FEATURE CONTEXT (best-effort)
 
@@ -67,10 +73,12 @@ PREREQUISITE). No need for the orchestrator to preload those here.
 
 STEP 3: GET THE DIFF
 
-1. Full diff: `git diff <base-branch>..HEAD`
-2. Changed files: `git diff <base-branch>..HEAD --name-only`
-3. Total lines: `git diff <base-branch>..HEAD --stat | tail -1`
+1. Full diff: `git diff "origin/$BASE"..HEAD`
+2. Changed files: `git diff "origin/$BASE"..HEAD --name-only`
+3. Total lines: `git diff "origin/$BASE"..HEAD --stat | tail -1`
 4. If total diff is < 50 lines: tell user "Diff is trivially small (N lines). Reviewing as single chunk." and skip chunking.
+
+(Ensure `origin/$BASE` is up to date first: `git fetch origin "$BASE"`.)
 
 STEP 4: CHUNK THE DIFF
 
@@ -78,7 +86,7 @@ Group files into logical review chunks:
 - Co-locate source + test files together (e.g., src/auth/login.ts + tests/auth/login.test.ts)
 - Target ~200-300 diff lines per chunk
 - If a single file exceeds 300 diff lines, it becomes its own chunk
-- Save each chunk's diff: `git diff <base-branch>..HEAD -- <file1> <file2> > /tmp/pr-review-chunk-<N>.diff`
+- Save each chunk's diff: `git diff "origin/$BASE"..HEAD -- "$file1" "$file2" > "/tmp/pr-review-chunk-$N.diff"` (substitute the chunk's file list and chunk index `$N` at shell-expansion time)
 
 STEP 5: PARALLEL CHUNK REVIEW
 
@@ -155,7 +163,20 @@ for rid in $PRIOR_REVIEW_IDS; do
   CIDS=$(gh api "repos/$REPO/pulls/$PR/comments" --paginate \
     --jq ".[] | select(.pull_request_review_id==$rid) | .id")
   for cid in $CIDS; do
-    gh api "repos/$REPO/pulls/comments/$cid" -X DELETE 2>/dev/null || true
+    # Capture stderr; only 404 (already deleted) is an acceptable silent skip.
+    # Any other non-2xx surfaces as an error so we don't silently break idempotency.
+    err_file=$(mktemp)
+    if ! gh api "repos/$REPO/pulls/comments/$cid" -X DELETE 2>"$err_file"; then
+      if grep -q "HTTP 404" "$err_file"; then
+        : # already deleted — acceptable silent skip
+      else
+        echo "ERROR: failed to delete prior review comment $cid:" >&2
+        cat "$err_file" >&2
+        rm -f "$err_file"
+        exit 1
+      fi
+    fi
+    rm -f "$err_file"
   done
 done
 ```
@@ -217,11 +238,51 @@ single stale anchor. Build the set of valid `(path, new_line)` pairs from
 
 ```bash
 gh api "repos/$REPO/pulls/$PR/files" --paginate > /tmp/pr-$PR-files.json
-# (parser extracts @@ -a,b +c,d @@ hunks and records all `+` and ` ` (context) new_line numbers)
+
+# Build valid (path, new_line) set by parsing each file's patch. For every hunk
+# header `@@ -a,b +c,d @@`, walk the hunk body: `+` and ` ` (context) lines each
+# advance new_line by 1 and are recorded; `-` lines do not advance new_line.
+# Output: TSV of "<path>\t<new_line>" pairs.
+jq -r '
+  .[] | select(.patch != null) | . as $f |
+  ($f.patch | split("\n")) as $lines |
+  reduce range(0; $lines|length) as $i (
+    {new:0; out:[]};
+    ($lines[$i]) as $l |
+    if ($l | startswith("@@")) then
+      .new = ($l | capture("\\+(?<c>[0-9]+)") | .c | tonumber)
+    elif ($l | startswith("+++") or startswith("---")) then .
+    elif ($l | startswith("+")) then
+      .out += [$f.filename + "\t" + (.new|tostring)] | .new += 1
+    elif ($l | startswith("-")) then .
+    elif ($l | startswith("\\")) then .
+    else
+      .out += [$f.filename + "\t" + (.new|tostring)] | .new += 1
+    end
+  ) | .out[]
+' /tmp/pr-$PR-files.json | sort -u > /tmp/pr-$PR-valid-anchors.tsv
+
+# Partition inline comments: valid anchors → keep; invalid → append to summary body.
+# /tmp/pr-$PR-inline-comments-raw.json is the pre-validation array of {path,line,body,side,...}.
+jq --slurpfile valid <(jq -R -s 'split("\n") | map(select(length>0))' /tmp/pr-$PR-valid-anchors.tsv) '
+  . as $all |
+  ($valid[0] | map(split("\t") | {path:.[0], line:(.[1]|tonumber)})) as $v |
+  {
+    anchored: [ $all[] | . as $c | select([$v[] | select(.path==$c.path and .line==$c.line)] | length > 0) ],
+    orphaned: [ $all[] | . as $c | select([$v[] | select(.path==$c.path and .line==$c.line)] | length == 0) ]
+  }
+' /tmp/pr-$PR-inline-comments-raw.json > /tmp/pr-$PR-partitioned.json
+
+jq '.anchored' /tmp/pr-$PR-partitioned.json > /tmp/pr-$PR-inline-comments.json
+
+# Fold orphaned inline comments into the summary body as non-anchored findings.
+jq -r '.orphaned[] | "- **\(.severity // "WARNING" | ascii_upcase | "[" + . + "]")** \(.path):\(.line) — \(.body)"' \
+  /tmp/pr-$PR-partitioned.json >> /tmp/pr-$PR-summary-body.md
 ```
 
 Any finding whose anchor is NOT valid becomes a non-anchored finding appended to the
-summary body with `**[SEVERITY]** <file>:<line> — <body>`.
+summary body with `**[SEVERITY]** <file>:<line> — <body>` (matching the fallback
+layout in the summary-body template above).
 
 ### Build JSON safely and post
 

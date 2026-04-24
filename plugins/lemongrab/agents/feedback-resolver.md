@@ -65,8 +65,19 @@ If while implementing a fix for one comment you discover it conflicts with a doc
 decision (check docs/state/decisions.md, docs/decisions/, docs/adr/), follow these
 steps — do NOT halt the whole run:
 
-1. Revert partial edits for THIS comment: `git checkout -- <file-path>` (or manually
-   undo the specific change if other comments already modified the file).
+1. Revert partial edits for THIS comment ONLY — do NOT wipe sibling fixes already
+   applied in this file group. Pick the revert strategy based on prior edits:
+   - **If this is the FIRST applied edit to the file in this group** (no prior
+     RESOLVED comments have modified this file yet): `git checkout -- <file-path>`
+     is safe because there are no sibling fixes to lose.
+   - **If prior RESOLVED comments in this group already modified the file**: do
+     NOT run `git checkout -- <file-path>` — it would nuke those sibling fixes.
+     Instead, use the Edit tool to surgically reverse-apply only the change you
+     just made for THIS comment (swap `old_string` and `new_string` from the Edit
+     you just performed). This preserves sibling fixes while undoing only the
+     doc-conflicting change.
+   Track whether any prior comment in this group has been marked RESOLVED (i.e.,
+   successfully applied an edit to the file) to decide between these two branches.
 2. Mark this comment UNRESOLVED in the report with reason `doc-conflict: <doc-path>`.
 3. Continue to the next comment in the group. Do not skip siblings that are unaffected.
 4. The orchestrator sees the UNRESOLVED entry and escalates to the user.

@@ -32,7 +32,7 @@ same GitHub API surface:
 
 **Identifying marker reviews:**
 ```bash
-gh api repos/{owner}/{repo}/pulls/{N}/reviews --paginate --jq \
+gh api repos/$OWNER/$REPO_NAME/pulls/$PR/reviews --paginate --jq \
   '.[] | select(.body | contains("lemongrab-pr-review")) | .id'
 ```
 Inline comments with `pull_request_review_id` matching one of these IDs are marker comments.
@@ -140,7 +140,7 @@ feedback.
 | `body` | The comment text |
 | `diff_hunk` | The surrounding diff context |
 
-**API endpoint:** `GET /repos/{owner}/{repo}/pulls/{N}/comments`
+**API endpoint:** `GET /repos/$OWNER/$REPO_NAME/pulls/$PR/comments`
 
 ### General Issue Comments
 
@@ -153,7 +153,7 @@ questions, or approval notes.
 | `user.login` | Who wrote it |
 | `created_at` | When it was posted |
 
-**API endpoint:** `GET /repos/{owner}/{repo}/issues/{N}/comments`
+**API endpoint:** `GET /repos/$OWNER/$REPO_NAME/issues/$PR/comments`
 
 ### GitHub Suggestion Blocks
 
@@ -183,13 +183,13 @@ The resolve-feedback command should note the verdict but focus on individual com
 
 ```bash
 # Fetch inline review comments
-gh api repos/{owner}/{repo}/pulls/{N}/comments --paginate
+gh api repos/$OWNER/$REPO_NAME/pulls/$PR/comments --paginate
 
 # Fetch general issue comments
-gh api repos/{owner}/{repo}/issues/{N}/comments --paginate
+gh api repos/$OWNER/$REPO_NAME/issues/$PR/comments --paginate
 
 # Get PR details (for owner/repo extraction from URL)
-gh pr view {N} --json number,title,headRefName,baseRefName,url,reviewDecision
+gh pr view $PR --json number,title,headRefName,baseRefName,url,reviewDecision
 ```
 
 ### Filtering
@@ -219,7 +219,7 @@ gh api graphql -f query='
       }
     }
   }
-' -f owner='{owner}' -f repo='{repo}' -F pr={N}
+' -f owner="$OWNER" -f repo="$REPO_NAME" -F pr="$PR"
 ```
 
 Match `comments.nodes[0].databaseId` against review comment IDs. If `isResolved` is
@@ -233,12 +233,12 @@ true for a thread, filter out all comments belonging to that thread.
 ```bash
 # Reply to an inline review comment (creates a reply in the thread)
 # Uses the dedicated /replies sub-resource — only requires body
-gh api repos/{owner}/{repo}/pulls/{N}/comments/{comment_id}/replies \
+gh api repos/$OWNER/$REPO_NAME/pulls/$PR/comments/$COMMENT_ID/replies \
   --method POST \
   --field body="<reply text>"
 
 # Post a general comment on the PR (for issue-type comments)
-gh pr comment {N} --body "<comment text>"
+gh pr comment $PR --body "<comment text>"
 ```
 
 ### Extracting Owner/Repo
