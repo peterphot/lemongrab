@@ -1,250 +1,340 @@
 ---
-description: Resolve PR review feedback from human reviewers — fetch comments, triage, fix, and reply
-argument-hint: <PR-URL-or-number> [--auto]
+description: Action PR review feedback — validate against docs, triage with recommendations, fix approved items, reply and resolve threads
+argument-hint: [--pr <number>] [--auto]
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Agent, AskUserQuestion
 ---
 
-You are the PR feedback resolution orchestrator running OUTSIDE the normal workflow
-state machine. This command fetches GitHub PR review comments, classifies them, presents
-a triage table, dispatches parallel agents to fix code issues, and posts replies to
-comment threads — all autonomously.
+You are the PR feedback resolution orchestrator. You fetch all feedback on the PR for
+the current branch, validate each finding against the project's design docs, present a
+recommendation-first triage table, and action only what the user approves.
 
-Use this when:
-- A PR has received review comments that need to be addressed
-- You want to resolve feedback without manually reading and fixing each comment
-- You want to re-run after adding your own comments to the PR
+This command is the sole actioner of PR feedback in lemongrab. `pr-review` never fixes —
+it posts findings to the PR and this command picks them up alongside human comments.
+
+Feedback sources actioned:
+- Inline review comments (human reviewers)
+- General issue comments on the PR
+- Findings posted by `/lemongrab:pr-review` (marked with `<!-- lemongrab-pr-review -->`)
+- Your own comments (excluding previous replies from this command)
+
+Operates on the PR for the CURRENT branch only. One PR per run.
 
 STEP 0: PARSE ARGUMENTS
 
 Parse $ARGUMENTS:
-- First positional arg: PR URL or number (optional)
-  - URL like https://github.com/org/repo/pull/N → extract PR number
-  - Plain number like "1" or "#1" → use directly
-- `--auto`: skip triage approval gate (default: require approval)
+- `--pr <number>`: override the auto-detected PR (use only when working on a PR without
+  checking out the branch; discouraged).
+- `--auto`: skip the triage approval gate — trust recommended actions. `--auto` is
+  IGNORED (gate is forced) when any finding is classified NEEDS_HUMAN after validation.
 
-If no PR argument provided, check if docs/state/task-status.json exists and has
-tickets.pr.url or tickets.pr.number — use that PR automatically.
-
-If still no PR number: ask user via AskUserQuestion: "Which PR do you want to resolve
-feedback for? Provide a PR number or URL."
-
-STEP 1: GATHER PR CONTEXT
-
-1. Get repo context:
-   ```bash
-   REMOTE_URL=$(git remote get-url origin)
-   OWNER_REPO=$(echo "$REMOTE_URL" | sed -E 's|.*github\.com[:/](.+/.+?)(.git)?$|\1|')
-   ```
-
-2. Verify PR exists:
-   ```bash
-   gh pr view <number> --json number,title,headRefName,baseRefName,state,url,reviewDecision
-   ```
-
-3. If PR is closed/merged:
-   - Warn user: "PR #N is <closed/merged>. Running in read-only mode (no fixes will be applied)."
-   - Set READ_ONLY = true
-   - Continue (review and reply are still useful)
-
-4. Extract: PR number, title, URL, head branch, base branch, state
-
-5. Check out the head branch locally (unless READ_ONLY):
-   ```bash
-   git checkout <head-branch>
-   ```
-   If already on it, skip. If branch doesn't exist locally:
-   ```bash
-   git fetch origin <head-branch> && git checkout <head-branch>
-   ```
-
-STEP 2: FETCH COMMENTS
-
-Clean up any stale temp files from previous runs before fetching:
-```bash
-rm -f /tmp/pr-${N}-review-comments.json /tmp/pr-${N}-issue-comments.json
-```
-
-Fetch both types of comments:
+Detect the PR (when no `--pr` given):
 
 ```bash
-# Inline review comments (on specific lines)
-gh api repos/{OWNER_REPO}/pulls/{N}/comments --paginate --jq '.[]' | jq -s '.' > /tmp/pr-${N}-review-comments.json
-
-# General issue comments (top-level)
-gh api repos/{OWNER_REPO}/issues/{N}/comments --paginate --jq '.[]' | jq -s '.' > /tmp/pr-${N}-issue-comments.json
+PR_JSON=$(gh pr view --json number,title,headRefName,baseRefName,state,url,reviewDecision 2>/dev/null)
+if [ -z "$PR_JSON" ]; then
+  echo "ERROR: No open PR for current branch. Push and open a PR, or pass --pr <N>."
+  exit 1
+fi
 ```
 
-Validate that fetches succeeded (prevent silent failures from masquerading as "no comments"):
+Extract PR number, title, URL, head/base branches, state.
+
+If PR is closed/merged: set `READ_ONLY=true`, warn the user. Replies and thread
+resolution still work; code changes are skipped.
+
+STEP 1: GATHER REPO CONTEXT
+
 ```bash
-jq empty /tmp/pr-${N}-review-comments.json 2>/dev/null || { echo "ERROR: Failed to fetch review comments (check auth/network)"; exit 1; }
-jq empty /tmp/pr-${N}-issue-comments.json 2>/dev/null || { echo "ERROR: Failed to fetch issue comments (check auth/network)"; exit 1; }
+REMOTE_URL=$(git remote get-url origin)
+OWNER_REPO=$(echo "$REMOTE_URL" | sed -E 's|.*github\.com[:/](.+/.+?)(.git)?$|\1|')
+ME=$(gh api user --jq .login)
 ```
 
-Validate response shape (guard against API error objects parsed as arrays of strings):
+Check out the head branch (unless READ_ONLY and not already there). If branch missing
+locally: `git fetch origin <head-branch> && git checkout <head-branch>`.
+
+STEP 2: FETCH FEEDBACK
+
+Clean scratch:
 ```bash
-jq -e '.[0].id // empty' /tmp/pr-${N}-review-comments.json >/dev/null 2>&1 || \
-  jq -e 'length == 0' /tmp/pr-${N}-review-comments.json >/dev/null 2>&1 || \
-  { echo "ERROR: Unexpected response format for review comments"; exit 1; }
-jq -e '.[0].id // empty' /tmp/pr-${N}-issue-comments.json >/dev/null 2>&1 || \
-  jq -e 'length == 0' /tmp/pr-${N}-issue-comments.json >/dev/null 2>&1 || \
-  { echo "ERROR: Unexpected response format for issue comments"; exit 1; }
+rm -f /tmp/pr-${N}-review-comments.json /tmp/pr-${N}-issue-comments.json /tmp/pr-${N}-reviews.json
 ```
 
-Filter out:
-- **Bot comments**: where `user.type == "Bot"` or `user.login` ends with `[bot]`
-- **Resolved threads**: review comments where the thread has been marked resolved
-  (check via `gh api graphql` if needed, or heuristic: if a later comment in the
-  thread says "resolved" or the thread has no pending status)
-- **Own comments**: comments posted by the current `gh` authenticated user (these are
-  our previous replies, not new feedback)
+Fetch three sources:
 
-After filtering, merge both lists into a unified comment list with fields:
-- `id`: comment ID
-- `type`: "review" or "issue"
-- `author`: user.login
-- `body`: comment text
-- `path`: file path (null for issue comments)
-- `line`: line number (null for issue comments or general comments)
-- `diff_hunk`: surrounding context (null for issue comments)
-- `created_at`: timestamp
-- `in_reply_to_id`: parent comment ID (for threaded replies)
-- `url`: comment URL
+```bash
+# Inline review comments (anchored to lines; these carry pr-review findings too)
+gh api repos/${OWNER_REPO}/pulls/${N}/comments --paginate --jq '.[]' | jq -s '.' > /tmp/pr-${N}-review-comments.json
 
-If the unified list is empty after filtering:
-- Tell user: "No actionable comments found on PR #N. All comments are either from bots,
-  already resolved, or posted by you."
-- Exit.
+# General issue comments
+gh api repos/${OWNER_REPO}/issues/${N}/comments --paginate --jq '.[]' | jq -s '.' > /tmp/pr-${N}-issue-comments.json
 
-If there are 50+ comments:
-- Warn user: "Large PR with N comments. This may take a while and produce many changes."
+# Review objects (needed for review bodies — pr-review puts non-anchored findings there)
+gh api repos/${OWNER_REPO}/pulls/${N}/reviews --paginate --jq '.[]' | jq -s '.' > /tmp/pr-${N}-reviews.json
+```
 
-STEP 3: CLASSIFY COMMENTS
+Validate each fetch succeeded (jq empty + shape check). On failure, exit with a clear error.
 
-For each comment in the unified list, classify as one of:
+Detect pr-review-authored reviews by scanning review bodies for the marker
+`<!-- lemongrab-pr-review -->`. Capture their review IDs — inline comments with
+`pull_request_review_id` matching these IDs are "marker comments."
 
+Fetch thread resolution state via GraphQL (best-effort — degrade to heuristic on failure):
+
+```bash
+gh api graphql -f query='
+query($owner: String!, $repo: String!, $number: Int!) {
+  repository(owner: $owner, name: $repo) {
+    pullRequest(number: $number) {
+      reviewThreads(first: 100) {
+        nodes {
+          id
+          isResolved
+          comments(first: 1) { nodes { id databaseId } }
+        }
+      }
+    }
+  }
+}' -F owner="<owner>" -F repo="<repo>" -F number=${N} > /tmp/pr-${N}-threads.json
+```
+
+Build a map `comment_id → {thread_id, isResolved}` from the first comment of each thread.
+
+FILTERING RULES:
+
+- **Bot comments** (author `type == "Bot"` or login ends with `[bot]`): keep but tag
+  `source: "bot"` — they get stricter validation later.
+- **Resolved threads**: skip (isResolved == true).
+- **Own replies** (authored by `$ME` AND `in_reply_to_id` is set): skip — these are
+  this command's prior replies.
+- **Own top-level / inline comments**: KEEP. These may be your self-review notes OR
+  pr-review findings (which are authored by $ME via the gh user). Tag
+  `source: "marker"` if the comment is from a marker review, else `source: "self"`.
+- **Human reviewer comments**: keep, tag `source: "human"`.
+
+Unified comment shape:
+```
+{
+  id, thread_id (nullable), type ("review"|"issue"|"review_body"),
+  author, source ("human"|"bot"|"self"|"marker"),
+  body, path (nullable), line (nullable),
+  diff_hunk (nullable), created_at, in_reply_to_id (nullable), url
+}
+```
+
+Also add "review_body" entries for marker-review bodies — the body holds non-anchored
+findings that need triage. Parse out `**[SEVERITY]** file — body` lines and synthesize
+one entry per parsed finding.
+
+If the unified list is empty after filtering: tell the user "No actionable feedback on
+PR #N." Exit.
+
+If 50+ items: warn user, proceed.
+
+STEP 3: CLASSIFY
+
+For each item, set classification and severity.
+
+Severity extraction:
+- If body starts with `**[CRITICAL]**` → severity = CRITICAL
+- If body starts with `**[WARNING]**` → severity = WARNING
+- If body starts with `**[NIT]**` → severity = NIT
+- Otherwise (human/bot comments without prefix): infer
+  - "bug", "broken", "crash", "security" → CRITICAL
+  - "should", "missing", "add", specific change requests → WARNING
+  - "nit:", "consider", "maybe", "style", "typo" → NIT
+  - Questions only, no change request → WARNING (for classification purposes)
+
+Classification:
 | Classification | Criteria |
-|---------------|----------|
-| **FIX** | Comment requests a code change: bug report, refactor suggestion, missing handling, GitHub suggestion block (` ```suggestion `), "please change", "this should be", "missing", "wrong", "bug" |
-| **RESPOND** | Comment asks a question or raises a concern that warrants explanation: "why", "what about", architectural disagreement, scope question, "I'm not sure about", "have you considered" |
-| **ACK** | Comment is praise, agreement, or informational: "LGTM", "nice", "good", "makes sense", purely observational nit with no specific change requested, already addressed elsewhere |
-| **DEFER** | Comment suggests a valid improvement that's out of scope: "in a follow-up", "separate PR", references files/modules not in this PR, would significantly expand scope |
+|---|---|
+| FIX | Change is requested (includes marker-review CRITICAL/WARNING, suggestion blocks, explicit "should change X", bugs) |
+| RESPOND | Question or concern that warrants explanation ("why", "what about", scope pushback) |
+| ACK | Praise, agreement, or standalone observation with no action |
+| DEFER | Valid improvement but out of scope ("follow-up", unrelated files) |
 
-Classification rules:
-- If a comment contains a ` ```suggestion ``` ` block → always FIX
-- If a comment is a reply in a thread where the parent is already classified → inherit
-  parent classification unless the reply changes the nature (e.g., "actually never mind" → ACK)
-- If a comment references a file that was deleted in this PR → ACK with note
-- If a comment references a line that no longer exists (stale) → attempt to map to new
-  line via diff context. If cannot map, classify as FIX but flag as "stale_reference"
-- If a comment starts with "nit:" but includes a specific code change suggestion → classify as FIX
-- If ambiguous, prefer FIX over RESPOND (err on the side of action)
+Rules:
+- Suggestion block (` ```suggestion `) → FIX
+- Reply inheriting from classified parent → inherit unless content changes nature
+- Stale line reference → attempt to map via diff_hunk; if can't, keep as FIX with flag
+- Deleted file reference → ACK with note
+- Ambiguous → prefer FIX (validation step will reclassify if appropriate)
 
-STEP 4: TRIAGE PRESENTATION
+STEP 3.5: VALIDATE AGAINST DOCS
 
-Present the classification table to the user:
+Before triaging, check each FIX/RESPOND finding against project decision docs.
 
-Use AskUserQuestion:
-"CHECKPOINT: PR FEEDBACK TRIAGE — PR #N has M actionable comments.
+Load once (cache the contents in memory for the rest of this run):
+- docs/requirements/*.md (especially the feature-specific one if task-status.json names it)
+- docs/plans/*.md
+- docs/state/decisions.md
+- docs/decisions/*.md
+- docs/adr/*.md
+- docs/architecture/*.md
 
-| # | Type | Author | File:Line | Classification | Summary |
-|---|------|--------|-----------|---------------|---------|
-| 1 | review | @user | src/foo.ts:42 | FIX | Missing null check |
-| 2 | issue | @user | (general) | RESPOND | Why not use X? |
-| ... |
+For each finding, set `validation` to one of:
 
-Totals: X FIX, Y RESPOND, Z ACK, W DEFER
+| Verdict | Meaning |
+|---|---|
+| VALID | No doc conflict, or docs don't cover this. Proceed normally. |
+| CONFLICTS_WITH_DECISION | Docs explicitly contradict the suggested change. Cite the doc. |
+| MISSING_CONTEXT | Finding is plausible but reviewer lacks context docs provide. |
+| NEEDS_HUMAN | Conflict is ambiguous or finding touches a migration/rewrite. User decides. |
 
-Options: [approve] [override: specify changes, e.g. '#2 should be FIX']"
+Bot-source bias: bots lack our context. If ANY doc mentions the subsystem and the bot's
+suggestion is substantive, lean toward MISSING_CONTEXT or NEEDS_HUMAN rather than VALID.
 
-If `--auto` flag was set: skip this gate, proceed directly.
+Self-source bias: trust your own comments — always VALID unless the content is clearly
+self-correcting ("scratch that, ADR-007 says otherwise").
 
-If user provides overrides, apply them to the classification list.
+PR-description bias: if the PR title/body mentions "migration", "refactor", "replace X
+with Y", relax CONFLICTS detection — the PR exists specifically to change the prior
+decision. Flag as NEEDS_HUMAN instead of auto-CONFLICTS.
 
-STEP 5: RESOLVE ACK AND DEFER COMMENTS
+For CONFLICTS and MISSING_CONTEXT, capture the `citation` — the doc path and one-line
+quote that proves the conflict/missing context. Replies will include this citation.
 
-Note: Reply posting (Steps 5-6) proceeds even in READ_ONLY mode (closed/merged PRs).
-Only code changes (Steps 7-9) are skipped in READ_ONLY mode.
+STEP 4: COMPUTE RECOMMENDATIONS AND TRIAGE
 
-Before dispatching agents, handle the simple categories:
+Default-action rules:
 
-**ACK comments:**
-For each review-type ACK comment, post a brief reply:
-```bash
-gh api repos/{OWNER_REPO}/pulls/{N}/comments/{comment_id}/replies \
-  --method POST \
-  --field body="Acknowledged — thanks."
+| Severity | Validation | Default Action | Reason |
+|---|---|---|---|
+| CRITICAL | VALID | FIX | Real bug |
+| CRITICAL | CONFLICTS | RESPOND | Push back with doc citation |
+| CRITICAL | MISSING_CONTEXT | RESPOND | Provide context from doc |
+| CRITICAL | NEEDS_HUMAN | **gate-only** | User must decide |
+| WARNING | VALID | FIX or SKIP — your judgment per-finding. Prefer SKIP if: speculative, premature, low-value, not load-bearing. Prefer FIX if: small + clear + improves correctness or readability. State one-line reason. |
+| WARNING | CONFLICTS | RESPOND | Cite the doc |
+| WARNING | MISSING_CONTEXT | RESPOND | Provide context |
+| WARNING | NEEDS_HUMAN | **gate-only** | User decides |
+| NIT | any | SKIP (silently — no reply, no thread resolution) | Noise reduction |
+| (ACK as classified) | any | ACK-reply | Unchanged |
+| (DEFER as classified) | any | DEFER-reply | Unchanged |
+
+"gate-only" means: do NOT default to any action. Always surface to the user for a
+decision, even with `--auto`.
+
+Build the triage table:
+
 ```
-For issue-type ACK comments:
-```bash
-gh pr comment {N} --body "Acknowledged — thanks. (Re: @{author}'s [comment]({comment_url}))"
+PR FEEDBACK TRIAGE — PR #N — M items
+
+| # | Sev | Source | Author | File:Line | Validation | Summary | Recommended | Reason |
+|---|-----|--------|--------|-----------|------------|---------|-------------|--------|
+| 1 | CRITICAL | human | @alice | src/auth.ts:42 | VALID | missing null check | FIX | Real bug, 1 line |
+| 2 | WARNING | human | @bob | src/auth.ts:88 | VALID | extract helper | SKIP | Premature, 1 caller |
+| 3 | WARNING | bot | coderabbit | src/db.ts:12 | CONFLICTS | use Redis | RESPOND | ADR-007 chose Postgres |
+| 4 | NIT | human | @bob | src/foo.ts:5 | VALID | rename variable | SKIP | Taste, not load-bearing |
+| 5 | NIT | bot | coderabbit | src/foo.ts:9 | VALID | add JSDoc | SKIP | Internal helper |
+| 6 | CRITICAL | marker | pr-review | src/api.ts:33 | NEEDS_HUMAN | ownership model | — | User decides |
+
+Totals (recommended): F fix, R respond, A ack, D defer, S skip, ? needs-human
 ```
 
-**DEFER comments:**
-For each review-type DEFER comment, post a deferral reply:
+Gate behavior:
+
+- `--auto` AND zero NEEDS_HUMAN items → skip gate, proceed with recommendations
+- Otherwise → AskUserQuestion with the table and options:
+
+  ```
+  Options:
+    [approve]                         — proceed with Recommended column as-is
+    [override <#> <ACTION>]           — e.g. "override 2 FIX, override 4 ACK"
+    [fix all warnings]                — upgrade all WARNING-VALID SKIPs to FIX
+    [skip all warnings]               — downgrade all WARNING-VALID FIXes to SKIP
+    [discuss <#>]                     — expand a specific item before deciding
+  ```
+
+Apply overrides, then proceed.
+
+STEP 5: ACTION THE APPROVED ITEMS
+
+Iterate the approved action list. Actions map to concrete steps:
+
+**FIX**: queue for Step 6 parallel dispatch (grouped by file).
+
+**RESPOND**: draft a reply. For CONFLICTS/MISSING_CONTEXT, cite the doc. Post now (see reply helpers below). Keep under 3 sentences; factual, not defensive.
+
+**ACK**: post a brief acknowledgment reply. After posting, resolve the thread.
+
+**DEFER**: post a deferral reply citing scope. After posting, resolve the thread.
+
+**SKIP**:
+- For NITs: do NOTHING — no reply, no thread resolution. Silent pass.
+- For WARNING-SKIP: post a one-line reply explaining why not taking it ("Considered;
+  skipping — single caller, not worth the indirection."). Resolve the thread.
+- For gate-only items the user chose to skip: reply "Skipping for now — will revisit."
+  Do not resolve the thread.
+
+REPLY HELPERS:
+
+For inline review comments (type == "review"):
 ```bash
-gh api repos/{OWNER_REPO}/pulls/{N}/comments/{comment_id}/replies \
-  --method POST \
-  --field body="Noted — deferring to a follow-up PR. This change would expand the scope of this PR."
+gh api repos/${OWNER_REPO}/pulls/${N}/comments/${comment_id}/replies \
+  --method POST --field body="<text>"
 ```
-For issue-type DEFER comments:
+
+For issue comments:
 ```bash
-gh pr comment {N} --body "Noted — deferring to a follow-up PR. This change would expand the scope of this PR. (Re: @{author}'s [comment]({comment_url}))"
+gh pr comment ${N} --body "<text> (Re: @<author>'s [comment](<url>))"
 ```
 
-STEP 6: DRAFT AND POST RESPOND REPLIES
+For review_body findings (non-anchored pr-review findings): post a top-level issue
+comment referencing the original review:
+```bash
+gh pr comment ${N} --body "<text> (Re: pr-review finding: <short description>)"
+```
 
-For each RESPOND comment:
-1. Read the source file and surrounding context referenced by the comment
-2. Read requirements docs if available (docs/requirements/*.md)
-3. Draft a contextual reply explaining the decision or answering the question
-4. Post the reply immediately (no user approval):
-   For review-type RESPOND comments:
-   ```bash
-   gh api repos/{OWNER_REPO}/pulls/{N}/comments/{comment_id}/replies \
-     --method POST \
-     --field body="<drafted reply>"
-   ```
-   For issue-type RESPOND comments:
-   ```bash
-   gh pr comment {N} --body "<drafted reply> (Re: @{author}'s [comment]({comment_url}))"
-   ```
+THREAD RESOLUTION (after reply, except for NIT-silent-skip):
 
-Keep RESPOND replies:
-- Factual and concise (under 3 sentences unless explaining architecture)
-- Reference specific code, requirements, or constraints
-- Never defensive — explain, don't argue
+```bash
+# Need the thread GraphQL ID from the /tmp/pr-${N}-threads.json map
+gh api graphql -f query='
+mutation($threadId: ID!) {
+  resolveReviewThread(input: { threadId: $threadId }) {
+    thread { isResolved }
+  }
+}' -F threadId="<thread_graphql_id>" 2>/dev/null || true
+```
 
-STEP 7: PARALLEL FIX DISPATCH
+If GraphQL resolution fails (permissions, API error): degrade to reply-only and note in
+the summary that threads were not auto-resolved.
 
-If READ_ONLY mode: skip this step (report FIX items but do not apply changes).
+READ_ONLY MODE: skip FIX dispatch (Step 6) and commit/push (Step 7). Replies and thread
+resolution still run.
 
-Group FIX comments by file:
-- All comments on the same `path` go to one group
-- Comments with no `path` (issue-type FIX comments) → create a separate group called
-  "general" and include them in the agent prompt as context-only (the agent will need
-  to identify which files to modify)
+STEP 6: PARALLEL FIX DISPATCH
 
-For each file group, launch a `lemongrab:feedback-resolver` agent in parallel:
+Group FIX items by file path. Items with `path == null` (non-anchored marker-review
+findings, general FIX comments) go into a "general" group handled as context-only in
+the agent prompt.
+
+For each file group, launch `lemongrab:feedback-resolver` in parallel:
 
 ```
 Agent(subagent_type: "lemongrab:feedback-resolver", run_in_background: true)
 
 Prompt: "Resolve PR feedback for file: <path>
 
-PR: #<number> (<url>)
+PR: #<N> (<url>)
 Repository: <owner/repo>
 Branch: <head-branch>
 
 Comments to resolve:
-1. [ID: <id>] Line <line>: <body> (by @<author>)
-   Diff context: <diff_hunk if available, or 'none'>
-2. [ID: <id>] Line <line>: <body> (by @<author>)
-   Diff context: <diff_hunk if available, or 'none'>
-...
+1. [ID: <id>] Line <line>: <body> (by @<author>, source: <source>)
+   Diff context: <diff_hunk or 'none'>
+2. ...
+
+Design context already validated — these comments were approved as VALID by the
+orchestrator. If during implementation you discover a conflict with docs the
+orchestrator missed, stop and mark the item UNRESOLVED with reason 'doc-conflict:
+<doc-path>'. Do NOT override a documented decision.
 
 Feature context:
 - Requirements: docs/requirements/<feature>.md (if exists)
 - Plan: docs/plans/<feature>.md (if exists)
+- Decisions: docs/state/decisions.md, docs/decisions/*, docs/adr/* (read if relevant)
 
 Apply minimal fixes, verify tests pass, self-persist report to
 docs/state/feedback-resolutions/<pr-number>-<file-slug>.md
@@ -253,106 +343,72 @@ IMPORTANT: Do NOT run git add, git commit, or git push. Only modify files and wr
 your report. The orchestrator handles all git operations."
 ```
 
-Launch ALL file group agents in a SINGLE message (parallel Agent calls).
-Wait for all agents to complete (you will be notified automatically).
+Launch ALL file group agents in a single message (parallel Agent calls). Wait for all.
 
-IMPORTANT: Do NOT use TaskOutput to read agent results. The agents write to disk.
+STEP 7: COMMIT AND PUSH
 
-STEP 8: COMMIT AND PUSH
+For each file group that produced fixes:
+```bash
+git add <file-paths>
+git commit -m "fix(pr-feedback): resolve review comments on <filename>
 
-If READ_ONLY mode: skip this step (no code changes to commit).
-
-For each file group that had resolved fixes:
-1. Stage the modified files:
-   ```bash
-   git add <file-path> [<test-file-path>]
-   ```
-2. Create a commit with conventional format:
-   ```bash
-   git commit -m "fix(pr-feedback): resolve review comments on <filename>
-
-   Resolved comments: <comma-separated comment IDs>
-   PR: #<number>"
-   ```
-3. After all commits, push:
-   ```bash
-   git push origin HEAD
-   ```
-
-STEP 9: COLLECT RESULTS AND POST FIX REPLIES
-
-If READ_ONLY mode: skip this step (no fixes were applied, no fix replies to post).
-
-1. Read all resolution reports from docs/state/feedback-resolutions/<pr-number>-*.md
-2. For each resolved comment:
-   - Get the commit SHA from git log (the latest commit touching the file, after STEP 8)
-   - Post a reply to the comment thread:
-     For review-type comments:
-     ```bash
-     COMMIT_SHORT=$(git log -1 --format='%h' -- <file-path>)
-     gh api repos/{OWNER_REPO}/pulls/{N}/comments/{comment_id}/replies \
-       --method POST \
-       --field body="Fixed in ${COMMIT_SHORT}. <brief description of change>"
-     ```
-     For issue-type comments:
-     ```bash
-     COMMIT_SHORT=$(git log -1 --format='%h' -- <file-path>)
-     gh pr comment {N} --body "Fixed in ${COMMIT_SHORT}. <brief description of change> (Re: @{author}'s [comment]({comment_url}))"
-     ```
-3. For each unresolved comment:
-   - Note it for the summary (do not post a reply yet — user may want to handle manually)
-
-STEP 10: CIRCUIT BREAKER AND SUMMARY
-
-Count results across all file groups:
-- RESOLVED: comments where the agent successfully applied a fix
-- UNRESOLVED: comments the agent could not fix
-- RESPONDED: comments where we posted a RESPOND reply
-- ACKED: comments where we posted an ACK reply
-- DEFERRED: comments where we posted a DEFER reply
-- SKIPPED (read-only): FIX comments not applied because PR is closed/merged
-
-Present summary to user:
+Resolved: <comma-separated comment IDs>
+PR: #<N>"
 ```
-PR FEEDBACK RESOLUTION COMPLETE — PR #N
+
+After all commits:
+```bash
+git push origin HEAD
+```
+
+STEP 8: POST FIX REPLIES AND RESOLVE THREADS
+
+Read all reports from docs/state/feedback-resolutions/<pr-number>-*.md.
+
+For each RESOLVED comment:
+```bash
+COMMIT_SHORT=$(git log -1 --format='%h' -- <file-path>)
+# inline:
+gh api repos/${OWNER_REPO}/pulls/${N}/comments/${comment_id}/replies \
+  --method POST --field body="Fixed in ${COMMIT_SHORT}. <brief description>"
+# then resolve the thread (GraphQL mutation above)
+```
+
+For issue/review_body fixes: use `gh pr comment` with citation link.
+
+For UNRESOLVED items: note for summary, do not auto-reply (user handles manually).
+
+STEP 9: SUMMARY AND CIRCUIT BREAKER
+
+Present:
+```
+PR FEEDBACK RESOLUTION — PR #N — Round <R>
 
 | Category | Count |
-|----------|-------|
-| RESOLVED (fixed) | X |
-| RESPONDED (replied) | Y |
-| ACKNOWLEDGED | Z |
+|---|---|
+| FIXED | X |
+| RESPONDED | Y |
+| ACKED | Z |
 | DEFERRED | W |
+| SKIPPED (silent) | Sn (nits) + Sw (warnings) |
 | UNRESOLVED | U |
 | SKIPPED (read-only) | S |
+| THREADS RESOLVED | T (of eligible) |
 
-[If READ_ONLY mode and FIX items exist:]
-These FIX items were not applied because the PR is closed/merged:
-| # | File:Line | Comment | Author |
-|---|-----------|---------|--------|
-| 1 | src/foo.ts:42 | <summary> | @reviewer |
-
-[If UNRESOLVED > 0:]
-Unresolved items need manual attention:
-| # | File:Line | Comment | Reason |
-|---|-----------|---------|--------|
-| 1 | src/foo.ts:42 | <summary> | <why agent couldn't fix> |
+[List UNRESOLVED items with file:line, comment, agent-reason]
 ```
 
-**Circuit breaker:** If UNRESOLVED > 0 and this is round 1:
-- Ask user: "N comments could not be resolved automatically. Options:
-  [retry] — re-run feedback resolution on unresolved items only
-  [skip] — leave unresolved items for manual handling
-  [discuss] — let's look at the unresolved items together"
-- If retry: re-run STEP 7-9 with only unresolved comments (round 2, where STEP 7 = dispatch, 8 = commit, 9 = post replies)
-- Maximum 2 fix rounds. After round 2, present remaining unresolved items and stop.
+Circuit breaker: If UNRESOLVED > 0 and round < 2, offer:
+- [retry] re-run Steps 5-8 on unresolved only (round 2)
+- [skip] leave for manual
+- [discuss] examine together
 
-STEP 11: DECISION CAPTURE
+Max 2 rounds.
 
-If docs/state/decisions.md exists, append feedback resolution decisions.
+STEP 10: DECISION CAPTURE
 
-Note: D-FEEDBACK is a new decision prefix specific to this command. It is not yet
-registered in the formatting-decisions skill. If this prefix is adopted project-wide,
-update the skill's phase table in a follow-up.
+If docs/state/decisions.md exists, append (use the D-FEEDBACK prefix — scoped to this
+command, not in formatting-decisions skill):
 
 ```markdown
 ### Phase: FEEDBACK
@@ -362,30 +418,33 @@ update the skill's phase table in a follow-up.
     id: D-FEEDBACK-001
     phase: feedback
     who: claude
-    what: "Resolved N comments, responded to M, deferred W on PR #<number>"
-    why: "Automated PR feedback resolution"
-    context: "PR #<number> review feedback from <authors>"
+    what: "Resolved N, responded to M, skipped W on PR #<N>"
+    why: "Automated PR feedback resolution with doc validation"
+    context: "PR #<N> review feedback; validation caught K conflicts"
 DECISIONS -->
 ```
 
-STEP 12: CLEANUP
+STEP 11: CLEANUP
 
-Remove temp files created during this run:
 ```bash
-rm -f /tmp/pr-${N}-review-comments.json /tmp/pr-${N}-issue-comments.json
+rm -f /tmp/pr-${N}-review-comments.json /tmp/pr-${N}-issue-comments.json \
+      /tmp/pr-${N}-reviews.json /tmp/pr-${N}-threads.json
 ```
 
 CRITICAL RULES:
 
-- This command does NOT modify current-phase.json — it operates outside the state machine
-- This command does NOT move Linear tickets
-- This command DOES commit and push if fixes are applied (on the current branch)
-- If the PR is closed/merged, run in READ_ONLY mode (replies only, no code changes)
-- All replies are posted autonomously — no user approval gate for individual replies
-- The triage table IS a user gate (unless --auto) — user must approve classifications
-- Bot comments are ALWAYS filtered out (never process automated CI feedback)
-- If a comment is on a deleted file, classify as ACK with note "file was deleted in this PR"
-- If a comment references a stale line (line no longer exists), attempt to locate the
-  moved code using diff context. If cannot locate, mark as FIX with "stale_reference" flag
-  and let the agent attempt resolution with the diff_hunk as context.
-- For very large PRs (50+ comments), warn the user but proceed — do not refuse
+- Operates on the PR for the current branch. `--pr` override exists but is discouraged.
+- State of feedback lives on the PR (replies + thread resolution), NOT in
+  docs/state/feedback-resolutions/ (that directory is per-run scratch).
+- Validation happens BEFORE triage. Never fix a finding that CONFLICTS with docs without
+  explicit user override.
+- `--auto` is ignored when any finding is NEEDS_HUMAN — gate is forced.
+- NITs are SKIPPED silently by default: no reply, no thread resolution.
+- Never filter comments by author alone — pr-review marker comments are authored by the
+  current user and must be picked up.
+- Previous replies by the current user (identified by `in_reply_to_id`) ARE filtered to
+  avoid self-loops.
+- If PR is closed/merged, run READ_ONLY: replies and thread resolution still run, code
+  changes do not.
+- Bot-authored comments get stricter validation bias toward NEEDS_HUMAN / MISSING_CONTEXT
+  when docs touch the subsystem.

@@ -46,10 +46,21 @@ The resolve-feedback command provides:
    - `id`: GitHub comment ID
    - `line`: line number in the file (may be null for general comments)
    - `author`: who wrote the comment
+   - `source`: "human" | "bot" | "self" | "marker" (marker = from `/lemongrab:pr-review`)
    - `body`: the comment text
    - `diff_hunk`: surrounding diff context (for inline comments)
    - `classification`: FIX expected (the command pre-filters to FIX, but verify — skip non-FIX as a defensive guard)
 4. Repository context: owner/repo string
+
+Do NOT filter comments by author. The orchestrator already validated them against docs
+and user-approved them. A `source: "marker"` comment from `/lemongrab:pr-review` is
+authored by the current gh user but represents a real finding — treat it identically to
+a human reviewer's comment.
+
+If while implementing a fix you discover the comment conflicts with a documented decision
+(check docs/state/decisions.md, docs/decisions/, docs/adr/), STOP. Mark the comment
+UNRESOLVED with reason "doc-conflict: <doc-path>". Do not override a decision — surface
+it back to the orchestrator via the report.
 
 PROCESS:
 
