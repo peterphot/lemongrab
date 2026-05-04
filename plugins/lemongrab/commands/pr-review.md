@@ -106,6 +106,16 @@ context, machine, or prior workflow state. The orchestrator does NOT exercise
 judgment about file grouping. If a different grouping is desired, change the
 algorithm here — never deviate per-run.
 
+NO PRE-FILTERING: The chunker's input is the FULL `git diff --name-only`
+output between `origin/$BASE` and `origin/$HEAD`. Do NOT exclude files
+because the requirements / plan / scope documents narrow the "in-scope"
+file set, even when those documents are explicit. If the chunker's output
+file count differs from `git diff --name-only | wc -l`, the contract is
+violated and the run aborts (see sanity check below). To mark a file's
+changes as out-of-scope, let the chunk agent see them and produce
+`[INTENTIONAL — per <doc>]`-annotated findings; the docs-validation
+pipeline downstream will surface them appropriately.
+
 ### Algorithm
 
 1. Sort changed files lexicographically using `LC_ALL=C` (locale-stable).
@@ -183,7 +193,8 @@ BEGIN { n = 1; cur = 0 }
 TOTAL_CHUNKS=$(LC_ALL=C awk -F'\t' '{ print $1 }' "/tmp/pr-$PR-chunks.tsv" | LC_ALL=C sort -un | tail -1)
 
 # Emit per-chunk launch manifest. One row per chunk-agent invocation.
-# Format: <chunk_n>\t<chunk_total>\t<diff_path>\t<space-separated file list>
+# Format: <chunk_n>\t<chunk_total>\t<diff_path>\t<posture_path>\t<file_list>
+# (file_list LAST because it contains spaces and is variable-length)
 : > "/tmp/pr-$PR-launch-manifest.tsv"
 LC_ALL=C awk -F'\t' '
   { if ($1 != prev) { if (prev != "") print prev "\t" p; p = $2 } else p = p " " $2; prev = $1 }
@@ -191,10 +202,49 @@ LC_ALL=C awk -F'\t' '
 ' "/tmp/pr-$PR-chunks.tsv" | while IFS=$'\t' read -r N FILES; do
   # shellcheck disable=SC2086
   git diff "origin/$BASE".."origin/$HEAD" -- $FILES > "/tmp/pr-review-chunk-$N.diff"
-  printf '%s\t%s\t%s\t%s\n' \
-    "$N" "$TOTAL_CHUNKS" "/tmp/pr-review-chunk-$N.diff" "$FILES" \
+  printf '%s\t%s\t%s\t%s\t%s\n' \
+    "$N" "$TOTAL_CHUNKS" \
+    "/tmp/pr-review-chunk-$N.diff" \
+    "/tmp/pr-review-chunk-$N.posture" \
+    "$FILES" \
     >> "/tmp/pr-$PR-launch-manifest.tsv"
 done
+
+# Sanity check: manifest file count MUST match `git diff --name-only` count.
+# A discrepancy means something filtered the file list against the contract
+# (e.g. orchestrator pre-filtered by requirements scope) — abort hard.
+expected_count=$(LC_ALL=C git diff "origin/$BASE".."origin/$HEAD" --name-only | wc -l | tr -d ' ')
+actual_count=$(LC_ALL=C awk -F'\t' '{ print $5 }' "/tmp/pr-$PR-launch-manifest.tsv" \
+  | tr ' ' '\n' | LC_ALL=C grep -v '^$' | wc -l | tr -d ' ')
+if [ "$expected_count" != "$actual_count" ]; then
+  echo "ERROR: chunker contract violated." >&2
+  echo "  git diff --name-only reports $expected_count changed files;" >&2
+  echo "  manifest contains $actual_count. The chunker's input must be the" >&2
+  echo "  full --name-only output. Aborting." >&2
+  exit 1
+fi
+
+# Compute per-chunk diff posture (added/removed counts + a deletion-attention
+# nudge when the chunk is net-negative). Forces the chunk agent to confront
+# deletion semantics that LLM perception sometimes glosses over on stale-base
+# / revert-style diffs.
+while IFS=$'\t' read -r N TOTAL DIFF POSTURE _FILES; do
+  added=$(LC_ALL=C awk '/^\+/ && !/^\+\+\+/' "$DIFF" | wc -l | tr -d ' ')
+  removed=$(LC_ALL=C awk '/^-/ && !/^---/' "$DIFF" | wc -l | tr -d ' ')
+  {
+    echo "DIFF POSTURE — Chunk $N"
+    echo "+$added lines added, -$removed lines removed."
+    if [ "$removed" -gt "$added" ]; then
+      echo ""
+      echo "This chunk has more lines REMOVED than added. Read every \`-\` line"
+      echo "as something the PR removes from the codebase. For each removed"
+      echo "block, ask: is the removal authorized by the requirements / plan /"
+      echo "decisions docs? If not, flag it as a regression at the appropriate"
+      echo "severity. A net-negative diff is the most common signal of a stale"
+      echo "branch or accidental revert; do not gloss over it."
+    fi
+  } > "$POSTURE"
+done < "/tmp/pr-$PR-launch-manifest.tsv"
 
 # Surface the chunking decision (auditable, and the manifest the orchestrator MUST consume).
 echo "Chunking: $TOTAL_CHUNKS chunks"
@@ -227,12 +277,15 @@ manifest row per launch. Do NOT paraphrase, summarize, recompute, or infer
 these values from session context. The orchestrator MUST `cat` the manifest
 file before launching and use the literal field values from each row.
 
-Concretely, for each tab-separated row `<chunk_n>\t<chunk_total>\t<diff_path>\t<file_list>`
+Concretely, for each tab-separated row
+`<chunk_n>\t<chunk_total>\t<diff_path>\t<posture_path>\t<file_list>`
 in the manifest, perform the substitution:
 - `$CHUNK_N` ← field 1
 - `$CHUNK_TOTAL` ← field 2 (same on every row by construction)
 - `$DIFF_PATH` ← field 3
-- `$FILE_LIST` ← field 4
+- `$POSTURE_PATH` ← field 4
+- `$POSTURE_BLOCK` ← LITERAL CONTENTS of the file at `$POSTURE_PATH` (use `cat`)
+- `$FILE_LIST` ← field 5
 
 If `$CHUNK_TOTAL` differs between rows, the manifest is corrupt — abort and
 re-run Step 4 rather than guess.
@@ -240,6 +293,8 @@ re-run Step 4 rather than guess.
 ### Chunk-agent prompt template (verbatim, substitute `$VARS` only)
 
 ```
+$POSTURE_BLOCK
+
 You are reviewing chunk $CHUNK_N of $CHUNK_TOTAL of PR #$PR.
 
 Chunk diff: read from `$DIFF_PATH` (do not read any other chunk's diff file).
@@ -269,7 +324,9 @@ Return only when the report file exists on disk.
 | `$CHUNK_TOTAL`   | manifest row, field 2                                               |
 | `$PR`            | from Step 0                                                         |
 | `$DIFF_PATH`     | manifest row, field 3                                               |
-| `$FILE_LIST`     | manifest row, field 4                                               |
+| `$POSTURE_PATH`  | manifest row, field 4                                               |
+| `$POSTURE_BLOCK` | contents of file at `$POSTURE_PATH` (literal `cat` output)          |
+| `$FILE_LIST`     | manifest row, field 5                                               |
 | `$FEATURE`       | from Step 2; empty string if none                                   |
 | `$REQ_DOC`       | from Step 2; empty string if none                                   |
 | `$PLAN_DOC`      | from Step 2; empty string if none                                   |
@@ -284,15 +341,36 @@ agent that sees the entire PR diff. This pass catches seams that no single Pass 
 chunk can see (caller/callee mismatches across files, partial refactors, interface/
 implementation drift, cross-file invariant breakage).
 
-Pass B reads the same per-PR diff Pass A reads, but as a single artifact:
+Pass B reads the same per-PR diff Pass A reads, but as a single artifact,
+plus its own whole-PR posture file:
 
 ```bash
 git diff "origin/$BASE".."origin/$HEAD" > "/tmp/pr-$PR-full.diff"
+
+# Whole-PR posture (parallel to per-chunk posture from Step 4).
+added=$(LC_ALL=C awk '/^\+/ && !/^\+\+\+/' "/tmp/pr-$PR-full.diff" | wc -l | tr -d ' ')
+removed=$(LC_ALL=C awk '/^-/ && !/^---/' "/tmp/pr-$PR-full.diff" | wc -l | tr -d ' ')
+{
+  echo "DIFF POSTURE — Whole PR"
+  echo "+$added lines added, -$removed lines removed."
+  if [ "$removed" -gt "$added" ]; then
+    echo ""
+    echo "This PR has more lines REMOVED than added overall. A net-negative diff"
+    echo "typically signals one of:"
+    echo "  (a) intentional cleanup/refactor — should be in plan/decisions docs"
+    echo "  (b) revert of prior work — usually unintentional, e.g. stale base branch"
+    echo "  (c) feature deprecation — should be explicit in PR description"
+    echo "If you cannot find the diff justified by (a)/(b)/(c), treat removals as"
+    echo "regressions and flag them at the appropriate severity."
+  fi
+} > "/tmp/pr-$PR-full.posture"
 ```
 
 Pass B's prompt template (verbatim, substitute `$VARS` only):
 
 ```
+$FULL_POSTURE_BLOCK
+
 You are running the cross-file pass on PR #$PR. Pass A chunk reviewers are
 running in parallel on the same diff; do not duplicate their per-file work.
 
@@ -320,6 +398,7 @@ Pass B variables:
 | Var                     | Source                                                              |
 |-------------------------|---------------------------------------------------------------------|
 | `$FULL_DIFF_PATH`       | `/tmp/pr-$PR-full.diff` (written above)                             |
+| `$FULL_POSTURE_BLOCK`   | LITERAL CONTENTS of `/tmp/pr-$PR-full.posture` (use `cat`)          |
 | `$FULL_FILE_LIST`       | newline-joined `git diff "origin/$BASE".."origin/$HEAD" --name-only`|
 | `$CROSSFILE_REPORT_PATH`| `docs/state/reviewer-reports/$FEATURE-pr-crossfile.md` if `$FEATURE` non-empty, else `docs/state/reviewer-reports/pr-crossfile.md` |
 

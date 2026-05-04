@@ -1,7 +1,7 @@
 {
   "name": "lemongrab",
-  "version": "2.7.2",
-  "description": "v2.7.2 TDD multi-agent workflow orchestration for Claude Code. 18 agents, 22 skills, and 7 slash commands. pr-review is now read-only (posts to GitHub, never edits code); resolve-feedback is the sole actioner with docs-aware validation and recommendation-first triage.",
+  "version": "2.7.3",
+  "description": "v2.7.3 TDD multi-agent workflow orchestration for Claude Code. 18 agents, 22 skills, and 7 slash commands. pr-review is now read-only (posts to GitHub, never edits code); resolve-feedback is the sole actioner with docs-aware validation and recommendation-first triage.",
   "author": {
     "name": "peterphot"
   },
