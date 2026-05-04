@@ -179,22 +179,27 @@ BEGIN { n = 1; cur = 0 }
   cur += $1;
 }' "/tmp/pr-$PR-units.tsv" > "/tmp/pr-$PR-chunks.tsv"
 
-# Write per-chunk diffs.
+# Write per-chunk diffs and emit a launch manifest the orchestrator MUST drive off.
 TOTAL_CHUNKS=$(LC_ALL=C awk -F'\t' '{ print $1 }' "/tmp/pr-$PR-chunks.tsv" | LC_ALL=C sort -un | tail -1)
+
+# Emit per-chunk launch manifest. One row per chunk-agent invocation.
+# Format: <chunk_n>\t<chunk_total>\t<diff_path>\t<space-separated file list>
+: > "/tmp/pr-$PR-launch-manifest.tsv"
 LC_ALL=C awk -F'\t' '
   { if ($1 != prev) { if (prev != "") print prev "\t" p; p = $2 } else p = p " " $2; prev = $1 }
   END { if (prev != "") print prev "\t" p }
 ' "/tmp/pr-$PR-chunks.tsv" | while IFS=$'\t' read -r N FILES; do
   # shellcheck disable=SC2086
   git diff "origin/$BASE".."origin/$HEAD" -- $FILES > "/tmp/pr-review-chunk-$N.diff"
+  printf '%s\t%s\t%s\t%s\n' \
+    "$N" "$TOTAL_CHUNKS" "/tmp/pr-review-chunk-$N.diff" "$FILES" \
+    >> "/tmp/pr-$PR-launch-manifest.tsv"
 done
 
-# Surface the chunking decision so it is auditable in orchestrator output.
+# Surface the chunking decision (auditable, and the manifest the orchestrator MUST consume).
 echo "Chunking: $TOTAL_CHUNKS chunks"
-LC_ALL=C awk -F'\t' '
-  { if ($1 != prev) { if (prev != "") print "  chunk " prev ": " p; p = $2 } else p = p " " $2; prev = $1 }
-  END { if (prev != "") print "  chunk " prev ": " p }
-' "/tmp/pr-$PR-chunks.tsv"
+echo "Launch manifest at /tmp/pr-$PR-launch-manifest.tsv:"
+cat "/tmp/pr-$PR-launch-manifest.tsv"
 ```
 
 ### Notes
@@ -216,9 +221,21 @@ rm -f docs/state/reviewer-reports/*-pr-chunk-*.md docs/state/reviewer-reports/pr
 For each chunk, launch `lemongrab:pr-reviewer` in parallel via the Agent tool.
 
 CONTRACT: The prompt sent to each chunk agent MUST be built by literal substitution
-into the template below. Do NOT paraphrase, summarize, or condition the prompt on
-session context. The agent's behavior must depend only on the chunk inputs and the
-agent definition file — not on what the orchestrator happens to "know" this run.
+into the template below, with `$CHUNK_N`, `$CHUNK_TOTAL`, `$DIFF_PATH`, and
+`$FILE_LIST` taken **verbatim from `/tmp/pr-$PR-launch-manifest.tsv`** — one
+manifest row per launch. Do NOT paraphrase, summarize, recompute, or infer
+these values from session context. The orchestrator MUST `cat` the manifest
+file before launching and use the literal field values from each row.
+
+Concretely, for each tab-separated row `<chunk_n>\t<chunk_total>\t<diff_path>\t<file_list>`
+in the manifest, perform the substitution:
+- `$CHUNK_N` ← field 1
+- `$CHUNK_TOTAL` ← field 2 (same on every row by construction)
+- `$DIFF_PATH` ← field 3
+- `$FILE_LIST` ← field 4
+
+If `$CHUNK_TOTAL` differs between rows, the manifest is corrupt — abort and
+re-run Step 4 rather than guess.
 
 ### Chunk-agent prompt template (verbatim, substitute `$VARS` only)
 
@@ -248,11 +265,11 @@ Return only when the report file exists on disk.
 
 | Var              | Source                                                              |
 |------------------|---------------------------------------------------------------------|
-| `$CHUNK_N`       | 1-based chunk index from Step 4                                     |
-| `$CHUNK_TOTAL`   | `$TOTAL_CHUNKS` from Step 4                                         |
+| `$CHUNK_N`       | manifest row, field 1                                               |
+| `$CHUNK_TOTAL`   | manifest row, field 2                                               |
 | `$PR`            | from Step 0                                                         |
-| `$DIFF_PATH`     | `/tmp/pr-review-chunk-$CHUNK_N.diff`                                |
-| `$FILE_LIST`     | space-separated paths for this chunk (from `/tmp/pr-$PR-chunks.tsv`)|
+| `$DIFF_PATH`     | manifest row, field 3                                               |
+| `$FILE_LIST`     | manifest row, field 4                                               |
 | `$FEATURE`       | from Step 2; empty string if none                                   |
 | `$REQ_DOC`       | from Step 2; empty string if none                                   |
 | `$PLAN_DOC`      | from Step 2; empty string if none                                   |
