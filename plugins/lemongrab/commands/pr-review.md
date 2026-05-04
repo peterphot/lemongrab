@@ -260,7 +260,62 @@ Return only when the report file exists on disk.
 | `$DESIGNS_DOC`   | from Step 2; empty string if none                                   |
 | `$REPORT_PATH`   | `docs/state/reviewer-reports/$FEATURE-pr-chunk-$CHUNK_N.md` if `$FEATURE` non-empty, else `docs/state/reviewer-reports/pr-chunk-$CHUNK_N.md` |
 
-Launch ALL chunk agents in a SINGLE message (parallel Agent calls) with `run_in_background: true`.
+### Cross-file pass (Pass B)
+
+In addition to the per-chunk Pass A agents, launch ONE `lemongrab:pr-cross-file-reviewer`
+agent that sees the entire PR diff. This pass catches seams that no single Pass A
+chunk can see (caller/callee mismatches across files, partial refactors, interface/
+implementation drift, cross-file invariant breakage).
+
+Pass B reads the same per-PR diff Pass A reads, but as a single artifact:
+
+```bash
+git diff "origin/$BASE".."origin/$HEAD" > "/tmp/pr-$PR-full.diff"
+```
+
+Pass B's prompt template (verbatim, substitute `$VARS` only):
+
+```
+You are running the cross-file pass on PR #$PR. Pass A chunk reviewers are
+running in parallel on the same diff; do not duplicate their per-file work.
+
+Full PR diff: read from `$FULL_DIFF_PATH`.
+Files in PR: $FULL_FILE_LIST
+
+Feature context (read these if non-empty; skip silently if empty):
+- Feature name: $FEATURE
+- Requirements: $REQ_DOC
+- Plan: $PLAN_DOC
+- Decisions log: $DECISIONS_DOC
+- Designs: $DESIGNS_DOC
+
+Follow your agent definition exactly. Apply the calibration rubric strictly —
+when in doubt, downgrade severity. Cap NITs at 3 total (whole PR, not per-chunk).
+
+Self-persist your report to:
+  $CROSSFILE_REPORT_PATH
+
+Return only when the report file exists on disk.
+```
+
+Pass B variables:
+
+| Var                     | Source                                                              |
+|-------------------------|---------------------------------------------------------------------|
+| `$FULL_DIFF_PATH`       | `/tmp/pr-$PR-full.diff` (written above)                             |
+| `$FULL_FILE_LIST`       | newline-joined `git diff "origin/$BASE".."origin/$HEAD" --name-only`|
+| `$CROSSFILE_REPORT_PATH`| `docs/state/reviewer-reports/$FEATURE-pr-crossfile.md` if `$FEATURE` non-empty, else `docs/state/reviewer-reports/pr-crossfile.md` |
+
+### Launch
+
+Launch Pass A's chunk agents AND Pass B's single agent in a SINGLE message
+(parallel Agent calls) with `run_in_background: true`. Total agent count =
+`$TOTAL_CHUNKS + 1`.
+
+Before launching, also clean any prior cross-file report:
+```bash
+rm -f docs/state/reviewer-reports/*-pr-crossfile.md docs/state/reviewer-reports/pr-crossfile.md 2>/dev/null || true
+```
 
 These reports are SCRATCH ARTIFACTS for orchestrator aggregation, not durable state. The
 durable record of findings lives on the PR after Step 7.
@@ -269,12 +324,18 @@ Wait for all agents to complete (you will be notified automatically).
 
 IMPORTANT: Do NOT use TaskOutput to read agent results. The agents write to disk.
 
-STEP 6: AGGREGATE
+STEP 6: AGGREGATE (Pass A + Pass B with dedupe)
 
-1. Read all chunk reports matching `docs/state/reviewer-reports/pr-chunk-[0-9]*.md` and `docs/state/reviewer-reports/*-pr-chunk-[0-9]*.md` (tight globs — avoid matching unrelated files like `old-pr-chunk-notes.md`)
-2. Collect findings across chunks
-3. Count by severity: CRITICAL, WARNING, NIT. Findings annotated `[INTENTIONAL — per <doc>:<line>]` count at their original severity (they are NOT suppressed).
-4. Collect any [CROSS-REF] notes
+1. Read all Pass A chunk reports matching `docs/state/reviewer-reports/pr-chunk-[0-9]*.md` and `docs/state/reviewer-reports/*-pr-chunk-[0-9]*.md` (tight globs — avoid matching unrelated files like `old-pr-chunk-notes.md`).
+2. Read the Pass B cross-file report at `docs/state/reviewer-reports/pr-crossfile.md` or `docs/state/reviewer-reports/<feature>-pr-crossfile.md`.
+3. Collect findings from both passes into a single list. Tag each finding with its source (`pass-a-chunk-<N>` or `pass-b-crossfile`) for diagnostic purposes; the source tag does NOT affect posting.
+4. **Dedupe across passes.** Two findings are duplicates iff:
+   - Same `(path, line)` for anchored findings, OR
+   - Same `path` AND normalized title overlap >= 80% (case-insensitive, punctuation-stripped) for non-anchored findings.
+
+   On collision: keep the higher-severity finding; if tied, keep Pass B's wording (it's seeing more context); discard the duplicate.
+5. Count by severity: CRITICAL, WARNING, NIT. Findings annotated `[INTENTIONAL — per <doc>:<line>]` count at their original severity (they are NOT suppressed).
+6. Collect any [CROSS-REF] notes from Pass A chunks. Pass B does not emit [CROSS-REF] — it already has whole-PR scope.
 
 Present a brief summary to the user:
 ```
@@ -396,6 +457,12 @@ Only findings with a concrete `path` AND numeric `line` go into this file. Non-a
 findings (no line, or file-level) go directly into the summary body and are NOT included
 here. The orchestrator builds this file by parsing the structured "Inline Findings"
 sections of each chunk report under `docs/state/reviewer-reports/`.
+
+Pass B (cross-file) findings typically cite TWO or more locations (e.g.
+`src/foo.ts:42 ↔ src/bar.ts:88`). For inline-comment posting, choose the
+**first** cited `path:line` as the anchor, then prepend a "Cross-file:"
+prefix and list the other location(s) inside the body. If no Pass B finding
+has any `path:line` at all, it is non-anchored and goes to the summary body.
 
 If no inline-eligible findings exist, write an empty array: `echo '[]' > /tmp/pr-$PR-inline-comments-raw.json`.
 
