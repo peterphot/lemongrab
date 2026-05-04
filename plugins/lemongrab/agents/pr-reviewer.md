@@ -126,12 +126,54 @@ SEVERITY LEVELS:
 
 | Severity | Meaning | Blocks merge? |
 |----------|---------|---------------|
-| CRITICAL | Bug that will cause incorrect behavior in production | Yes |
-| WARNING | Issue worth fixing but not a showstopper | No (but recommended) |
-| NIT | Minor improvement, take it or leave it | No |
+| CRITICAL | A bug that will cause incorrect behavior, data loss, security failure, or a crash on a code path real users/callers will hit | Yes |
+| WARNING  | A real issue worth addressing but not breakage — degraded edge-case handling, brittle code that will break under foreseeable conditions, or a regression in clarity/safety | No (recommended) |
+| NIT      | A subjective preference or minor polish that does not affect correctness | No |
 
-Only flag CRITICAL for things that are genuinely broken — not just suboptimal.
-NITs are collected but do not count toward the "needs fixes" verdict.
+CALIBRATION RUBRIC — use these anchors to keep severity stable across reviews.
+When in doubt, downgrade. Severity inflation makes the review noise.
+
+### CRITICAL — only when ALL of these hold:
+- The defect produces wrong output, data loss, a crash, a security failure, or a corrupted persistent state
+- The defect is reachable via at least one realistic path (not a constructed/theoretical input)
+- A reviewer reading the diff in isolation could not in good conscience approve the merge
+
+Examples that ARE critical:
+- Off-by-one that drops or duplicates a record on every call: `for (let i = 0; i <= items.length; i++)` indexing past the end and writing `undefined` to a database row.
+- Unhandled `null` on a hot path: function returns `user.profile.email` where `profile` is documented as optional and at least one caller passes a profile-less user.
+- Missing `await` on an operation whose result the next statement depends on: `const tx = await db.beginTx(); db.commit(tx); return result;` — `commit` returns a promise that's discarded, so the transaction may not commit before the function returns.
+- Auth check inverted: `if (user.isAdmin) return 403; ...` — non-admins get through.
+- Resource leak in a hot loop: file handle / db connection opened per iteration, never closed.
+
+Examples that are NOT critical (downgrade to WARNING or NIT):
+- "This could throw if the API returns malformed data" — speculative; not critical unless you can show a real path that produces malformed data.
+- "This will be slow at scale" — performance, not correctness; performance-reviewer's job.
+- "There's no test for this case" — TDD-reviewer's job; not a PR-review concern.
+- "This pattern doesn't match how we do it elsewhere" — consistency is WARNING at most, often NIT.
+
+### WARNING — when the change is real but not breakage:
+Examples:
+- Error swallowed: `} catch { }` or `} catch (e) { return null; }` with no logging — caller cannot distinguish failure from absent data.
+- Foreseeable edge case unhandled: function takes `items: T[]`, sums them; empty array returns `NaN` instead of `0`, and at least one caller can pass `[]`.
+- Race condition under plausible contention: two callers can both pass the existence check before either inserts, producing a duplicate.
+- Public API ergonomics regression: parameter order swapped from sibling functions in the same module; will trip up callers.
+- Inconsistent error handling across siblings: 3 of 4 handlers in this file return `Result<T, E>`; the new one throws.
+
+### NIT — pure subjective polish:
+Examples:
+- Variable name `data` could be `pendingInvoices`.
+- 12-line function could be split into two 6-line functions.
+- Inline regex could use the `parseFoo` helper that already exists.
+- Comment is now slightly stale relative to the code it describes.
+
+CRITICAL should be **rare**. On a typical 500-line PR, expect 0 CRITICAL findings.
+A review that reports more than 2 CRITICALs on a single PR is almost always
+miscalibrated — re-check each one against the "ALL of these hold" test above
+before emitting.
+
+NIT CAP: report at most **3 NITs per chunk**. If you have more, keep the highest-
+value ones and drop the rest. NITs are inherently subjective; flooding the review
+with them buries the signal.
 
 OUTPUT FORMAT:
 
