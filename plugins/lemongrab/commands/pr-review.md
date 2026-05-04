@@ -92,7 +92,9 @@ git fetch origin "$BASE" "$HEAD"
 1. Full diff: `git diff "origin/$BASE".."origin/$HEAD"`
 2. Changed files: `git diff "origin/$BASE".."origin/$HEAD" --name-only`
 3. Total lines: `git diff "origin/$BASE".."origin/$HEAD" --stat | tail -1`
-4. If total diff is < 50 lines: tell user "Diff is trivially small (N lines). Reviewing as single chunk." and skip chunking.
+4. If the diff is small, you may surface "Diff is trivially small (N lines)." for
+   user awareness. Do NOT skip chunking — Step 4's algorithm runs unconditionally
+   and naturally produces a single chunk for small diffs.
 
 If `origin/$HEAD` differs from local `HEAD`, warn the user that unpushed commits will not
 be reviewed (they are not on the PR).
@@ -129,6 +131,15 @@ LC_ALL=C git diff "origin/$BASE".."origin/$HEAD" --numstat \
   | LC_ALL=C awk '{ print $1+$2 "\t" $3 }' \
   | LC_ALL=C sort -t$'\t' -k2,2 \
   > "/tmp/pr-$PR-files.tsv"
+
+# Reject paths containing spaces — the per-chunk `git diff -- $FILES` expansion
+# below relies on word-splitting and would silently produce wrong output.
+if LC_ALL=C awk -F'\t' '{ print $2 }' "/tmp/pr-$PR-files.tsv" | grep -q ' '; then
+  echo "ERROR: changed-files list contains a path with a space; aborting." >&2
+  echo "Offending paths:" >&2
+  LC_ALL=C awk -F'\t' '$2 ~ / / { print "  " $2 }' "/tmp/pr-$PR-files.tsv" >&2
+  exit 1
+fi
 
 # Compute pair_key for same-directory test/source colocation.
 LC_ALL=C awk -F'\t' '
