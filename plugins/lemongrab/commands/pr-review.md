@@ -92,18 +92,119 @@ git fetch origin "$BASE" "$HEAD"
 1. Full diff: `git diff "origin/$BASE".."origin/$HEAD"`
 2. Changed files: `git diff "origin/$BASE".."origin/$HEAD" --name-only`
 3. Total lines: `git diff "origin/$BASE".."origin/$HEAD" --stat | tail -1`
-4. If total diff is < 50 lines: tell user "Diff is trivially small (N lines). Reviewing as single chunk." and skip chunking.
+4. If the diff is small, you may surface "Diff is trivially small (N lines)." for
+   user awareness. Do NOT skip chunking — Step 4's algorithm runs unconditionally
+   and naturally produces a single chunk for small diffs.
 
 If `origin/$HEAD` differs from local `HEAD`, warn the user that unpushed commits will not
 be reviewed (they are not on the PR).
 
-STEP 4: CHUNK THE DIFF
+STEP 4: CHUNK THE DIFF (deterministic algorithm)
 
-Group files into logical review chunks:
-- Co-locate source + test files together (e.g., src/auth/login.ts + tests/auth/login.test.ts)
-- Target ~200-300 diff lines per chunk
-- If a single file exceeds 300 diff lines, it becomes its own chunk
-- Save each chunk's diff: `git diff "origin/$BASE".."origin/$HEAD" -- "$file1" "$file2" > "/tmp/pr-review-chunk-$N.diff"` (substitute the chunk's file list and chunk index `$N` at shell-expansion time)
+CONTRACT: Same diff input → identical chunks every run, regardless of session
+context, machine, or prior workflow state. The orchestrator does NOT exercise
+judgment about file grouping. If a different grouping is desired, change the
+algorithm here — never deviate per-run.
+
+### Algorithm
+
+1. Sort changed files lexicographically using `LC_ALL=C` (locale-stable).
+2. For each file, compute `pair_key = dirname + canonical_basename`, where
+   `canonical_basename` strips the markers `.test.`, `.spec.`, `_test.`,
+   `_spec.`, `Test.`, `Spec.` from the basename. Files sharing a `pair_key`
+   form an atomic **unit** (e.g. `src/auth/login.ts` + `src/auth/login.test.ts`
+   are one unit).
+3. Process units in lex order of their `pair_key`. A unit joins the current
+   chunk if the result stays under 250 lines (added + removed); otherwise
+   start a new chunk.
+4. A unit that itself exceeds 300 lines becomes its own chunk.
+5. Units are atomic — never split across chunks.
+6. Cross-directory test pairing (e.g. `tests/foo.test.ts` ↔ `src/foo.ts`) is
+   NOT performed — dirnames must match. Accepted tradeoff for determinism;
+   cross-file coverage is Pass B's job.
+
+### Implementation
+
+```bash
+# Files with line counts (added + removed), lex-sorted.
+LC_ALL=C git diff "origin/$BASE".."origin/$HEAD" --numstat \
+  | LC_ALL=C awk '{ print $1+$2 "\t" $3 }' \
+  | LC_ALL=C sort -t$'\t' -k2,2 \
+  > "/tmp/pr-$PR-files.tsv"
+
+# Reject paths containing spaces — the per-chunk `git diff -- $FILES` expansion
+# below relies on word-splitting and would silently produce wrong output.
+if LC_ALL=C awk -F'\t' '{ print $2 }' "/tmp/pr-$PR-files.tsv" | grep -q ' '; then
+  echo "ERROR: changed-files list contains a path with a space; aborting." >&2
+  echo "Offending paths:" >&2
+  LC_ALL=C awk -F'\t' '$2 ~ / / { print "  " $2 }' "/tmp/pr-$PR-files.tsv" >&2
+  exit 1
+fi
+
+# Compute pair_key for same-directory test/source colocation.
+LC_ALL=C awk -F'\t' '
+{
+  lines = $1; path = $2;
+  n = split(path, p, "/");
+  base = p[n];
+  dir = (n > 1) ? substr(path, 1, length(path) - length(base) - 1) : ".";
+  canon = base;
+  sub(/\.test\./,  ".", canon); sub(/\.spec\./,  ".", canon);
+  sub(/_test\./,   ".", canon); sub(/_spec\./,   ".", canon);
+  sub(/Test\./,    ".", canon); sub(/Spec\./,    ".", canon);
+  print lines "\t" dir "/" canon "\t" path
+}' "/tmp/pr-$PR-files.tsv" \
+  | LC_ALL=C sort -t$'\t' -k2,2 -k3,3 \
+  > "/tmp/pr-$PR-keyed.tsv"
+
+# Collapse rows sharing a pair_key into atomic units.
+LC_ALL=C awk -F'\t' '
+  { if ($2 != prev) { if (prev != "") print sum "\t" paths; sum = 0; paths = ""; prev = $2 }
+    sum += $1; paths = (paths == "" ? $3 : paths " " $3) }
+  END { if (prev != "") print sum "\t" paths }
+' "/tmp/pr-$PR-keyed.tsv" > "/tmp/pr-$PR-units.tsv"
+
+# Greedy-pack units into chunks (budget 250, single-unit ceiling 300).
+LC_ALL=C awk -F'\t' '
+BEGIN { n = 1; cur = 0 }
+{
+  if ($1 > 300) {
+    if (cur > 0) n++;
+    print n "\t" $2;
+    n++; cur = 0;
+    next;
+  }
+  if (cur > 0 && cur + $1 > 250) { n++; cur = 0 }
+  print n "\t" $2;
+  cur += $1;
+}' "/tmp/pr-$PR-units.tsv" > "/tmp/pr-$PR-chunks.tsv"
+
+# Write per-chunk diffs.
+TOTAL_CHUNKS=$(LC_ALL=C awk -F'\t' '{ print $1 }' "/tmp/pr-$PR-chunks.tsv" | LC_ALL=C sort -un | tail -1)
+LC_ALL=C awk -F'\t' '
+  { if ($1 != prev) { if (prev != "") print prev "\t" p; p = $2 } else p = p " " $2; prev = $1 }
+  END { if (prev != "") print prev "\t" p }
+' "/tmp/pr-$PR-chunks.tsv" | while IFS=$'\t' read -r N FILES; do
+  # shellcheck disable=SC2086
+  git diff "origin/$BASE".."origin/$HEAD" -- $FILES > "/tmp/pr-review-chunk-$N.diff"
+done
+
+# Surface the chunking decision so it is auditable in orchestrator output.
+echo "Chunking: $TOTAL_CHUNKS chunks"
+LC_ALL=C awk -F'\t' '
+  { if ($1 != prev) { if (prev != "") print "  chunk " prev ": " p; p = $2 } else p = p " " $2; prev = $1 }
+  END { if (prev != "") print "  chunk " prev ": " p }
+' "/tmp/pr-$PR-chunks.tsv"
+```
+
+### Notes
+
+- The Step 3 short-circuit ("<50 lines → single chunk") is now redundant —
+  small diffs naturally produce 1 chunk via the greedy packer. The chunker
+  runs unconditionally.
+- Files with spaces in paths are not supported by the `git diff -- $FILES`
+  expansion. If the changed-files list contains such a path, fail loudly
+  rather than producing an undefined chunking.
 
 STEP 5: PARALLEL CHUNK REVIEW
 
@@ -112,17 +213,109 @@ Before launching agents, clean up stale scratch reports:
 rm -f docs/state/reviewer-reports/*-pr-chunk-*.md docs/state/reviewer-reports/pr-chunk-*.md 2>/dev/null || true
 ```
 
-For each chunk, launch `lemongrab:pr-reviewer` in parallel via the Agent tool with:
-- Chunk number and total chunks
-- Chunk file list
-- Chunk diff (read from temp file and included in the prompt)
-- Feature name, requirements doc path, plan doc path (if available from step 2)
-- Decisions doc path (`docs/state/decisions.md`) if it exists — pass empty string otherwise
-- Designs doc path (`docs/designs/<feature>.md`) if it exists — pass empty string otherwise
+For each chunk, launch `lemongrab:pr-reviewer` in parallel via the Agent tool.
 
-Launch ALL chunk agents in a SINGLE message (parallel Agent calls) with `run_in_background: true`.
-Each pr-reviewer agent self-persists its report to:
-`docs/state/reviewer-reports/<feature>-pr-chunk-<N>.md` (or `pr-chunk-<N>.md` if no feature).
+CONTRACT: The prompt sent to each chunk agent MUST be built by literal substitution
+into the template below. Do NOT paraphrase, summarize, or condition the prompt on
+session context. The agent's behavior must depend only on the chunk inputs and the
+agent definition file — not on what the orchestrator happens to "know" this run.
+
+### Chunk-agent prompt template (verbatim, substitute `$VARS` only)
+
+```
+You are reviewing chunk $CHUNK_N of $CHUNK_TOTAL of PR #$PR.
+
+Chunk diff: read from `$DIFF_PATH` (do not read any other chunk's diff file).
+Files in this chunk: $FILE_LIST
+
+Feature context (read these if non-empty; skip silently if empty):
+- Feature name: $FEATURE
+- Requirements: $REQ_DOC
+- Plan: $PLAN_DOC
+- Decisions log: $DECISIONS_DOC
+- Designs: $DESIGNS_DOC
+
+Follow your agent definition exactly. Apply the calibration rubric strictly —
+when in doubt, downgrade severity. Cap NITs at 3 for this chunk.
+
+Self-persist your report to:
+  $REPORT_PATH
+
+Return only when the report file exists on disk.
+```
+
+### Variables
+
+| Var              | Source                                                              |
+|------------------|---------------------------------------------------------------------|
+| `$CHUNK_N`       | 1-based chunk index from Step 4                                     |
+| `$CHUNK_TOTAL`   | `$TOTAL_CHUNKS` from Step 4                                         |
+| `$PR`            | from Step 0                                                         |
+| `$DIFF_PATH`     | `/tmp/pr-review-chunk-$CHUNK_N.diff`                                |
+| `$FILE_LIST`     | space-separated paths for this chunk (from `/tmp/pr-$PR-chunks.tsv`)|
+| `$FEATURE`       | from Step 2; empty string if none                                   |
+| `$REQ_DOC`       | from Step 2; empty string if none                                   |
+| `$PLAN_DOC`      | from Step 2; empty string if none                                   |
+| `$DECISIONS_DOC` | from Step 2; empty string if none                                   |
+| `$DESIGNS_DOC`   | from Step 2; empty string if none                                   |
+| `$REPORT_PATH`   | `docs/state/reviewer-reports/$FEATURE-pr-chunk-$CHUNK_N.md` if `$FEATURE` non-empty, else `docs/state/reviewer-reports/pr-chunk-$CHUNK_N.md` |
+
+### Cross-file pass (Pass B)
+
+In addition to the per-chunk Pass A agents, launch ONE `lemongrab:pr-cross-file-reviewer`
+agent that sees the entire PR diff. This pass catches seams that no single Pass A
+chunk can see (caller/callee mismatches across files, partial refactors, interface/
+implementation drift, cross-file invariant breakage).
+
+Pass B reads the same per-PR diff Pass A reads, but as a single artifact:
+
+```bash
+git diff "origin/$BASE".."origin/$HEAD" > "/tmp/pr-$PR-full.diff"
+```
+
+Pass B's prompt template (verbatim, substitute `$VARS` only):
+
+```
+You are running the cross-file pass on PR #$PR. Pass A chunk reviewers are
+running in parallel on the same diff; do not duplicate their per-file work.
+
+Full PR diff: read from `$FULL_DIFF_PATH`.
+Files in PR: $FULL_FILE_LIST
+
+Feature context (read these if non-empty; skip silently if empty):
+- Feature name: $FEATURE
+- Requirements: $REQ_DOC
+- Plan: $PLAN_DOC
+- Decisions log: $DECISIONS_DOC
+- Designs: $DESIGNS_DOC
+
+Follow your agent definition exactly. Apply the calibration rubric strictly —
+when in doubt, downgrade severity. Cap NITs at 3 total (whole PR, not per-chunk).
+
+Self-persist your report to:
+  $CROSSFILE_REPORT_PATH
+
+Return only when the report file exists on disk.
+```
+
+Pass B variables:
+
+| Var                     | Source                                                              |
+|-------------------------|---------------------------------------------------------------------|
+| `$FULL_DIFF_PATH`       | `/tmp/pr-$PR-full.diff` (written above)                             |
+| `$FULL_FILE_LIST`       | newline-joined `git diff "origin/$BASE".."origin/$HEAD" --name-only`|
+| `$CROSSFILE_REPORT_PATH`| `docs/state/reviewer-reports/$FEATURE-pr-crossfile.md` if `$FEATURE` non-empty, else `docs/state/reviewer-reports/pr-crossfile.md` |
+
+### Launch
+
+Launch Pass A's chunk agents AND Pass B's single agent in a SINGLE message
+(parallel Agent calls) with `run_in_background: true`. Total agent count =
+`$TOTAL_CHUNKS + 1`.
+
+Before launching, also clean any prior cross-file report:
+```bash
+rm -f docs/state/reviewer-reports/*-pr-crossfile.md docs/state/reviewer-reports/pr-crossfile.md 2>/dev/null || true
+```
 
 These reports are SCRATCH ARTIFACTS for orchestrator aggregation, not durable state. The
 durable record of findings lives on the PR after Step 7.
@@ -131,12 +324,18 @@ Wait for all agents to complete (you will be notified automatically).
 
 IMPORTANT: Do NOT use TaskOutput to read agent results. The agents write to disk.
 
-STEP 6: AGGREGATE
+STEP 6: AGGREGATE (Pass A + Pass B with dedupe)
 
-1. Read all chunk reports matching `docs/state/reviewer-reports/pr-chunk-[0-9]*.md` and `docs/state/reviewer-reports/*-pr-chunk-[0-9]*.md` (tight globs — avoid matching unrelated files like `old-pr-chunk-notes.md`)
-2. Collect findings across chunks
-3. Count by severity: CRITICAL, WARNING, NIT. Findings annotated `[INTENTIONAL — per <doc>:<line>]` count at their original severity (they are NOT suppressed).
-4. Collect any [CROSS-REF] notes
+1. Read all Pass A chunk reports matching `docs/state/reviewer-reports/pr-chunk-[0-9]*.md` and `docs/state/reviewer-reports/*-pr-chunk-[0-9]*.md` (tight globs — avoid matching unrelated files like `old-pr-chunk-notes.md`).
+2. Read the Pass B cross-file report at `docs/state/reviewer-reports/pr-crossfile.md` or `docs/state/reviewer-reports/<feature>-pr-crossfile.md`.
+3. Collect findings from both passes into a single list. Tag each finding with its source (`pass-a-chunk-<N>` or `pass-b-crossfile`) for diagnostic purposes; the source tag does NOT affect posting.
+4. **Dedupe across passes.** Two findings are duplicates iff:
+   - Same `(path, line)` for anchored findings, OR
+   - Same `path` AND normalized title overlap >= 80% (case-insensitive, punctuation-stripped) for non-anchored findings.
+
+   On collision: keep the higher-severity finding; if tied, keep Pass B's wording (it's seeing more context); discard the duplicate.
+5. Count by severity: CRITICAL, WARNING, NIT. Findings annotated `[INTENTIONAL — per <doc>:<line>]` count at their original severity (they are NOT suppressed).
+6. Collect any [CROSS-REF] notes from Pass A chunks. Pass B does not emit [CROSS-REF] — it already has whole-PR scope.
 
 Present a brief summary to the user:
 ```
@@ -258,6 +457,12 @@ Only findings with a concrete `path` AND numeric `line` go into this file. Non-a
 findings (no line, or file-level) go directly into the summary body and are NOT included
 here. The orchestrator builds this file by parsing the structured "Inline Findings"
 sections of each chunk report under `docs/state/reviewer-reports/`.
+
+Pass B (cross-file) findings typically cite TWO or more locations (e.g.
+`src/foo.ts:42 ↔ src/bar.ts:88`). For inline-comment posting, choose the
+**first** cited `path:line` as the anchor, then prepend a "Cross-file:"
+prefix and list the other location(s) inside the body. If no Pass B finding
+has any `path:line` at all, it is non-anchored and goes to the summary body.
 
 If no inline-eligible findings exist, write an empty array: `echo '[]' > /tmp/pr-$PR-inline-comments-raw.json`.
 
