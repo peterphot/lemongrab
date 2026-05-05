@@ -240,12 +240,9 @@ CONFIGURATION (asked once at workflow start via AskUserQuestion):
     (a) Per-ticket branches (each ticket → own branch from main → own PR → merge before next) [default]
     (b) Single feature branch (all tickets → one branch → one PR)
 
-  PR review rounds: [2] (review→fix→review→fix)
-    Specify a number, or 'until clean'
-
   Merge behavior:
     (a) Manual — I'll confirm each merge [default]
-    (b) Auto-merge — merge automatically when PR review passes and tests are green
+    (b) Auto-merge — merge automatically when tests are green and the PR is approved
     (c) No-merge — create PRs but don't wait for merges
 
   Plan source:
@@ -1183,7 +1180,7 @@ CHECKPOINT GATES:
    - Use AskUserQuestion: "CHECKPOINT: PRE_PR — All N tasks complete. X tests passing.
      Ready to create PR on <branch>? [approve] [modify] [reject]"
 
-8. MERGE_GATE — After PR review passes (MULTI_TICKET workflow only):
+8. MERGE_GATE — After PR is created (MULTI_TICKET workflow only):
    - Present: PR URL, review status, ticket ID, position in queue
    - Purpose: User confirms PR is merged before advancing to next ticket
    - Only fires when multiTicket.config.mergeBehavior = "manual"
