@@ -113,8 +113,38 @@ PROCESS:
       - Mark the comment as UNRESOLVED with a reason
       - Continue to the next comment
 5. **Final test run** — run all tests one last time to verify everything passes
-6. **Produce resolution report**
-7. **Self-persist report to disk**
+6. **Append to decisions log** — for each RESOLVED comment, append an entry to
+   `docs/state/decisions.md` under the active feature's section, in a
+   `### PR Review Resolution` subsection (create the subsection if it does not
+   exist). One bullet per resolution:
+
+   ```
+   - **PR #<N>** — <file>:<line> — <one-line summary of the finding> →
+     <one-line summary of the fix applied>. Decision: <D-REVIEW-NNN>
+   ```
+
+   Decision IDs reuse the existing `D-REVIEW-NNN` prefix from the
+   `formatting-decisions` skill (resolutions are review-driven; no new prefix
+   needed). Numbering is scoped per feature section: scan the section for the
+   highest existing `D-REVIEW-*` ID and start at +1.
+
+   This is what previously was the documenter's responsibility under
+   "## PR Review Phase" — `/lemongrab:tdd` no longer runs PR review in-workflow,
+   so the agent that applies the fixes (this one) writes the resolution log entry.
+
+   Branch on the state of `docs/state/decisions.md`:
+   - File missing entirely → skip silently (no active workflow).
+   - File exists but no `## Feature: <slug>` section matches the current branch
+     or feature → skip silently with a one-line note ("No active feature
+     section in decisions.md; resolution not logged.").
+   - File exists with a matching feature section → append under that section,
+     creating the `### PR Review Resolution` subsection if needed.
+
+   `decisions.md` is cumulative across features and is NEVER archived by
+   CLEANUP (see `agents/lemongrab.md` step 16), so the append target is always
+   the canonical `docs/state/decisions.md`.
+7. **Produce resolution report**
+8. **Self-persist report to disk**
 
 OUTPUT FORMAT:
 

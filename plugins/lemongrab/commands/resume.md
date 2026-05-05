@@ -100,15 +100,16 @@ of mode.
 
 **If phase = PR_CREATED:**
 → Verify PR exists: `gh pr view <pr-number> --json state,url`
-→ Proceed to PR_REVIEW (step 14 in orchestrator — chunked diff review)
-
-**If phase = PR_REVIEW:**
-→ Re-run PR review from the beginning (chunk diffs may have changed since interruption)
-→ Follow step 14 in orchestrator: chunk the diff, launch parallel pr-reviewers, aggregate
-
-**If phase = PR_REVIEW_FIXING:**
-→ Re-launch implementer with findings from docs/state/reviewer-reports/<feature>-pr-chunk-*.md
-→ After fixes, re-review changed chunks per step 14
+→ Re-print the manual-next-steps guidance:
+   `/lemongrab:pr-review <N>` and `/lemongrab:resolve-feedback` are post-workflow
+   manual commands. They are NOT resumed by this command.
+→ Branch on workflow mode (read `tickets.multiTicket.enabled` from
+   `docs/state/task-status.json`):
+   - If `tickets.multiTicket.enabled == true`: advance to MERGE_GATE_WAITING
+     (orchestrator MULTI_TICKET step `g` requires the per-ticket merge gate
+     before continuing).
+   - Otherwise (including standard flow with `branching = "per-task"` or
+     `"single"`): advance to DOCUMENT_IN_PROGRESS (orchestrator step 14).
 
 **If phase = MERGE_GATE_WAITING:**
 → Re-present merge gate to user (PR already created)
