@@ -233,7 +233,7 @@ git checkout <tickets.branch> && git pull origin <tickets.branch>
 git checkout -b <tickets.branch>/TXXX-<task-slug>
 ```
 Store in task-status.json: `tickets.taskBranches.TXXX.branch = "<branch-name>"`
-If this step is skipped, the per-task PR at step 14 will fail.
+If this step is skipped, the per-task PR at the `[CREATE_PR]` step will fail.
 
 For Setup tasks:
 - If tickets enabled: Launch `lemongrab:ticket-manager` in UPDATE STATUS mode — mark task "In Progress"

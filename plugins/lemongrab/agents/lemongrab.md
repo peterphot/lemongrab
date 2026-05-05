@@ -303,6 +303,8 @@ MULTI_TICKET PROCESS:
       - Move ticket to "In Review"
 
    g. MERGE_GATE — Based on configured merge behavior:
+      - Update state: phase = "MERGE_GATE_WAITING" (write before presenting the gate
+        so resume sees the same on-disk phase as the normal path).
       - "manual": AskUserQuestion: "CHECKPOINT: MERGE_GATE — PR for <ticket-id> is ready.
         <PR URL>.
         PR review and feedback resolution are now manual:
@@ -344,7 +346,6 @@ MULTI_TICKET STATE in task-status.json:
         "skippedTickets": [],
         "config": {
           "branching": "per-ticket",
-          "prReviewRounds": 2,
           "mergeBehavior": "manual",
           "planSource": "generate"
         },
@@ -877,11 +878,10 @@ YOUR PROCESS (Standard):
    - Documentation captures decisions made during BUILD only. PR review findings and
      their resolutions are written to docs/state/decisions.md by
      `/lemongrab:resolve-feedback` as a separate post-workflow step; the documenter
-     does NOT need to wait for or merge those entries. Note: if the user runs
-     `/lemongrab:resolve-feedback` AFTER this workflow's CLEANUP step (16) has
-     archived per-feature state, resolve-feedback appends to
-     `docs/state/archive/<feature>-decisions.md` instead — see that command's
-     append-target branching for details.
+     does NOT need to wait for or merge those entries. decisions.md is cumulative
+     across features and is NOT archived by CLEANUP (see step 16), so
+     resolve-feedback always appends under the existing `## Feature: <slug>`
+     section in `docs/state/decisions.md` regardless of CLEANUP timing.
    - Documentation happens on the feature branch so it becomes part of the PR
    - Launch documenter agent with explicit handoff context:
      * Feature name: <feature>

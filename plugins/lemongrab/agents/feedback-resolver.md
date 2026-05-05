@@ -140,10 +140,9 @@ PROCESS:
    - File exists with a matching feature section → append under that section,
      creating the `### PR Review Resolution` subsection if needed.
 
-   If the feature's decisions.md has already been archived to
-   `docs/state/archive/<feature>-decisions.md` by the CLEANUP step, append to
-   the archived file at that path instead. If neither path exists, skip
-   silently.
+   `decisions.md` is cumulative across features and is NEVER archived by
+   CLEANUP (see `agents/lemongrab.md` step 16), so the append target is always
+   the canonical `docs/state/decisions.md`.
 7. **Produce resolution report**
 8. **Self-persist report to disk**
 
