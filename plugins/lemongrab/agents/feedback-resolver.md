@@ -114,22 +114,36 @@ PROCESS:
       - Continue to the next comment
 5. **Final test run** — run all tests one last time to verify everything passes
 6. **Append to decisions log** — for each RESOLVED comment, append an entry to
-   `docs/state/decisions.md` under a `## PR Review Resolution` section (create the
-   section if it does not exist). One bullet per resolution:
+   `docs/state/decisions.md` under the active feature's section, in a
+   `### PR Review Resolution` subsection (create the subsection if it does not
+   exist). One bullet per resolution:
 
    ```
    - **PR #<N>** — <file>:<line> — <one-line summary of the finding> →
-     <one-line summary of the fix applied>. Decision: <D-RESOLVE-NNN>
+     <one-line summary of the fix applied>. Decision: <D-REVIEW-NNN>
    ```
 
-   Decision IDs use the `D-RESOLVE-NNN` prefix, scoped per feature section
-   following the cumulative-decisions convention. This is what previously was
-   the documenter's responsibility under "## PR Review Phase" — `/lemongrab:tdd`
-   no longer runs PR review in-workflow, so the agent that applies the fixes
-   (this one) writes the resolution log entry.
+   Decision IDs reuse the existing `D-REVIEW-NNN` prefix from the
+   `formatting-decisions` skill (resolutions are review-driven; no new prefix
+   needed). Numbering is scoped per feature section: scan the section for the
+   highest existing `D-REVIEW-*` ID and start at +1.
 
-   If `docs/state/decisions.md` does not exist (no active feature), skip this
-   step silently — there is nothing to append to.
+   This is what previously was the documenter's responsibility under
+   "## PR Review Phase" — `/lemongrab:tdd` no longer runs PR review in-workflow,
+   so the agent that applies the fixes (this one) writes the resolution log entry.
+
+   Branch on the state of `docs/state/decisions.md`:
+   - File missing entirely → skip silently (no active workflow).
+   - File exists but no `## Feature: <slug>` section matches the current branch
+     or feature → skip silently with a one-line note ("No active feature
+     section in decisions.md; resolution not logged.").
+   - File exists with a matching feature section → append under that section,
+     creating the `### PR Review Resolution` subsection if needed.
+
+   If the feature's decisions.md has already been archived to
+   `docs/state/archive/<feature>-decisions.md` by the CLEANUP step, append to
+   the archived file at that path instead. If neither path exists, skip
+   silently.
 7. **Produce resolution report**
 8. **Self-persist report to disk**
 

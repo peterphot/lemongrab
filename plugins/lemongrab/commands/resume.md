@@ -103,7 +103,12 @@ of mode.
 → Re-print the manual-next-steps guidance:
    `/lemongrab:pr-review <N>` and `/lemongrab:resolve-feedback` are post-workflow
    manual commands. They are NOT resumed by this command.
-→ Advance to DOCUMENT_IN_PROGRESS (step 14 in orchestrator)
+→ Branch on workflow mode (read `tickets.multiTicket.enabled` and `tickets.branching`
+   from `docs/state/task-status.json`):
+   - If `tickets.multiTicket.enabled == true` OR `tickets.branching == "per-task"`:
+     advance to MERGE_GATE_WAITING (orchestrator MULTI_TICKET step `g` requires the
+     per-ticket merge gate before continuing).
+   - Otherwise: advance to DOCUMENT_IN_PROGRESS (orchestrator step 14).
 
 **If phase = MERGE_GATE_WAITING:**
 → Re-present merge gate to user (PR already created)

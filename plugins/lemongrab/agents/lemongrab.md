@@ -877,7 +877,11 @@ YOUR PROCESS (Standard):
    - Documentation captures decisions made during BUILD only. PR review findings and
      their resolutions are written to docs/state/decisions.md by
      `/lemongrab:resolve-feedback` as a separate post-workflow step; the documenter
-     does NOT need to wait for or merge those entries.
+     does NOT need to wait for or merge those entries. Note: if the user runs
+     `/lemongrab:resolve-feedback` AFTER this workflow's CLEANUP step (16) has
+     archived per-feature state, resolve-feedback appends to
+     `docs/state/archive/<feature>-decisions.md` instead — see that command's
+     append-target branching for details.
    - Documentation happens on the feature branch so it becomes part of the PR
    - Launch documenter agent with explicit handoff context:
      * Feature name: <feature>

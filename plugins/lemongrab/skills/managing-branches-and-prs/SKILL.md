@@ -205,7 +205,8 @@ For each ticket in the queue:
   3. [... build cycle ...]                        # Implement on this branch
   4. git push -u origin feat/<ticket-id>-<slug>   # Push for PR
   5. gh pr create ...                             # Create PR
-  6. [... PR review cycle ...]                    # Review and fix
+  6. [optional: /lemongrab:pr-review + /lemongrab:resolve-feedback]
+                                                  # Manual post-workflow review
   7. gh pr merge --squash --delete-branch         # Merge (manual or auto)
   8. git checkout main && git pull origin main    # Pull merged changes
   9. → Next ticket                                # Repeat
@@ -388,7 +389,6 @@ of findings lives on the PR itself (posted via the GitHub reviews API).
 - [ ] task-status.json worktrees section cleaned
 
 ### Per-Ticket Merge Gate (MULTI_TICKET only)
-- [ ] PR review passed (or user chose to ship as-is)
 - [ ] PR merged (verified via `gh pr view`)
 - [ ] Main branch pulled with latest changes
 - [ ] Working tree clean before starting next ticket
