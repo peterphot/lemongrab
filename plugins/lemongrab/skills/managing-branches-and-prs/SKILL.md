@@ -322,57 +322,36 @@ Always clean up worktrees after merging:
 2. Delete the worktree branch: `git branch -d <branch>`
 3. Remove the entry from task-status.json tickets.worktrees
 
-## PR Review Chunking
+## PR Review
 
-After PR creation, the orchestrator runs a chunked PR review to catch issues a human
-reviewer would notice. The chunking strategy ensures each reviewer invocation sees a
-focused, manageable slice of the diff.
+PR review is a separate post-workflow command, not part of the TDD workflow.
+Once `/lemongrab:tdd` creates a PR, the user runs:
 
-### Chunking Algorithm
-
-1. Get changed files: `git diff main..HEAD --name-only`
-2. Group files by logical unit:
-   - Co-located source + test: `src/auth/login.ts` + `tests/auth/login.test.ts` = 1 chunk
-   - Related modules in same directory: group by parent directory
-   - Config/setup files: group together as one chunk
-3. Measure each chunk: `git diff main..HEAD -- <files> | wc -l`
-4. Target ~200-300 diff lines per chunk
-   - If a single file exceeds 300 lines, it becomes its own chunk
-   - If a logical group exceeds 300 lines, split by file while keeping source+test together
-   - If a group is under 50 lines, merge with the nearest related chunk
-5. Save chunk diffs: `git diff main..HEAD -- <files> > docs/state/pr-review/chunk-<N>.diff`
-
-### Re-Review Scoping
-
-After fixes, only re-review affected chunks:
-```bash
-# Get files changed by fixes
-git diff HEAD~1..HEAD --name-only
-
-# Find which chunks contain those files
-# Re-review only those chunks, providing:
-# - Original findings for the chunk
-# - New diff: git diff HEAD~1..HEAD -- <chunk-files>
+```
+/lemongrab:pr-review <PR-number>      # chunked review with deterministic chunking + Pass B
+/lemongrab:resolve-feedback            # action posted findings
 ```
 
-### PR Review State in task-status.json
+These commands own their own chunking, posting, and resolution logic. This skill
+no longer documents review chunking, re-review scoping, or review state — see
+`commands/pr-review.md` for the chunker contract and `agents/pr-cross-file-reviewer.md`
+for the cross-file pass.
+
+### PR State in task-status.json
 
 ```json
 {
   "tickets": {
     "pr": {
       "url": "https://github.com/org/repo/pull/42",
-      "number": 42,
-      "reviewStatus": "approved",
-      "reviewRounds": 1,
-      "reviewChunks": [
-        { "id": 1, "files": ["src/auth/login.ts", "tests/auth/login.test.ts"], "lines": 245 },
-        { "id": 2, "files": ["src/auth/middleware.ts"], "lines": 180 }
-      ]
+      "number": 42
     }
   }
 }
 ```
+
+`/lemongrab:pr-review` does NOT update `task-status.json` — its durable record
+of findings lives on the PR itself (posted via the GitHub reviews API).
 
 ## Checklist
 
@@ -401,16 +380,6 @@ git diff HEAD~1..HEAD --name-only
 - [ ] All tickets moved to "In Review"
 - [ ] PR link posted as comment on each ticket
 - [ ] PR URL stored in task-status.json
-
-### PR Review
-- [ ] Diff chunked into logical groups (200-300 lines each)
-- [ ] All chunks reviewed in parallel
-- [ ] Findings presented to user with severity levels
-- [ ] Fixes committed and pushed (if applicable)
-- [ ] Only changed chunks re-reviewed (not full PR)
-- [ ] Max 2 review rounds (circuit breaker)
-- [ ] Temp files cleaned up (docs/state/pr-review/)
-- [ ] reviewStatus and reviewRounds updated in task-status.json
 
 ### Worktree Cleanup
 - [ ] All worktree branches merged to feature branch

@@ -103,9 +103,12 @@ WORKFLOW: STANDARD (Greenfield Feature)
    i. FIRST_CYCLE_REVIEW - After first task only: user reviews quality and pattern
    j. TICKET UPDATE - Task complete + link commit (if tickets enabled)
 8. COHERENCE REVIEW (auto for MEDIUM+) - Cross-task design quality review
-9. CREATE PR - Push branch, create pull request, move tickets to "In Review"
-10. DOCUMENT - Record decisions, create documentation checkpoint (on feature branch, part of PR)
+9. CREATE PR - Push branch, create pull request, move tickets to "In Review", print manual-next-steps guidance for `/lemongrab:pr-review` and `/lemongrab:resolve-feedback`
+10. DOCUMENT - Record BUILD decisions, create documentation checkpoint (on feature branch, part of PR)
 11. TICKET SUMMARY - Post completion summary with PR link (if tickets enabled)
+
+Note: PR review and feedback resolution are NOT part of this workflow. Run them
+as post-workflow manual commands once the PR is created.
 
 WORKFLOW: ANALYSIS (Existing Codebase)
 
@@ -299,27 +302,26 @@ MULTI_TICKET PROCESS:
       - PR body includes "Closes <ticket-id>"
       - Move ticket to "In Review"
 
-   g. PR_REVIEW — Run chunked PR review:
-      - Number of rounds from configuration (default: 2)
-      - review → fix → review → fix cycle (as configured)
-      - Circuit breaker applies per configured max rounds
-
-   h. MERGE_GATE — Based on configured merge behavior:
+   g. MERGE_GATE — Based on configured merge behavior:
       - "manual": AskUserQuestion: "CHECKPOINT: MERGE_GATE — PR for <ticket-id> is ready.
-        <PR URL>. Review rounds: N. Status: <approved/has_findings>.
-        Please merge the PR, then say 'continue' to proceed to the next ticket.
+        <PR URL>.
+        PR review and feedback resolution are now manual:
+          /lemongrab:pr-review <PR-number>     — chunked review, posts findings to PR
+          /lemongrab:resolve-feedback           — action posted findings (after pr-review)
+        Run those if you want a review before merging, then merge the PR and say
+        'continue' to proceed to the next ticket.
         [continue] [skip this ticket] [abort remaining tickets]"
         Wait for user confirmation before advancing.
       - "auto": Run `gh pr merge <PR-number> --squash --delete-branch`.
         If merge fails (conflicts, branch protection): fall back to manual gate.
       - "no-merge": Log PR URL and continue to next ticket immediately.
 
-   i. POST-MERGE CLEANUP (for per-ticket branching):
+   h. POST-MERGE CLEANUP (for per-ticket branching):
       - git checkout main && git pull origin main
       - Verify clean working tree
       - Update task-status.json: mark ticket as complete in multiTicket.completedTickets
 
-   j. INTER-TICKET SUMMARY: Brief status update to user:
+   i. INTER-TICKET SUMMARY: Brief status update to user:
       "Completed <ticket-id> (<N> of <total>). <remaining> tickets remaining.
        Next: <next-ticket-id> — <title>. Continuing..."
 
@@ -378,7 +380,7 @@ CANONICAL PHASE VALUES for current-phase.json "phase" field:
     PLAN_IMPORT_VALIDATING, PLAN_IMPORT_VALIDATED,
     BRANCH_CREATED, BUILD_IN_PROGRESS, BUILD_COMPLETE,
     COHERENCE_REVIEW_IN_PROGRESS, COHERENCE_REVIEW_COMPLETE,
-    PR_CREATED, PR_REVIEW, PR_REVIEW_FIXING,
+    PR_CREATED,
     MERGE_GATE_WAITING, MERGE_GATE_COMPLETE,
     DOCUMENT_IN_PROGRESS, DOCUMENT_COMPLETE,
     MULTI_TICKET_SETUP, MULTI_TICKET_IN_PROGRESS, MULTI_TICKET_COMPLETE,
@@ -414,9 +416,7 @@ When resuming from docs/state/current-phase.json, use this decision table:
 | BUILD_COMPLETE (all tasks done) | Resume at COHERENCE_REVIEW step (or CREATE PR if SMALL) |
 | COHERENCE_REVIEW_IN_PROGRESS | Re-launch coherence-reviewer |
 | COHERENCE_REVIEW_COMPLETE | Resume at PRE_PR_CHECKPOINT |
-| PR_CREATED | Resume at PR_REVIEW phase (PR already created, verify with `gh pr view`) |
-| PR_REVIEW | Re-run PR review from the beginning (chunk diffs may have changed) |
-| PR_REVIEW_FIXING | Re-launch implementer with findings from docs/state/reviewer-reports/<feature>-pr-chunk-*.md |
+| PR_CREATED | Re-print the manual-next-steps guidance for `/lemongrab:pr-review` and `/lemongrab:resolve-feedback`, then advance to DOCUMENT_IN_PROGRESS (PR review and feedback resolution are post-workflow manual commands) |
 | PLAN_IMPORT_VALIDATING | Re-run plan validation (verify-plan-structure.sh) |
 | PLAN_IMPORT_VALIDATED | Resume at PLAN_APPROVAL (present imported plan to user) |
 | MERGE_GATE_WAITING | Re-present merge gate to user (PR already created) |
@@ -861,93 +861,23 @@ YOUR PROCESS (Standard):
    - ticket-manager moves ALL associated tickets to "In Review"
    - Store PR URL in task-status.json: tickets.pr.url, tickets.pr.number
    - Update state: phase = "PR_CREATED"
-14. [PR_REVIEW] Chunked PR review — review the assembled diff as a human reviewer would:
-   - Update state: phase = "PR_REVIEW"
-   - SKIP CONDITION: If total diff is < 50 lines (trivially small), skip to DOCUMENT.
-     Log a D-ORCH decision noting the skip.
-   - PER-TASK BRANCHING NOTE: When branching = "per-task", each task was already reviewed
-     by the per-task reviewers (TDD, spec, security, performance) and merged via its own PR.
-     The final PR review focuses on cross-task coherence rather than line-by-line correctness.
-     The chunked review still runs but findings should be weighted as coherence-level issues.
-   - Get the full diff: `git diff main..HEAD`
-   - Get changed files: `git diff main..HEAD --name-only`
-   - CHUNK STRATEGY:
-     * Group files by logical unit: co-located source + test files together
-       (e.g., src/auth/login.ts + tests/auth/login.test.ts = 1 chunk)
-     * Target ~200-300 diff lines per chunk. If a single file exceeds 300 lines,
-       it becomes its own chunk.
-     * Use `git diff main..HEAD -- <file1> <file2>` to extract per-chunk diffs
-     * Save each chunk's diff to a temp file: docs/state/pr-review/chunk-<N>.diff
-     * Record chunk composition in task-status.json: tickets.pr.reviewChunks
-   - REVIEW PASS: For each chunk, launch lemongrab:pr-reviewer with:
-     * Chunk number and total chunks
-     * Chunk file list
-     * Chunk diff file path: docs/state/pr-review/chunk-<N>.diff
-     * Feature name, requirements doc path, plan doc path
-     * Launch chunks in PARALLEL (all at once) using Agent tool with run_in_background: true
-   - Wait for all chunk reviewers to complete (you will be notified automatically)
-   - IMPORTANT: Do NOT use TaskOutput to read agent results. Each pr-reviewer agent
-     self-persists its report to docs/state/reviewer-reports/<feature>-pr-chunk-<N>.md.
-   - Read chunk reports from disk: docs/state/reviewer-reports/<feature>-pr-chunk-*.md
-   - AGGREGATE FINDINGS:
-     * Collect all CRITICAL and WARNING findings across chunks
-     * Collect any [CROSS-REF] notes and log for user visibility
-     * If zero CRITICAL + zero WARNING across all chunks → PR_REVIEW_PASS
-     * If any CRITICAL or WARNING → PR_REVIEW_NEEDS_FIXES
-   - POST REVIEW TO PR (always, regardless of verdict):
-     * Build a comment from the aggregated findings using this format:
-       ```
-       ## PR Review Results — <PR title>
-       **<N> chunks reviewed | <F> files | <L> lines changed**
-       | Severity | Count |
-       |----------|-------|
-       | CRITICAL | <count> |
-       | WARNING  | <count> |
-       | NIT      | <count> |
-       ### Findings
-       [table of CRITICAL and WARNING findings with File:Line and Summary]
-       <details><summary>NIT findings (<count>)</summary>
-       [table of NIT findings]
-       </details>
-       ---
-       *Reviewed by lemongrab pr-reviewer (round <R>)*
-       ```
-     * Post using: `gh pr comment <PR-number> --body "<body>"` (use HEREDOC for body)
-     * For re-review rounds: post an updated comment showing RESOLVED/UNRESOLVED status
-   - If PR_REVIEW_PASS:
-     * Update state: tickets.pr.reviewStatus = "approved", tickets.pr.reviewRounds = 1
-     * Present to user: "PR review passed (N chunks reviewed, M nits noted). Proceeding to documentation."
-     * Proceed to DOCUMENT
-   - If PR_REVIEW_NEEDS_FIXES:
-     * Present findings to user via AskUserQuestion:
-       "PR REVIEW (round <R>) found issues across <N> chunks:
-       CRITICAL: <count> | WARNING: <count> | NITs: <count>
-       [list each CRITICAL and WARNING with file:line and one-line summary]
-       Options: [fix all] [fix critical only] [skip PR review — ship as-is] [discuss]"
-     * If user chooses "fix all" or "fix critical only":
-       - Launch implementer with the findings as input (grouped by file)
-       - Run full test suite to verify nothing broke
-       - If tests fail: return to implementer with failures
-       - Commit fixes: git commit -m "pr-review: address feedback round <R>"
-       - Push to remote: git push
-       - RE-REVIEW: Only re-review CHANGED chunks (chunks whose files were modified by fixes)
-         * Get newly changed files: `git diff HEAD~1..HEAD --name-only`
-         * Identify which chunks contain those files
-         * Re-launch pr-reviewer for those chunks only (in re-review mode)
-         * Provide original findings + new diff since last review
-         * Unchanged chunks retain their previous verdict
-       - Aggregate again: if still HAS_FINDINGS, loop (up to circuit breaker)
-     * If user chooses "skip": proceed to DOCUMENT as-is, log D-ORCH decision
-     * If user chooses "discuss": enter interactive discussion about findings
-   - CIRCUIT BREAKER: Max 2 PR review rounds. After round 2, if still HAS_FINDINGS:
-     "PR review round 2 still has findings: [list]. Options:
-     [fix and skip re-review] [ship as-is] [debug together]"
-   - Update task-status.json: tickets.pr.reviewRounds, tickets.pr.reviewStatus
-   - Clean up temp files: remove docs/state/pr-review/ directory after completion
-15. [DOCUMENT] Document decisions and update project docs (on feature branch, part of PR):
+   - Print to user the manual-next-steps guidance:
+     ```
+     PR #<N> created: <url>
+     Linear ticket(s) moved to In Review.
+
+     PR review and feedback resolution are now manual post-workflow commands:
+       /lemongrab:pr-review <N>           — chunked review, posts findings to PR
+       /lemongrab:resolve-feedback         — action posted findings (after pr-review)
+
+     Continuing to DOCUMENT phase.
+     ```
+14. [DOCUMENT] Document decisions and update project docs (on feature branch, part of PR):
    - Update state: phase = "DOCUMENT_IN_PROGRESS"
-   - NOTE: After PR review fixes (if any), documentation should include PR review findings
-     that were addressed — append to docs/state/decisions.md under "## PR Review Phase".
+   - Documentation captures decisions made during BUILD only. PR review findings and
+     their resolutions are written to docs/state/decisions.md by
+     `/lemongrab:resolve-feedback` as a separate post-workflow step; the documenter
+     does NOT need to wait for or merge those entries.
    - Documentation happens on the feature branch so it becomes part of the PR
    - Launch documenter agent with explicit handoff context:
      * Feature name: <feature>
@@ -967,12 +897,13 @@ YOUR PROCESS (Standard):
      * If branching = "single": commit directly:
        git add docs/ && git commit -m "docs: document <feature> decisions"
    - Update state: phase = "DOCUMENT_COMPLETE"
-16. [COMPLETION] If tickets.enabled: Launch ticket-manager (COMPLETION
+15. [COMPLETION] If tickets.enabled: Launch ticket-manager (COMPLETION
    SUMMARY) with feature name, task-status.json path, plan path, and PR URL. Ticket-manager
    posts the completion summary with PR link. Does NOT set any tickets to "Done" — that happens
    automatically when the PR is merged (via Linear's GitHub integration or manually).
-   Summary includes: "PR created: <url>. Merge the PR to complete this work."
-17. [CLEANUP] Archive per-feature state files (keep cumulative files intact):
+   Summary includes: "PR created: <url>. Run /lemongrab:pr-review <N> for a chunked review,
+   then /lemongrab:resolve-feedback to action findings, then merge."
+16. [CLEANUP] Archive per-feature state files (keep cumulative files intact):
     - Move docs/state/current-phase.json → docs/state/archive/<feature>-current-phase.json
     - Move docs/state/task-status.json → docs/state/archive/<feature>-task-status.json
     - Move docs/state/exploration-context.md → docs/state/archive/<feature>-exploration-context.md (if exists)
@@ -982,7 +913,7 @@ YOUR PROCESS (Standard):
       distinct from D-CLARIFY-001 under "## Feature: bar". No collision risk.
     - Do NOT move or delete docs/state/blockers.json or docs/state/incidents.json — they are cumulative.
       Each entry includes a "feature" field for filtering.
-18. [REPORT] Report completion to user
+17. [REPORT] Report completion to user
 
 ENHANCED TASK STATUS SCHEMA:
 
@@ -1078,10 +1009,7 @@ The task-status.json file includes a top-level tickets section:
         "taskBranches": {},
         "pr": {
           "url": null,
-          "number": null,
-          "reviewStatus": null,
-          "reviewRounds": 0,
-          "reviewChunks": []
+          "number": null
         },
         "sourceTicket": null,
         "mapping": {
@@ -1109,9 +1037,6 @@ The task-status.json file includes a top-level tickets section:
     }
 - tickets.pr.url: Final PR URL after creation. null until CREATE PR step.
 - tickets.pr.number: Final PR number after creation. null until CREATE PR step.
-- tickets.pr.reviewStatus: "pending" | "approved" | "skipped". Set during PR_REVIEW phase.
-- tickets.pr.reviewRounds: Number of PR review rounds completed (0 until PR_REVIEW runs).
-- tickets.pr.reviewChunks: Array of chunk descriptors [{files: [...], lines: N}] used during PR_REVIEW.
 - tickets.sourceTicket: Set in TICKET workflow. When present, all tasks map to
   this ticket and individual completions are progress comments. null otherwise.
 - tickets.mapping: Persists ticket IDs for resume-safety. On resume, the

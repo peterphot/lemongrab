@@ -113,8 +113,25 @@ PROCESS:
       - Mark the comment as UNRESOLVED with a reason
       - Continue to the next comment
 5. **Final test run** — run all tests one last time to verify everything passes
-6. **Produce resolution report**
-7. **Self-persist report to disk**
+6. **Append to decisions log** — for each RESOLVED comment, append an entry to
+   `docs/state/decisions.md` under a `## PR Review Resolution` section (create the
+   section if it does not exist). One bullet per resolution:
+
+   ```
+   - **PR #<N>** — <file>:<line> — <one-line summary of the finding> →
+     <one-line summary of the fix applied>. Decision: <D-RESOLVE-NNN>
+   ```
+
+   Decision IDs use the `D-RESOLVE-NNN` prefix, scoped per feature section
+   following the cumulative-decisions convention. This is what previously was
+   the documenter's responsibility under "## PR Review Phase" — `/lemongrab:tdd`
+   no longer runs PR review in-workflow, so the agent that applies the fixes
+   (this one) writes the resolution log entry.
+
+   If `docs/state/decisions.md` does not exist (no active feature), skip this
+   step silently — there is nothing to append to.
+7. **Produce resolution report**
+8. **Self-persist report to disk**
 
 OUTPUT FORMAT:
 
